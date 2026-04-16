@@ -7,20 +7,20 @@ import PauseScene   from "./scenes/PauseScene.js";
 const config = {
   type: Phaser.AUTO,
 
-  // 16:9 landscape — matches phone held sideways
-  width: 800,
-  height: 450,
-
   backgroundColor: "#87ceeb",
 
   scale: {
-    mode: Phaser.Scale.FIT,
+    // EXPAND fills the full screen — no black bars on any screen size.
+    // Scenes are designed at 800x450 but will see slightly more world on wider screens.
+    mode: Phaser.Scale.EXPAND,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     parent: "game-container",
+    width: 800,
+    height: 450,
   },
 
   input: {
-    activePointers: 4,   // allow up to 4 simultaneous touches (move + jump)
+    activePointers: 4,   // up to 4 simultaneous touches (move + jump at the same time)
   },
 
   physics: {
