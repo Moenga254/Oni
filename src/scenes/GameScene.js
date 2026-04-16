@@ -24,7 +24,7 @@ export default class GameScene extends Phaser.Scene {
     this.gameWon = false;
 
     const WORLD_WIDTH = 3200;
-    const WORLD_HEIGHT = 600;
+    const WORLD_HEIGHT = 450;
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -49,25 +49,25 @@ export default class GameScene extends Phaser.Scene {
 
     // 🧱 Platform data [x, y, width, height, color]
     const platformData = [
-      [0,    570, 600,  30, 0x4a7c2f],
-      [700,  570, 400,  30, 0x4a7c2f],
-      [1200, 570, 500,  30, 0x4a7c2f],
-      [1800, 570, 300,  30, 0x4a7c2f],
-      [2200, 570, 600,  30, 0x4a7c2f],
-      [2900, 570, 400,  30, 0x4a7c2f],
-      [300,  450, 150,  20, 0x8B4513],
-      [550,  380, 150,  20, 0x8B4513],
-      [800,  460, 120,  20, 0x8B4513],
-      [1000, 380, 150,  20, 0x8B4513],
-      [1250, 460, 120,  20, 0x8B4513],
-      [1450, 350, 180,  20, 0x8B4513],
-      [1650, 440, 120,  20, 0x8B4513],
-      [1900, 350, 150,  20, 0x8B4513],
-      [2100, 440, 120,  20, 0x8B4513],
-      [2350, 380, 150,  20, 0x8B4513],
-      [2550, 460, 120,  20, 0x8B4513],
-      [2750, 350, 180,  20, 0x8B4513],
-      [2950, 440, 150,  20, 0x8B4513],
+      [0,    420, 600,  30, 0x4a7c2f],
+      [700,  420, 400,  30, 0x4a7c2f],
+      [1200, 420, 500,  30, 0x4a7c2f],
+      [1800, 420, 300,  30, 0x4a7c2f],
+      [2200, 420, 600,  30, 0x4a7c2f],
+      [2900, 420, 400,  30, 0x4a7c2f],
+      [300,  320, 150,  20, 0x8B4513],
+      [550,  260, 150,  20, 0x8B4513],
+      [800,  320, 120,  20, 0x8B4513],
+      [1000, 260, 150,  20, 0x8B4513],
+      [1250, 320, 120,  20, 0x8B4513],
+      [1450, 220, 180,  20, 0x8B4513],
+      [1650, 300, 120,  20, 0x8B4513],
+      [1900, 220, 150,  20, 0x8B4513],
+      [2100, 300, 120,  20, 0x8B4513],
+      [2350, 260, 150,  20, 0x8B4513],
+      [2550, 320, 120,  20, 0x8B4513],
+      [2750, 220, 180,  20, 0x8B4513],
+      [2950, 300, 150,  20, 0x8B4513],
     ];
 
     this.platforms = this.physics.add.staticGroup();
@@ -89,10 +89,10 @@ export default class GameScene extends Phaser.Scene {
     });
 
     // 🧍 Player
-    this.player = this.physics.add.sprite(80, 490, "player");
+    this.player = this.physics.add.sprite(80, 360, "player");
     this.player.setCollideWorldBounds(false);
     this.player.setBounce(0);
-    this.player.body.setGravityY(200);
+    this.player.body.setGravityY(800); // high extra gravity = snappy landing
 
     this.physics.add.collider(this.player, this.platforms);
 
@@ -120,17 +120,19 @@ export default class GameScene extends Phaser.Scene {
     this.enemies = [];
 
     const enemyData = [
-      [200,  540, 50,   550,  80,  0xff4444],
-      [750,  540, 710,  1080, 70,  0xff4444],
-      [1300, 540, 1210, 1680, 90,  0xff6600],
-      [1850, 540, 1810, 2180, 80,  0xff4444],
-      [2300, 540, 2210, 2780, 100, 0xff6600],
-      [2950, 540, 2910, 3180, 80,  0xff4444],
-      [320,  420, 305,  445,  60,  0xaa00ff],
-      [570,  350, 555,  695,  60,  0xaa00ff],
-      [1020, 350, 1005, 1145, 60,  0xaa00ff],
-      [1470, 320, 1455, 1625, 60,  0xaa00ff],
-      [2370, 350, 2355, 2495, 60,  0xaa00ff],
+      [200,  390, 50,   550,  80,  0xff4444],  // ground patrol
+      [750,  390, 710,  1080, 70,  0xff4444],
+      [1300, 390, 1210, 1680, 90,  0xff6600],
+      [1850, 390, 1810, 2180, 80,  0xff4444],
+      [2300, 390, 2210, 2780, 100, 0xff6600],
+      [2950, 390, 2910, 3180, 80,  0xff4444],
+
+      // Platform enemies
+      [320,  290, 305,  445,  60,  0xaa00ff],
+      [570,  230, 555,  695,  60,  0xaa00ff],
+      [1020, 230, 1005, 1145, 60,  0xaa00ff],
+      [1470, 190, 1455, 1625, 60,  0xaa00ff],
+      [2370, 230, 2355, 2495, 60,  0xaa00ff],
     ];
 
     enemyData.forEach(([x, y, left, right, speed, color]) => {
@@ -166,9 +168,9 @@ export default class GameScene extends Phaser.Scene {
     this.totalCoins = 10;
 
     const coinPositions = [
-      [300, 420], [560, 350], [810, 430], [1010, 350],
-      [1260, 430], [1460, 320], [1660, 410], [1910, 320],
-      [2360, 350], [2760, 320]
+      [300, 290], [560, 230], [810, 300], [1010, 230],
+      [1260, 300], [1460, 190], [1660, 280], [1910, 190],
+      [2360, 230], [2760, 190]
     ];
 
     coinPositions.forEach(([x, y]) => {
@@ -200,9 +202,9 @@ export default class GameScene extends Phaser.Scene {
     this.flag.fillStyle(0xff4444);
     this.flag.fillTriangle(6, 0, 6, 25, 36, 12);
     this.flag.x = 3100;
-    this.flag.y = 510;
+    this.flag.y = 360;
 
-    this.flagZone = this.physics.add.staticImage(3103, 540, null);
+    this.flagZone = this.physics.add.staticImage(3103, 390, null);
     this.flagZone.setDisplaySize(40, 60);
     this.flagZone.refreshBody();
     this.flagZone.setVisible(false);
@@ -310,70 +312,92 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  // 📱 On-screen D-pad + jump button
+  // 📱 Multitouch mobile controls
+  // Uses raw pointer positions so LEFT + JUMP can be held simultaneously
   createMobileControls() {
     const camW = this.cameras.main.width;
     const camH = this.cameras.main.height;
 
-    const btnAlpha = 0.55;
-    const btnSize  = 56;
-    const padX     = 80;   // left cluster center-x
-    const padY     = camH - 70;
-    const jumpX    = camW - 80;
-    const jumpY    = camH - 70;
+    const btnSize = 64;
+    const margin  = 20;
 
-    // Helper: draw a rounded rect button
-    const makeBtn = (x, y, label) => {
+    // Button hit regions (in screen coords)
+    this._btnRects = {
+      left:  { x: margin,              y: camH - margin - btnSize, w: btnSize, h: btnSize },
+      right: { x: margin + btnSize + 12, y: camH - margin - btnSize, w: btnSize, h: btnSize },
+      jump:  { x: camW - margin - btnSize, y: camH - margin - btnSize, w: btnSize, h: btnSize },
+    };
+
+    // Draw buttons as graphics (purely visual)
+    const drawBtn = (rect, label, gfxRef) => {
       const g = this.add.graphics().setScrollFactor(0).setDepth(10);
-      g.fillStyle(0x000000, btnAlpha);
-      g.fillRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 12);
-      g.lineStyle(2, 0xffffff, 0.6);
-      g.strokeRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 12);
-      g.x = x;
-      g.y = y;
-
-      const txt = this.add.text(x, y, label, {
-        fontSize: "22px",
-        color: "#ffffff"
+      const draw = (alpha) => {
+        g.clear();
+        g.fillStyle(0x000000, alpha);
+        g.fillRoundedRect(rect.x, rect.y, rect.w, rect.h, 14);
+        g.lineStyle(2, 0xffffff, 0.7);
+        g.strokeRoundedRect(rect.x, rect.y, rect.w, rect.h, 14);
+      };
+      draw(0.45);
+      const cx = rect.x + rect.w / 2;
+      const cy = rect.y + rect.h / 2;
+      this.add.text(cx, cy, label, {
+        fontSize: "26px", color: "#ffffff"
       }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
-
-      // Hit area
-      const zone = this.add.zone(x, y, btnSize, btnSize)
-        .setScrollFactor(0)
-        .setDepth(12)
-        .setInteractive();
-
-      return { g, txt, zone };
+      return { g, draw };
     };
 
-    const leftBtn  = makeBtn(padX - 64, padY, "◀");
-    const rightBtn = makeBtn(padX + 64, padY, "▶");  // separate ◀▶ buttons
-    const jumpBtn  = makeBtn(jumpX, jumpY, "🅰");
-
-    // Left
-    leftBtn.zone.on("pointerdown",  () => { this.mobileLeft = true; });
-    leftBtn.zone.on("pointerup",    () => { this.mobileLeft = false; });
-    leftBtn.zone.on("pointerout",   () => { this.mobileLeft = false; });
-
-    // Right
-    rightBtn.zone.on("pointerdown", () => { this.mobileRight = true; });
-    rightBtn.zone.on("pointerup",   () => { this.mobileRight = false; });
-    rightBtn.zone.on("pointerout",  () => { this.mobileRight = false; });
-
-    // Jump (fires once per tap, not held)
-    jumpBtn.zone.on("pointerdown",  () => { this.mobileJump = true; });
-    jumpBtn.zone.on("pointerup",    () => { this.mobileJump = false; });
-    jumpBtn.zone.on("pointerout",   () => { this.mobileJump = false; });
-
-    // Visual press feedback
-    const pressAnim = (btn) => {
-      btn.zone.on("pointerdown", () => btn.g.setAlpha(0.9));
-      btn.zone.on("pointerup",   () => btn.g.setAlpha(1));
-      btn.zone.on("pointerout",  () => btn.g.setAlpha(1));
+    this._btnGfx = {
+      left:  drawBtn(this._btnRects.left,  "◀", "left"),
+      right: drawBtn(this._btnRects.right, "▶", "right"),
+      jump:  drawBtn(this._btnRects.jump,  "▲", "jump"),
     };
-    pressAnim(leftBtn);
-    pressAnim(rightBtn);
-    pressAnim(jumpBtn);
+
+    // Track which pointer ids are pressing which buttons
+    this._pointerButtons = {}; // pointerId → Set of button names
+
+    const hitTest = (px, py) => {
+      const hits = new Set();
+      for (const [name, r] of Object.entries(this._btnRects)) {
+        if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) {
+          hits.add(name);
+        }
+      }
+      return hits;
+    };
+
+    const updateStates = () => {
+      const all = new Set();
+      for (const btns of Object.values(this._pointerButtons)) {
+        btns.forEach(b => all.add(b));
+      }
+      this.mobileLeft  = all.has("left");
+      this.mobileRight = all.has("right");
+      this.mobileJump  = all.has("jump");
+
+      // Visual feedback
+      for (const [name, gfx] of Object.entries(this._btnGfx)) {
+        gfx.draw(all.has(name) ? 0.8 : 0.45);
+      }
+    };
+
+    // Listen on the whole scene — captures ALL simultaneous touches
+    this.input.on("pointerdown", (ptr) => {
+      this._pointerButtons[ptr.id] = hitTest(ptr.x, ptr.y);
+      updateStates();
+    });
+
+    this.input.on("pointermove", (ptr) => {
+      if (this._pointerButtons[ptr.id] !== undefined) {
+        this._pointerButtons[ptr.id] = hitTest(ptr.x, ptr.y);
+        updateStates();
+      }
+    });
+
+    this.input.on("pointerup", (ptr) => {
+      delete this._pointerButtons[ptr.id];
+      updateStates();
+    });
   }
 
   // 🎨 Draw slime enemy shape
@@ -406,7 +430,7 @@ export default class GameScene extends Phaser.Scene {
   update() {
     if (this.gameOver || this.gameWon) return;
 
-    if (this.player.y > 650) {
+    if (this.player.y > 500) {  // below world bottom
       this.loseLife();
       return;
     }
@@ -429,14 +453,14 @@ export default class GameScene extends Phaser.Scene {
       this.player.anims.play("idle", true);
     }
 
-    // Jump — keyboard uses JustDown; mobile uses flag set on pointerdown
+    // Jump — keyboard uses JustDown; mobile uses latch to fire once per press
     const canJump = this.player.body.touching.down;
     if (canJump) {
       if (Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
-        this.player.setVelocityY(-420);
+        this.player.setVelocityY(-600); // higher to clear platforms with strong gravity
         SoundManager.play("jump");
       } else if (this.mobileJump && !this._mobileJumpUsed) {
-        this.player.setVelocityY(-420);
+        this.player.setVelocityY(-600);
         SoundManager.play("jump");
         this._mobileJumpUsed = true;
       }
@@ -500,7 +524,7 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.player.setPosition(80, 490);
+    this.player.setPosition(80, 360);
     this.player.setVelocity(0, 0);
 
     this.invincible = true;
