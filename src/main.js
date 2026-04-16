@@ -7,16 +7,20 @@ import PauseScene   from "./scenes/PauseScene.js";
 const config = {
   type: Phaser.AUTO,
 
-  // Base design resolution — all your scene coordinates are written for this
+  // 16:9 landscape — matches phone held sideways
   width: 800,
-  height: 600,
+  height: 450,
 
   backgroundColor: "#87ceeb",
 
   scale: {
-    mode: Phaser.Scale.FIT,          // shrink/grow to fit the window, keep aspect ratio
-    autoCenter: Phaser.Scale.CENTER_BOTH, // centre the canvas horizontally + vertically
-    parent: "game-container",        // <div id="game-container"> in your index.html
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    parent: "game-container",
+  },
+
+  input: {
+    activePointers: 4,   // allow up to 4 simultaneous touches (move + jump)
   },
 
   physics: {
@@ -32,7 +36,6 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-// Keep canvas crisp when the window is resized
 window.addEventListener("resize", () => {
   game.scale.refresh();
 });
