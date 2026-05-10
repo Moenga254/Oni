@@ -15,6 +15,14 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
 
+    // 👇 Load current level data
+    const levelIndex = this.registry.get("currentLevel") || 0;
+    this.currentLevel = levelIndex;
+    const levelData = levels[levelIndex];
+
+    // Use levelData for everything
+    const WORLD_WIDTH = levelData.worldWidth;
+
     // 🔊 Init sound
     SoundManager.init(this);
     SoundManager.stopMusic();
@@ -578,6 +586,7 @@ export default class GameScene extends Phaser.Scene {
     this.scene.start("GameOverScene", {
       won: false,
       score: this.score,
+      currentLevel: this.currentLevel,
       timeLeft: this.timeLeft
     });
   }

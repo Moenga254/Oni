@@ -60,6 +60,18 @@ export default class MenuScene extends Phaser.Scene {
       repeat: -1
     });
 
+    // Next level button (only shows if player has beaten at least one level)
+      const selectBtn = this.add.text(W / 2, 340, "☰  Level Select", {
+      fontSize: "22px",
+      color: "#ffffff",
+      backgroundColor: "#333366",
+      padding: { x: 16, y: 8 }
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      selectBtn.on("pointerover", () => selectBtn.setStyle({ backgroundColor: "#4444aa" }));
+      selectBtn.on("pointerout", () => selectBtn.setStyle({ backgroundColor: "#333366" }));
+      selectBtn.on("pointerdown", () => this.scene.start("LevelSelectScene"));
+
     SoundManager.stopMusic();
 
     const startGame = () => this.scene.start("GameScene");
