@@ -31,7 +31,7 @@ export default class GameScene extends Phaser.Scene {
     this.gameOver = false;
     this.gameWon = false;
 
-    const WORLD_WIDTH = 3200;
+    const WORLD_WIDTH = levelData.worldWidth;
     const WORLD_HEIGHT = 450;
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
