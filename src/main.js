@@ -32,7 +32,7 @@ const config = {
     },
   },
 
-  scene: [MenuScene, GameScene, GameOverScene, PauseScene, LevelSelectScene]
+  scene: [MenuScene, GameScene, GameOverScene, PauseScene, LevelSelectScene],
 };
 
 const game = new Phaser.Game(config);
