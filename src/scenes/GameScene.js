@@ -1,5 +1,3 @@
-import Phaser from "phaser";
-import { levels } from "../data/levels.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
 
@@ -33,26 +31,22 @@ export default class GameScene extends Phaser.Scene {
     this.gameOver = false;
     this.gameWon = false;
 
-    // Level data (levels.js) is laid out for a 600px-tall world; the camera follows the player
-    const WORLD_HEIGHT = 600;
-    this.worldWidth = WORLD_WIDTH;
-    this.worldHeight = WORLD_HEIGHT;
-    this.playerStart = levelData.playerStart;
+    const WORLD_WIDTH = levelData.worldWidth;
+    const WORLD_HEIGHT = 450;
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
     // 🎨 Background
     const bg = this.add.graphics();
-    bg.fillGradientStyle(...levelData.background, 1);
+    bg.fillGradientStyle(0x87ceeb, 0x87ceeb, 0xffffff, 0xffffff, 1);
     bg.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     bg.setScrollFactor(0.1);
 
     // ☁️ Clouds
     const cloudGraphics = this.add.graphics();
     cloudGraphics.fillStyle(0xffffff, 0.9);
-    const cloudPositions = [];
-    for (let cx = 200; cx < WORLD_WIDTH; cx += 400) cloudPositions.push(cx);
+    const cloudPositions = [200, 500, 900, 1300, 1700, 2100, 2600, 3000];
     cloudPositions.forEach(x => {
       const y = Phaser.Math.Between(60, 180);
       cloudGraphics.fillEllipse(x, y, 120, 50);
@@ -61,10 +55,28 @@ export default class GameScene extends Phaser.Scene {
     });
     cloudGraphics.setScrollFactor(0.2);
 
-    // 🧱 Platform data from the level: [x, y, width, height] -> add colour
-    const platformData = levelData.platforms.map(([x, y, w, h]) => [
-      x, y, w, h, h >= 30 ? levelData.groundColor : levelData.platformColor
-    ]);
+    // 🧱 Platform data [x, y, width, height, color]
+    const platformData = [
+      [0,    420, 600,  30, 0x4a7c2f],
+      [700,  420, 400,  30, 0x4a7c2f],
+      [1200, 420, 500,  30, 0x4a7c2f],
+      [1800, 420, 300,  30, 0x4a7c2f],
+      [2200, 420, 600,  30, 0x4a7c2f],
+      [2900, 420, 400,  30, 0x4a7c2f],
+      [300,  320, 150,  20, 0x8B4513],
+      [550,  260, 150,  20, 0x8B4513],
+      [800,  320, 120,  20, 0x8B4513],
+      [1000, 260, 150,  20, 0x8B4513],
+      [1250, 320, 120,  20, 0x8B4513],
+      [1450, 220, 180,  20, 0x8B4513],
+      [1650, 300, 120,  20, 0x8B4513],
+      [1900, 220, 150,  20, 0x8B4513],
+      [2100, 300, 120,  20, 0x8B4513],
+      [2350, 260, 150,  20, 0x8B4513],
+      [2550, 320, 120,  20, 0x8B4513],
+      [2750, 220, 180,  20, 0x8B4513],
+      [2950, 300, 150,  20, 0x8B4513],
+    ];
 
     this.platforms = this.physics.add.staticGroup();
     this.platformData = platformData;
@@ -84,39 +96,13 @@ export default class GameScene extends Phaser.Scene {
       platform.setVisible(false);
     });
 
-    // 🛗 Moving platforms: [x, y, width, moveX, speed]
-    this.movingPlatforms = [];
-    (levelData.movingPlatforms || []).forEach(([x, y, w, moveX, speed]) => {
-      const h = 20;
-      const gfx = this.add.graphics();
-      gfx.fillStyle(levelData.platformColor);
-      gfx.fillRect(0, 0, w, h);
-      gfx.fillStyle(0xffffff, 0.35);
-      gfx.fillRect(0, 0, w, 4);
-
-      const body = this.physics.add.image(x + w / 2, y + h / 2, null);
-      body.setDisplaySize(w, h);
-      body.setVisible(false);
-      body.setImmovable(true);
-      body.body.setAllowGravity(false);
-      body.setVelocityX(speed);
-
-      this.movingPlatforms.push({
-        body, gfx, w, h,
-        left: x + w / 2,
-        right: x + moveX + w / 2,
-        speed, direction: 1
-      });
-    });
-
     // 🧍 Player
-    this.player = this.physics.add.sprite(this.playerStart[0], this.playerStart[1], "player");
+    this.player = this.physics.add.sprite(80, 360, "player");
     this.player.setCollideWorldBounds(false);
     this.player.setBounce(0);
     this.player.body.setGravityY(800); // high extra gravity = snappy landing
 
     this.physics.add.collider(this.player, this.platforms);
-    this.movingPlatforms.forEach(mp => this.physics.add.collider(this.player, mp.body));
 
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
@@ -141,8 +127,21 @@ export default class GameScene extends Phaser.Scene {
     // 👾 Enemies
     this.enemies = [];
 
-    // [x, y, patrolLeft, patrolRight, speed, colour]
-    const enemyData = levelData.enemies;
+    const enemyData = [
+      [200,  390, 50,   550,  80,  0xff4444],  // ground patrol
+      [750,  390, 710,  1080, 70,  0xff4444],
+      [1300, 390, 1210, 1680, 90,  0xff6600],
+      [1850, 390, 1810, 2180, 80,  0xff4444],
+      [2300, 390, 2210, 2780, 100, 0xff6600],
+      [2950, 390, 2910, 3180, 80,  0xff4444],
+
+      // Platform enemies
+      [320,  290, 305,  445,  60,  0xaa00ff],
+      [570,  230, 555,  695,  60,  0xaa00ff],
+      [1020, 230, 1005, 1145, 60,  0xaa00ff],
+      [1470, 190, 1455, 1625, 60,  0xaa00ff],
+      [2370, 230, 2355, 2495, 60,  0xaa00ff],
+    ];
 
     enemyData.forEach(([x, y, left, right, speed, color]) => {
       const gfx = this.add.graphics();
@@ -174,9 +173,13 @@ export default class GameScene extends Phaser.Scene {
     // 🪙 Coins
     this.coins = this.physics.add.group();
     this.coinGraphics = [];
+    this.totalCoins = 10;
 
-    const coinPositions = levelData.coins;
-    this.totalCoins = coinPositions.length;
+    const coinPositions = [
+      [300, 290], [560, 230], [810, 300], [1010, 230],
+      [1260, 300], [1460, 190], [1660, 280], [1910, 190],
+      [2360, 230], [2760, 190]
+    ];
 
     coinPositions.forEach(([x, y]) => {
       let coin = this.coins.create(x, y, null);
@@ -206,14 +209,10 @@ export default class GameScene extends Phaser.Scene {
     this.flag.fillRect(0, 0, 6, 60);
     this.flag.fillStyle(0xff4444);
     this.flag.fillTriangle(6, 0, 6, 25, 36, 12);
-    const flagX = levelData.flagX;
-    const flagGroundY = Math.max(
-      ...levelData.platforms.filter(([px, , pw]) => flagX >= px && flagX <= px + pw).map(([, py]) => py)
-    );
-    this.flag.x = flagX;
-    this.flag.y = flagGroundY - 60;
+    this.flag.x = 3100;
+    this.flag.y = 360;
 
-    this.flagZone = this.physics.add.staticImage(flagX + 3, flagGroundY - 30, null);
+    this.flagZone = this.physics.add.staticImage(3103, 390, null);
     this.flagZone.setDisplaySize(40, 60);
     this.flagZone.refreshBody();
     this.flagZone.setVisible(false);
@@ -269,11 +268,9 @@ export default class GameScene extends Phaser.Scene {
     this.input.keyboard.on("keydown-P", () => this.pauseGame());
     this.input.keyboard.on("keydown-ESC", () => this.pauseGame());
 
-    // ⏱️ TIMER — countdown length comes from the level
-    this.timeLeft = levelData.timeLimit;
-    const startMins = Math.floor(this.timeLeft / 60);
-    const startSecs = String(this.timeLeft % 60).padStart(2, "0");
-    this.timerText = this.add.text(400, 16, `⏱ ${startMins}:${startSecs}`, {
+    // ⏱️ TIMER — 90 seconds countdown
+    this.timeLeft = 90;
+    this.timerText = this.add.text(400, 16, "⏱ 1:30", {
       fontSize: "24px",
       color: "#ffffff",
       stroke: "#000000",
@@ -431,7 +428,7 @@ export default class GameScene extends Phaser.Scene {
     this.progressBar.clear();
     this.progressBar.fillStyle(0x000000, 0.5);
     this.progressBar.fillRect(200, 20, 400, 12);
-    const progress = this.player ? this.player.x / this.worldWidth : 0;
+    const progress = this.player ? this.player.x / 3200 : 0;
     this.progressBar.fillStyle(0x00ff88, 1);
     this.progressBar.fillRect(200, 20, 400 * progress, 12);
     this.progressBar.lineStyle(2, 0xffffff, 1);
@@ -441,7 +438,7 @@ export default class GameScene extends Phaser.Scene {
   update() {
     if (this.gameOver || this.gameWon) return;
 
-    if (this.player.y > this.worldHeight + 50) {  // below world bottom
+    if (this.player.y > 500) {  // below world bottom
       this.loseLife();
       return;
     }
@@ -505,15 +502,6 @@ export default class GameScene extends Phaser.Scene {
       enemy.gfx.setScale(enemy.direction, 1);
     });
 
-    // 🛗 Move platforms back and forth
-    this.movingPlatforms.forEach(mp => {
-      if (mp.body.x >= mp.right) mp.direction = -1;
-      else if (mp.body.x <= mp.left) mp.direction = 1;
-      mp.body.setVelocityX(mp.speed * mp.direction);
-      mp.gfx.x = mp.body.x - mp.w / 2;
-      mp.gfx.y = mp.body.y - mp.h / 2;
-    });
-
     // 🔄 Sync coins
     this.coinGraphics.forEach(({ coin, gfx }) => {
       if (coin.active) {
@@ -544,7 +532,7 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.player.setPosition(this.playerStart[0], this.playerStart[1]);
+    this.player.setPosition(80, 360);
     this.player.setVelocity(0, 0);
 
     this.invincible = true;
@@ -619,7 +607,6 @@ export default class GameScene extends Phaser.Scene {
       this.scene.start("GameOverScene", {
         won: true,
         score: this.score,
-        currentLevel: this.currentLevel,
         timeLeft: this.timeLeft,
         timeBonus
       });
