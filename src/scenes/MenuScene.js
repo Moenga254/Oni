@@ -6,6 +6,8 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    const W = 800;
+
     // 🎮 Title
     this.add.text(400, 150, "COIN COLLECTOR", {
       fontSize: "48px",
@@ -77,6 +79,9 @@ export default class MenuScene extends Phaser.Scene {
     const startGame = () => this.scene.start("GameScene");
 
     this.input.keyboard.once("keydown-SPACE", startGame);
-    this.input.once("pointerdown", startGame);
+    // Tap anywhere to start, but ignore taps that land on a button (e.g. Level Select)
+    this.input.once("pointerdown", (pointer, objectsUnderPointer) => {
+      if (objectsUnderPointer.length === 0) startGame();
+    });
   }
 }
