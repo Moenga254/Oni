@@ -18,6 +18,7 @@ create() {
     // 🏆 Load & compare high score
     const prevHigh   = parseInt(localStorage.getItem("coinCollectorHighScore") || "0", 10);
     const isNewHigh  = this.finalScore > prevHigh;
+    this.isNewHigh   = isNewHigh;   // showWinScreen() needs this too
     if (isNewHigh) {
       localStorage.setItem("coinCollectorHighScore", String(this.finalScore));
     }
@@ -56,6 +57,7 @@ if (this.won) {
 
 showWinScreen() {
   const W = 800;
+  const isNewHigh = this.isNewHigh;
   const currentLevel = this.currentLevel;
   const nextLevel = currentLevel + 1;
   const isLastLevel = nextLevel >= levels.length;
