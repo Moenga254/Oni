@@ -154,7 +154,7 @@ export const levels = [
     flagX: 4300,
     // 🟢 Checkpoints (x positions, each on solid ground). Dying respawns you at the last one you touched.
     checkpoints: [1525, 2825],
-    timeLimit: 60, // hardest — least time
+    timeLimit: 70, // hardest — least time
 
     platforms: [
       // Very sparse ground — mostly gaps
