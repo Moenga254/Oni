@@ -38,6 +38,7 @@ export default class GameScene extends Phaser.Scene {
     this.worldWidth = WORLD_WIDTH;
     this.worldHeight = WORLD_HEIGHT;
     this.playerStart = levelData.playerStart;
+    this.respawnPoint = [...levelData.playerStart];   // moves forward when you touch a checkpoint
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -220,6 +221,37 @@ export default class GameScene extends Phaser.Scene {
 
     this.physics.add.overlap(this.player, this.flagZone, this.reachFlag, null, this);
 
+    // 🟢 Checkpoints: smaller green flags (only levels that define `checkpoints` get them)
+    this.checkpoints = [];
+    (levelData.checkpoints || []).forEach((cx) => {
+      const groundY = Math.max(
+        ...levelData.platforms.filter(([px, , pw]) => cx >= px && cx <= px + pw).map(([, py]) => py)
+      );
+      if (!Number.isFinite(groundY)) return;   // no ground under this x: skip it instead of floating in mid-air
+
+      const poleH = 42;                        // the finish flag pole is 60px tall
+      const gfx = this.add.graphics();
+      gfx.x = cx;
+      gfx.y = groundY - poleH;
+      const draw = (active) => {
+        gfx.clear();
+        gfx.fillStyle(active ? 0x1faa3c : 0x2e6b34, 1);   // pole
+        gfx.fillRect(0, 0, 4, poleH);
+        gfx.fillStyle(active ? 0x39ff6a : 0x3f9a4f, 1);   // green pennant (dull until you touch it)
+        gfx.fillTriangle(4, 0, 4, 17, 26, 8);
+      };
+      draw(false);
+
+      const zone = this.physics.add.staticImage(cx + 2, groundY - poleH / 2, null);
+      zone.setDisplaySize(40, poleH);
+      zone.refreshBody();
+      zone.setVisible(false);
+
+      const cp = { x: cx, groundY, gfx, draw, active: false, respawn: [cx, groundY - 60] };
+      this.checkpoints.push(cp);
+      this.physics.add.overlap(this.player, zone, () => this.activateCheckpoint(cp), null, this);
+    });
+
     // 📊 UI
     this.score = 0;
 
@@ -291,7 +323,61 @@ export default class GameScene extends Phaser.Scene {
     this.mobileLeft  = false;
     this.mobileRight = false;
     this.mobileJump  = false;
+    // Jump timing (see update()): last time a jump was requested / last time we stood on the ground
+    this._jumpPressedAt  = -Infinity;
+    this._lastGroundedAt = -Infinity;
+
+    // Optional FPS counter: open the game with ?fps in the address bar to check phone performance
+    if (new URLSearchParams(window.location.search).has("fps")) {
+      const fpsText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height - 6, "", {
+        fontSize: "14px", color: "#ffff00", backgroundColor: "#000000aa"
+      }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(50);
+      this.time.addEvent({
+        delay: 500, loop: true,
+        callback: () => fpsText.setText(Math.round(this.game.loop.actualFps) + " FPS")
+      });
+    }
+
     this.createMobileControls();
+  }
+
+  // 🟢 The player touched a checkpoint flag
+  activateCheckpoint(cp) {
+    if (cp.active) return;
+    cp.active = true;
+    cp.draw(true);
+
+    // Only ever move the respawn point forward, never back
+    if (cp.x > this.respawnPoint[0]) this.respawnPoint = cp.respawn;
+
+    SoundManager.play("coin");
+
+    // Little green sparkle burst
+    for (let i = 0; i < 12; i++) {
+      const spark = this.add.graphics();
+      spark.fillStyle(0x39ff6a, 1);
+      spark.fillRect(-3, -3, 6, 6);
+      spark.x = cp.x + 12;
+      spark.y = cp.groundY - 34;
+      const angle = Math.random() * Math.PI * 2;
+      const dist  = 30 + Math.random() * 40;
+      this.tweens.add({
+        targets: spark,
+        x: spark.x + Math.cos(angle) * dist,
+        y: spark.y + Math.sin(angle) * dist - 20,
+        alpha: 0,
+        duration: 500,
+        onComplete: () => spark.destroy()
+      });
+    }
+
+    const label = this.add.text(cp.x + 12, cp.groundY - 70, "Checkpoint!", {
+      fontSize: "16px", color: "#39ff6a", fontStyle: "bold", stroke: "#000000", strokeThickness: 3
+    }).setOrigin(0.5).setDepth(20);
+    this.tweens.add({
+      targets: label, y: label.y - 30, alpha: 0, duration: 1100,
+      onComplete: () => label.destroy()
+    });
   }
 
   // ⏱️ Timer tick
@@ -323,92 +409,143 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  // 📱 Multitouch mobile controls
-  // Uses raw pointer positions so LEFT + JUMP can be held simultaneously
+  // 📱 Touch controls: shown on phones/tablets only, hidden on laptops/desktops
   createMobileControls() {
     const camW = this.cameras.main.width;
     const camH = this.cameras.main.height;
 
-    const btnSize = 64;
-    const margin  = 20;
+    // The game is drawn at 800x450 and then scaled to fit the screen, so a fixed "64 game pixels"
+    // can end up much smaller on a phone. displayScale = game pixels per real screen pixel, so we
+    // size the buttons in REAL screen pixels (about 66px tall) to keep them thumb-friendly.
+    const scaleY = (this.scale.displayScale && this.scale.displayScale.y) || 1;
+    const btnH   = Math.min(Math.max(Math.round(66 * scaleY), 76), 104);
+    const sideW  = Math.round(btnH * 1.15);   // ◀ ▶ a bit wider than tall
+    const jumpW  = Math.round(btnH * 1.5);    // ▲ the widest: it is the button pressed most
+    const margin = 16;
+    const gap    = 14;
+    const y      = camH - margin - btnH;
 
-    // Button hit regions (in screen coords)
     this._btnRects = {
-      left:  { x: margin,              y: camH - margin - btnSize, w: btnSize, h: btnSize },
-      right: { x: margin + btnSize + 12, y: camH - margin - btnSize, w: btnSize, h: btnSize },
-      jump:  { x: camW - margin - btnSize, y: camH - margin - btnSize, w: btnSize, h: btnSize },
+      left:  { x: margin,                  y, w: sideW, h: btnH },
+      right: { x: margin + sideW + gap,    y, w: sideW, h: btnH },
+      jump:  { x: camW - margin - jumpW,   y, w: jumpW, h: btnH },
     };
 
-    // Draw buttons as graphics (purely visual)
-    const drawBtn = (rect, label, gfxRef) => {
+    // Draw the buttons (purely visual: touches are handled below)
+    this._mobileUi = [];
+    this._btnGfx = {};
+    this._btnPressed = { left: false, right: false, jump: false };
+    const labels = { left: "◀", right: "▶", jump: "▲" };
+
+    for (const name of Object.keys(this._btnRects)) {
+      const r = this._btnRects[name];
       const g = this.add.graphics().setScrollFactor(0).setDepth(10);
-      const draw = (alpha) => {
+      const draw = (pressed) => {
         g.clear();
-        g.fillStyle(0x000000, alpha);
-        g.fillRoundedRect(rect.x, rect.y, rect.w, rect.h, 14);
-        g.lineStyle(2, 0xffffff, 0.7);
-        g.strokeRoundedRect(rect.x, rect.y, rect.w, rect.h, 14);
+        g.fillStyle(pressed ? 0xffffff : 0x000000, pressed ? 0.35 : 0.45);
+        g.fillRoundedRect(r.x, r.y, r.w, r.h, 16);
+        g.lineStyle(3, 0xffffff, pressed ? 1 : 0.7);
+        g.strokeRoundedRect(r.x, r.y, r.w, r.h, 16);
       };
-      draw(0.45);
-      const cx = rect.x + rect.w / 2;
-      const cy = rect.y + rect.h / 2;
-      this.add.text(cx, cy, label, {
-        fontSize: "26px", color: "#ffffff"
+      draw(false);
+      const text = this.add.text(r.x + r.w / 2, r.y + r.h / 2, labels[name], {
+        fontSize: Math.round(btnH * 0.42) + "px", color: "#ffffff"
       }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
-      return { g, draw };
-    };
+      this._btnGfx[name] = { draw };
+      this._mobileUi.push(g, text);
+    }
 
-    this._btnGfx = {
-      left:  drawBtn(this._btnRects.left,  "◀", "left"),
-      right: drawBtn(this._btnRects.right, "▶", "right"),
-      jump:  drawBtn(this._btnRects.jump,  "▲", "jump"),
-    };
-
-    // Track which pointer ids are pressing which buttons
-    this._pointerButtons = {}; // pointerId → Set of button names
-
-    const hitTest = (px, py) => {
-      const hits = new Set();
+    // Which button is each finger on? (one finger = at most one button; the nearest wins)
+    // The touch area is a little bigger than the drawn button so a slightly-off tap still counts.
+    const padX = 12, padY = 22;
+    const pickButton = (px, py) => {
+      let best = null, bestDist = Infinity;
       for (const [name, r] of Object.entries(this._btnRects)) {
-        if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) {
-          hits.add(name);
+        if (px >= r.x - padX && px <= r.x + r.w + padX && py >= r.y - padY && py <= r.y + r.h + padY) {
+          const d = Math.hypot(px - (r.x + r.w / 2), py - (r.y + r.h / 2));
+          if (d < bestDist) { bestDist = d; best = name; }
         }
       }
-      return hits;
+      return best;
     };
 
-    const updateStates = () => {
-      const all = new Set();
-      for (const btns of Object.values(this._pointerButtons)) {
-        btns.forEach(b => all.add(b));
-      }
-      this.mobileLeft  = all.has("left");
-      this.mobileRight = all.has("right");
-      this.mobileJump  = all.has("jump");
+    this._pointerButton = {};   // pointer id -> "left" | "right" | "jump" | null
 
-      // Visual feedback
-      for (const [name, gfx] of Object.entries(this._btnGfx)) {
-        gfx.draw(all.has(name) ? 0.8 : 0.45);
+    // Only redraw a button when its pressed state really changes (redrawing on every
+    // finger movement was wasting time on phones)
+    const refresh = () => {
+      const down = new Set(Object.values(this._pointerButton).filter(Boolean));
+      this.mobileLeft  = down.has("left");
+      this.mobileRight = down.has("right");
+      this.mobileJump  = down.has("jump");
+      for (const name of Object.keys(this._btnRects)) {
+        const pressed = down.has(name);
+        if (pressed !== this._btnPressed[name]) {
+          this._btnPressed[name] = pressed;
+          this._btnGfx[name].draw(pressed);
+        }
       }
     };
+    this._refreshMobileButtons = refresh;
 
-    // Listen on the whole scene — captures ALL simultaneous touches
     this.input.on("pointerdown", (ptr) => {
-      this._pointerButtons[ptr.id] = hitTest(ptr.x, ptr.y);
-      updateStates();
+      if (!this._controlsVisible) {
+        if (!ptr.wasTouch) return;          // a mouse click on a laptop: ignore
+        this.setControlsVisible(true);      // first real touch on a hybrid device: show the buttons
+      }
+      const name = pickButton(ptr.x, ptr.y);
+      this._pointerButton[ptr.id] = name;
+      // Remember the jump tap right now (not just while update() polls),
+      // so even a very quick tap can never be missed
+      if (name === "jump") this._jumpPressedAt = performance.now();
+      refresh();
     });
 
     this.input.on("pointermove", (ptr) => {
-      if (this._pointerButtons[ptr.id] !== undefined) {
-        this._pointerButtons[ptr.id] = hitTest(ptr.x, ptr.y);
-        updateStates();
+      if (!this._controlsVisible || !(ptr.id in this._pointerButton)) return;
+      const name = pickButton(ptr.x, ptr.y);
+      if (name !== this._pointerButton[ptr.id]) {
+        if (name === "jump") this._jumpPressedAt = performance.now();   // sliding onto jump counts as a press
+        this._pointerButton[ptr.id] = name;
+        refresh();
       }
     });
 
-    this.input.on("pointerup", (ptr) => {
-      delete this._pointerButtons[ptr.id];
-      updateStates();
-    });
+    const release = (ptr) => {
+      if (ptr.id in this._pointerButton) {
+        delete this._pointerButton[ptr.id];
+        refresh();
+      }
+    };
+    this.input.on("pointerup", release);
+    this.input.on("pointerupoutside", release);
+
+    // Never leave a button "stuck" if the finger leaves the screen or the game is paused/resumed
+    const releaseAll = () => { this._pointerButton = {}; refresh(); };
+    this.input.on("gameout", releaseAll);
+    this.events.on("resume", releaseAll);
+
+    // Show only on touch devices. "(pointer: coarse)" means the main pointer is a finger.
+    const device = this.sys.game.device;
+    const coarsePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    const touchOnly = device.input.touch && !device.os.desktop;
+    this.setControlsVisible(Boolean(coarsePointer || touchOnly));
+
+    // A hybrid laptop with a touchscreen: using the keyboard hides the buttons again
+    if (this.input.keyboard) {
+      this.input.keyboard.on("keydown", () => {
+        if (this._controlsVisible) this.setControlsVisible(false);
+      });
+    }
+  }
+
+  setControlsVisible(visible) {
+    this._controlsVisible = visible;
+    this._mobileUi.forEach(obj => obj.setVisible(visible));
+    if (!visible) {
+      this._pointerButton = {};
+      this._refreshMobileButtons();
+    }
   }
 
   // 🎨 Draw slime enemy shape
@@ -449,7 +586,6 @@ export default class GameScene extends Phaser.Scene {
     // Movement — keyboard OR mobile buttons
     const goLeft  = this.cursors.left.isDown  || this.mobileLeft;
     const goRight = this.cursors.right.isDown || this.mobileRight;
-    const jumpPressed = this.cursors.up.isDown || this.mobileJump;
 
     if (goLeft) {
       this.player.setVelocityX(-220);
@@ -464,22 +600,19 @@ export default class GameScene extends Phaser.Scene {
       this.player.anims.play("idle", true);
     }
 
-    // Jump — keyboard uses JustDown; mobile uses latch to fire once per press
-    const canJump = this.player.body.touching.down;
-    if (canJump) {
-      if (Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
-        this.player.setVelocityY(-600); // higher to clear platforms with strong gravity
-        SoundManager.play("jump");
-      } else if (this.mobileJump && !this._mobileJumpUsed) {
-        this.player.setVelocityY(-600);
-        SoundManager.play("jump");
-        this._mobileJumpUsed = true;
-      }
-    }
+    // Jump: two tiny grace periods make it feel responsive
+    //   • jump buffer: a press just BEFORE landing still counts (130 ms)
+    //   • coyote time: a press just AFTER running off a ledge still counts (100 ms)
+    // Touch taps record _jumpPressedAt themselves in createMobileControls().
+    const now = performance.now();
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.up)) this._jumpPressedAt = now;
+    if (this.player.body.touching.down) this._lastGroundedAt = now;
 
-    // Reset mobile jump latch when button released
-    if (!this.mobileJump) {
-      this._mobileJumpUsed = false;
+    if (now - this._jumpPressedAt <= 130 && now - this._lastGroundedAt <= 100) {
+      this.player.setVelocityY(-600); // higher to clear platforms with strong gravity
+      SoundManager.play("jump");
+      this._jumpPressedAt  = -Infinity;   // this press is used up
+      this._lastGroundedAt = -Infinity;   // so no second jump in mid-air
     }
 
     const onGround = this.player.body.touching.down;
@@ -544,7 +677,7 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.player.setPosition(this.playerStart[0], this.playerStart[1]);
+    this.player.setPosition(this.respawnPoint[0], this.respawnPoint[1]);
     this.player.setVelocity(0, 0);
 
     this.invincible = true;
