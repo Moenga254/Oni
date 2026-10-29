@@ -12,6 +12,7 @@ this.finalScore = data.score;
     this.timeLeft   = data.timeLeft  ?? 0;
     this.timeBonus  = data.timeBonus ?? 0;
     this.currentLevel = data.currentLevel || 0;
+    this.cause = data.cause;   // "time" | "fall" | "enemy"
 }
 
 create() {
@@ -31,28 +32,12 @@ create() {
     bg.fillStyle(0x000000, 0.85);
     bg.fillRect(0, 0, W, H);
 
-    // --- Title ---
-if (this.won) {
-      this.add.text(400, 140, "YOU WIN! 🏆", {
-        fontSize: "52px",
-        color: "#ffdd00",
-        fontStyle: "bold"
-      }).setOrigin(0.5);
+    // Each screen draws its own title, so nothing is drawn twice here.
+    if (this.won) {
       this.showWinScreen();
-} else {
-      this.add.text(400, 140, "GAME OVER", {
-        fontSize: "52px",
-        color: "#ff4444",
-        fontStyle: "bold"
-      }).setOrigin(0.5);
-
-      const reason = this.timeLeft <= 0 ? "Time's up! ⏱" : "You fell off the edge!";
-      this.add.text(400, 210, reason, {
-        fontSize: "24px",
-        color: "#ffffff"
-      }).setOrigin(0.5);
+    } else {
       this.showLoseScreen();
-}
+    }
   }
 
 showWinScreen() {
@@ -172,7 +157,7 @@ showWinScreen() {
 showLoseScreen() {
   const W = 800;
 
-  this.add.text(W / 2, 100, "GAME OVER", {
+  this.add.text(W / 2, 90, "GAME OVER", {
     fontSize: "52px",
     color: "#ff4444",
     fontStyle: "bold",
@@ -180,7 +165,19 @@ showLoseScreen() {
     strokeThickness: 5
   }).setOrigin(0.5);
 
-  this.add.text(W / 2, 170, "Score: " + this.finalScore, {
+  // Why did the run end?
+  const cause = this.cause ?? (this.timeLeft <= 0 ? "time" : "fall");
+  const reasons = {
+    time:  "Time's up! ⏱",
+    fall:  "You fell off the edge!",
+    enemy: "A slime got you! 👾"
+  };
+  this.add.text(W / 2, 145, reasons[cause] || reasons.fall, {
+    fontSize: "24px",
+    color: "#ffffff"
+  }).setOrigin(0.5);
+
+  this.add.text(W / 2, 195, "Score: " + this.finalScore, {
     fontSize: "28px",
     color: "#ffffff"
   }).setOrigin(0.5);

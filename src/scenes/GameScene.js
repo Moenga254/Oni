@@ -405,7 +405,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     if (this.timeLeft <= 0) {
-      this.triggerGameOver();
+      this.triggerGameOver("time");
     }
   }
 
@@ -579,7 +579,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.gameOver || this.gameWon) return;
 
     if (this.player.y > this.worldHeight + 50) {  // below world bottom
-      this.loseLife();
+      this.loseLife("fall");
       return;
     }
 
@@ -660,10 +660,10 @@ export default class GameScene extends Phaser.Scene {
 
   hitEnemy(player, enemyBody) {
     if (this.invincible) return;
-    this.loseLife();
+    this.loseLife("enemy");
   }
 
-  loseLife() {
+  loseLife(cause = "enemy") {
     if (this.invincible) return;
     SoundManager.play("hit");
     Particles.deathBurst(this, this.player.x, this.player.y);
@@ -673,7 +673,7 @@ export default class GameScene extends Phaser.Scene {
     this.livesText.setText("Lives: " + hearts);
 
     if (this.lives <= 0) {
-      this.triggerGameOver();
+      this.triggerGameOver(cause);
       return;
     }
 
@@ -721,7 +721,7 @@ export default class GameScene extends Phaser.Scene {
     this.scene.launch("PauseScene");
   }
 
-  triggerGameOver() {
+  triggerGameOver(cause) {
     this.gameOver = true;
     SoundManager.play("gameover");
     SoundManager.stopMusic();
@@ -732,7 +732,8 @@ export default class GameScene extends Phaser.Scene {
       won: false,
       score: this.score,
       currentLevel: this.currentLevel,
-      timeLeft: this.timeLeft
+      timeLeft: this.timeLeft,
+      cause
     });
   }
 

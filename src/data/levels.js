@@ -154,7 +154,7 @@ export const levels = [
     flagX: 4300,
     // 🟢 Checkpoints (x positions, each on solid ground). Dying respawns you at the last one you touched.
     checkpoints: [1525, 2825],
-    timeLimit: 70, // hardest — least time
+    timeLimit: 60, // hardest — least time
 
     platforms: [
       // Very sparse ground — mostly gaps
@@ -206,25 +206,33 @@ export const levels = [
     ],
 
     enemies: [
-      // Maximum speed enemies
+      // ── First third (before checkpoint 1) ──
       [500,  540, 460,  730,  160, 0xff0000],
       [850,  540, 810,  1070, 150, 0xff2200],
       [1150, 540, 1110, 1420, 160, 0xff0000],
-      [1800, 540, 1760, 2070, 160, 0xff0000],
-      [2150, 540, 2110, 2370, 150, 0xff2200],
-      [2450, 540, 2410, 2720, 160, 0xff0000],
-      [3100, 540, 3060, 3370, 160, 0xff0000],
-      [3450, 540, 3410, 3670, 150, 0xff2200],
-      [3750, 540, 3710, 4070, 160, 0xff0000],
-
-      // Lots of platform enemies
       [560,  430, 545,  625,  100, 0xff6600],
       [910,  420, 895,  975,  100, 0xff6600],
       [1250, 410, 1235, 1315, 100, 0xff6600],
-      [1950, 390, 1935, 2015, 100, 0xff6600],
-      [2310, 380, 2295, 2375, 100, 0xff6600],
-      [2670, 370, 2655, 2735, 100, 0xff6600],
+
+      // ── After checkpoint 1: enemies thin out toward the finish (3 → 2 → 1 → 0) ──
+      // Every patrol range stays INSIDE its platform, so nobody walks off the edge.
+      // Ground enemies leave the left end of each platform free: that is where you land.
+
+      // x 1600-2300: 3 enemies
+      [1870, 540, 1815, 1925, 105, 0xff2200],   // ground    1750-1950
+      [2190, 540, 2160, 2225, 100, 0xff2200],   // ground    2100-2250
+      [1980, 390, 1952, 2008, 70,  0xff6600],   // floating  1940-2020
+
+      // x 2300-3000: 2 enemies (checkpoint 2 at x=2825 is kept clear)
+      [2520, 540, 2465, 2575, 95,  0xff2200],   // ground    2400-2600
+      [2340, 380, 2312, 2368, 70,  0xff6600],   // floating  2300-2380
+
+      // x 3000-3600: 1 enemy
+      [3170, 540, 3115, 3225, 85,  0xff2200],   // ground    3050-3250
+
+      // x 3600-4300: none, a calm run to the finish flag
     ],
+
 
     movingPlatforms: [
       [350,  320, 90, 140, 120],
