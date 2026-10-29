@@ -61,7 +61,7 @@ showWinScreen() {
   }
 
   // Title
-  this.add.text(W / 2, 80, isLastLevel ? "YOU BEAT THE GAME! 🏆" : "LEVEL COMPLETE! 🎉", {
+  this.add.text(W / 2, 80, isLastLevel ? "YOU BEAT THE GAME! 🏆" : "LEVEL COMPLETE!", {
     fontSize: "40px",
     color: "#ffdd00",
     fontStyle: "bold",
@@ -170,7 +170,7 @@ showLoseScreen() {
   const reasons = {
     time:  "Time's up! ⏱",
     fall:  "You fell off the edge!",
-    enemy: "A slime got you! 👾"
+    enemy: "A slime got you!"
   };
   this.add.text(W / 2, 145, reasons[cause] || reasons.fall, {
     fontSize: "24px",
