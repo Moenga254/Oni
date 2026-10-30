@@ -1,7 +1,15 @@
 import Phaser from "phaser";
 import { levels } from "../data/levels.js";
+import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
+
+// 🪂 Player gravity. The total pull = 300 (world gravity, main.js) + the player's own value below.
+//   Going UP is unchanged, so the jump is exactly as high as before (apex ~164px).
+//   Coming DOWN is heavier, so you land sooner and enemies have less time to catch you in mid-air.
+export const RISE_GRAVITY   = 800;    // total 1100
+export const FALL_GRAVITY   = 1570;   // total 1870  (1.7x heavier). Raise for a snappier drop, lower for floatier.
+export const MAX_FALL_SPEED = 900;    // top falling speed, so a long drop can never skip through a thin platform
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -39,6 +47,8 @@ export default class GameScene extends Phaser.Scene {
     this.worldHeight = WORLD_HEIGHT;
     this.playerStart = levelData.playerStart;
     this.respawnPoint = [...levelData.playerStart];   // moves forward when you touch a checkpoint
+    this.difficultyKey = getDifficulty(this.registry);  // chosen on the Menu
+    this.difficulty    = DIFFICULTIES[this.difficultyKey];
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -114,7 +124,8 @@ export default class GameScene extends Phaser.Scene {
     this.player = this.physics.add.sprite(this.playerStart[0], this.playerStart[1], "player");
     this.player.setCollideWorldBounds(false);
     this.player.setBounce(0);
-    this.player.body.setGravityY(800); // high extra gravity = snappy landing
+    this.player.body.setGravityY(RISE_GRAVITY);
+    this.player.body.maxVelocity.y = MAX_FALL_SPEED;
 
     this.physics.add.collider(this.player, this.platforms);
     this.movingPlatforms.forEach(mp => this.physics.add.collider(this.player, mp.body));
@@ -146,6 +157,7 @@ export default class GameScene extends Phaser.Scene {
     const enemyData = levelData.enemies;
 
     enemyData.forEach(([x, y, left, right, speed, color]) => {
+      const enemySpeed = scaleEnemySpeed(speed, this.difficulty.enemySpeed);   // Easy slower, Hard faster
       const gfx = this.add.graphics();
       this.drawEnemy(gfx, color);
       gfx.x = x;
@@ -160,7 +172,7 @@ export default class GameScene extends Phaser.Scene {
 
       this.physics.add.collider(body, this.platforms);
 
-      const enemy = { body, gfx, left, right, speed, color, direction: 1 };
+      const enemy = { body, gfx, left, right, speed: enemySpeed, color, direction: 1 };
       this.enemies.push(enemy);
     });
 
@@ -270,8 +282,8 @@ export default class GameScene extends Phaser.Scene {
     }).setScrollFactor(0);
 
     // ❤️ Lives
-    this.lives = 3;
-    this.livesText = this.add.text(16, 72, "Lives: ❤️❤️❤️", {
+    this.lives = this.difficulty.lives;
+    this.livesText = this.add.text(16, 72, "Lives: " + "❤️".repeat(this.lives), {
       fontSize: "20px",
       color: "#ff4444",
       stroke: "#000000",
@@ -614,6 +626,10 @@ export default class GameScene extends Phaser.Scene {
       this._jumpPressedAt  = -Infinity;   // this press is used up
       this._lastGroundedAt = -Infinity;   // so no second jump in mid-air
     }
+
+    // Heavier gravity on the way DOWN (same jump height, quicker landing)
+    const falling = this.player.body.velocity.y > 0 && !this.player.body.touching.down;
+    this.player.body.setGravityY(falling ? FALL_GRAVITY : RISE_GRAVITY);
 
     const onGround = this.player.body.touching.down;
     if (this.wasInAir && onGround) {
