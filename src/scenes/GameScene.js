@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { levels } from "../data/levels.js";
-import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/difficulty.js";
+import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
 
