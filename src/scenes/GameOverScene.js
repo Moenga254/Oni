@@ -1,4 +1,6 @@
 import { levels } from "../data/levels.js";
+import { calculateStars, starRequirements, saveBestStars } from "../data/Stars.js";
+import { drawStarRow } from "../utils/Starrow.js";
 
 export default class GameOverScene extends Phaser.Scene {
 constructor() {
@@ -13,6 +15,13 @@ this.finalScore = data.score;
     this.timeBonus  = data.timeBonus ?? 0;
     this.currentLevel = data.currentLevel || 0;
     this.cause = data.cause;   // "time" | "fall" | "enemy"
+
+    // For the star rating (sent by GameScene when you reach the flag)
+    const level = levels[this.currentLevel];
+    this.coins      = data.coins      ?? 0;
+    this.totalCoins = data.totalCoins ?? level.coins.length;
+    this.lives      = data.lives      ?? 1;
+    this.timeLimit  = data.timeLimit  ?? level.timeLimit;
 }
 
 create() {
@@ -60,8 +69,16 @@ showWinScreen() {
     localStorage.setItem("unlockedLevel", nextLevel.toString());
   }
 
+  // ⭐ Star rating (same rules on every difficulty); keep the best one for Level Select
+  const stats = {
+    timeLeft: this.timeLeft, timeLimit: this.timeLimit,
+    coins: this.coins, totalCoins: this.totalCoins, lives: this.lives
+  };
+  const stars = calculateStars(stats);
+  saveBestStars(currentLevel, stars);
+
   // Title
-  this.add.text(W / 2, 80, isLastLevel ? "YOU BEAT THE GAME! 🏆" : "LEVEL COMPLETE!", {
+  this.add.text(W / 2, 52, isLastLevel ? "YOU BEAT THE GAME! 🏆" : "LEVEL COMPLETE!", {
     fontSize: "40px",
     color: "#ffdd00",
     fontStyle: "bold",
@@ -70,32 +87,43 @@ showWinScreen() {
   }).setOrigin(0.5);
 
   // Level name
-  this.add.text(W / 2, 135, levels[currentLevel].name + " cleared!", {
+  this.add.text(W / 2, 100, levels[currentLevel].name + " cleared!", {
     fontSize: "22px",
     color: "#ffffff"
   }).setOrigin(0.5);
 
+  // The stars
+  drawStarRow(this, W / 2, 148, stars, { radius: 24, animate: true });
+
+  // What the stars were based on
+  this.add.text(W / 2, 190, `Coins ${this.coins}/${this.totalCoins}     Time left ${this.timeLeft}s     Lives ${this.lives}`, {
+    fontSize: "16px",
+    color: "#dddddd"
+  }).setOrigin(0.5);
+
+  // How to earn the next star
+  let hint = "Perfect! You earned every star.";
+  if (stars < 3) {
+    const next = stars + 1;
+    const need = starRequirements(this.timeLimit, this.totalCoins)[next];
+    hint = `For ${next} star${next > 1 ? "s" : ""}: finish with ${need.timeLeft}s+ left, ${need.coins}+ coins, ${need.lives}+ lives`;
+  }
+  this.add.text(W / 2, 212, hint, {
+    fontSize: "14px",
+    color: "#ffdd88"
+  }).setOrigin(0.5);
+
   // Score
-  this.add.text(W / 2, 185, "Score: " + this.finalScore, {
+  this.add.text(W / 2, 240, "Score: " + this.finalScore, {
     fontSize: "28px",
     color: "#88ff88",
     fontStyle: "bold"
   }).setOrigin(0.5);
 
-  // High score
-  const highScores2 = JSON.parse(localStorage.getItem("highScores") || "{}");
-  this.add.text(W / 2, 220, "Best: " + (highScores2[currentLevel] || this.finalScore), {
-    fontSize: "20px",
-    color: "#aaaaaa"
-  }).setOrigin(0.5);
-
-  let yPos = 260;
-
-  // --- High score ---
+  // High score: a new record replaces the "Best" line (when it is a record, "Best" would just repeat the score)
   if (isNewHigh) {
-    // Animated "New High Score!" banner
-    const newHighText = this.add.text(W / 2, yPos, "🌟 NEW HIGH SCORE! 🌟", {
-      fontSize: "26px",
+    const newHighText = this.add.text(W / 2, 274, "🌟 NEW HIGH SCORE! 🌟", {
+      fontSize: "24px",
       color: "#ffdd00",
       fontStyle: "bold"
     }).setOrigin(0.5);
@@ -108,9 +136,15 @@ showWinScreen() {
       yoyo: true,
       repeat: -1
     });
-
-    yPos += 50;
+  } else {
+    const highScores2 = JSON.parse(localStorage.getItem("highScores") || "{}");
+    this.add.text(W / 2, 274, "Best: " + (highScores2[currentLevel] || this.finalScore), {
+      fontSize: "20px",
+      color: "#aaaaaa"
+    }).setOrigin(0.5);
   }
+
+  let yPos = 320;
 
   if (!isLastLevel) {
     // Next level button
@@ -129,7 +163,7 @@ showWinScreen() {
       this.scene.start("GameScene");
     });
 
-    yPos += 60;
+    yPos += 52;
   }
 
   // Level select button
@@ -142,7 +176,7 @@ showWinScreen() {
 
   selectBtn.on("pointerdown", () => this.scene.start("LevelSelectScene"));
 
-  yPos += 50;
+  yPos += 44;
 
   // Menu button
   const menuBtn = this.add.text(W / 2, yPos, "⌂  Main Menu", {
