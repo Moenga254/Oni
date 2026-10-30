@@ -1,5 +1,5 @@
 import SoundManager from "../utils/SoundManager.js";
-import { DIFFICULTIES, getDifficulty, saveDifficulty } from "../data/difficulty.js";
+import { DIFFICULTIES, getDifficulty, saveDifficulty } from "../data/Difficulty.js";
 
 export default class MenuScene extends Phaser.Scene {
   constructor() {
