@@ -68,88 +68,79 @@ export default class LevelSelectScene extends Phaser.Scene {
     }).setOrigin(0.5);
   }
 
-  createLevelCard(x, y, w, h, level, index, unlocked, highScore, stars = 0) {
-    const colors = [0x4a7c2f, 0x6644aa, 0xcc4400];
-    const color = colors[index] || 0x444444;
+  createLevelCard(x, y, w, h, level, index, unlocked, highScore, stars) {
+  const colors = [0x4a7c2f, 0x6644aa, 0xcc4400, 0x167a9e];
+  const color = colors[index] || 0x444444;
 
-    // Card background
-    const card = this.add.graphics();
+  const card = this.add.graphics();
 
-    if (unlocked) {
-      card.fillStyle(color, 0.9);
-    } else {
-      card.fillStyle(0x333333, 0.9);
-    }
+  card.fillStyle(unlocked ? color : 0x333333, 0.9);
+  card.fillRoundedRect(x - w / 2, y - h / 2, w, h, 16);
 
-    card.fillRoundedRect(x - w / 2, y - h / 2, w, h, 16);
-    card.lineStyle(3, unlocked ? 0xffffff : 0x555555, 0.5);
-    card.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 16);
+  card.lineStyle(2, unlocked ? 0xffffff : 0x555555, 0.5);
+  card.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 16);
 
-    if (unlocked) {
-      // Level number
-      this.add.text(x, y - 85, index + 1 + "", {
-        fontSize: "52px",
-        color: "#ffffff",
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 5
-      }).setOrigin(0.5);
+  if (unlocked) {
+    this.add.text(x, y - 65, `LEVEL ${index + 1}`, {
+      fontSize: "20px",
+      color: "#ffffff",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
 
-      // Level name
-      this.add.text(x, y - 30, level.name, {
-        fontSize: "18px",
-        color: "#ffffff",
-        fontStyle: "bold"
-      }).setOrigin(0.5);
+    this.add.text(x, y - 38, level.name, {
+      fontSize: "17px",
+      color: "#ffffff"
+    }).setOrigin(0.5);
 
-      // ⭐ Best stars (3 grey stars until you have earned some)
-      drawStarRow(this, x, y, stars, { radius: 11, gap: 30 });
+    // Separate stars for each difficulty
+    const modes = [
+      ["easy", "Easy", "#70e090"],
+      ["normal", "Normal", "#75aaff"],
+      ["hard", "Hard", "#ff7777"]
+    ];
 
-      // Time limit
-      this.add.text(x, y + 34, "⏱ " + level.timeLimit + "s", {
-        fontSize: "16px",
-        color: "#ffdd00"
-      }).setOrigin(0.5);
+    modes.forEach(([key, label, textColor], i) => {
+      const rowY = y - 5 + i * 24;
+      const earned = stars[key]?.[index] || 0;
 
-      // High score
-      const scoreText = highScore ? "Best: " + highScore : "Not played";
-      this.add.text(x, y + 58, scoreText, {
-        fontSize: "15px",
-        color: highScore ? "#88ff88" : "#888888"
-      }).setOrigin(0.5);
-
-      // Play button
-      const playBtn = this.add.text(x, y + 98, "▶  PLAY", {
-        fontSize: "18px",
-        color: "#ffffff",
-        fontStyle: "bold",
-        backgroundColor: "#006600",
-        padding: { x: 16, y: 8 }
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-      playBtn.on("pointerover", () => playBtn.setStyle({ backgroundColor: "#008800" }));
-      playBtn.on("pointerout", () => playBtn.setStyle({ backgroundColor: "#006600" }));
-      playBtn.on("pointerdown", () => {
-        this.registry.set("currentLevel", index);
-        this.scene.start("GameScene");
-      });
-
-    } else {
-      // Locked
-      this.add.text(x, y - 20, "🔒", {
-        fontSize: "52px"
-      }).setOrigin(0.5);
-
-      this.add.text(x, y + 40, "LOCKED", {
-        fontSize: "20px",
-        color: "#555555",
-        fontStyle: "bold"
-      }).setOrigin(0.5);
-
-      this.add.text(x, y + 68, "Complete Level " + index, {
+      this.add.text(x - 75, rowY, label, {
         fontSize: "14px",
-        color: "#444444"
-      }).setOrigin(0.5);
-    }
+        color: textColor
+      }).setOrigin(0, 0.5);
+
+      drawStarRow(this, x + 35, rowY, earned, {
+        radius: 8,
+        gap: 18
+      });
+    });
+
+    this.add.text(x, y + 72, highScore ? `Best: ${highScore}` : "Not played", {
+      fontSize: "14px",
+      color: "#88ff88"
+    }).setOrigin(0.5);
+
+    const playBtn = this.add.text(x, y + 105, "▶ PLAY", {
+      fontSize: "17px",
+      color: "#ffffff",
+      backgroundColor: "#006600",
+      padding: { x: 14, y: 6 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    playBtn.on("pointerdown", () => {
+      this.registry.set("currentLevel", index);
+      this.scene.start("GameScene");
+    });
+
+  } else {
+    this.add.text(x, y - 15, "🔒 LOCKED", {
+      fontSize: "25px",
+      color: "#777777"
+    }).setOrigin(0.5);
+
+    this.add.text(x, y + 25, `Complete Level ${index}`, {
+      fontSize: "14px",
+      color: "#aaaaaa"
+    }).setOrigin(0.5);
   }
+}
 }

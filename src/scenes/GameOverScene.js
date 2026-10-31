@@ -15,6 +15,7 @@ this.finalScore = data.score;
     this.timeBonus  = data.timeBonus ?? 0;
     this.currentLevel = data.currentLevel || 0;
     this.cause = data.cause;   // "time" | "fall" | "enemy"
+    this.difficultyKey = data.difficulty || "normal";
 
     // For the star rating (sent by GameScene when you reach the flag)
     const level = levels[this.currentLevel];
@@ -75,7 +76,7 @@ showWinScreen() {
     coins: this.coins, totalCoins: this.totalCoins, lives: this.lives
   };
   const stars = calculateStars(stats);
-  saveBestStars(currentLevel, stars);
+  saveBestStars(currentLevel, this.difficultyKey, stars);
 
   // Title
   this.add.text(W / 2, 52, isLastLevel ? "YOU BEAT THE GAME! 🏆" : "LEVEL COMPLETE!", {
