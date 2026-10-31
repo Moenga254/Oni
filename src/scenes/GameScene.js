@@ -60,6 +60,8 @@ export default class GameScene extends Phaser.Scene {
     bg.setScrollFactor(0.1);
 
     // ☁️ Clouds
+    if (levelData.theme !== "ice") 
+      {
     const cloudGraphics = this.add.graphics();
     cloudGraphics.fillStyle(0xffffff, 0.9);
     const cloudPositions = [];
@@ -71,6 +73,50 @@ export default class GameScene extends Phaser.Scene {
       cloudGraphics.fillEllipse(x - 30, y - 10, 70, 35);
     });
     cloudGraphics.setScrollFactor(0.2);
+  }
+
+    // ❄️ Ice Cave background silhouettes
+if (levelData.theme === "ice") {
+  const ice = this.add.graphics();
+
+  // Dark distant mountain silhouettes
+  ice.fillStyle(0x06101e, 0.85);
+
+  for (let x = 0; x < WORLD_WIDTH; x += 350) {
+    ice.fillTriangle(
+      x, 260,
+      x + 175, 80,
+      x + 350, 260
+    );
+  }
+
+  // Hanging ice stalactites
+  ice.fillStyle(0x183e60, 0.9);
+
+  for (let x = 100; x < WORLD_WIDTH; x += 260) {
+    const height = Phaser.Math.Between(50, 130);
+
+    ice.fillTriangle(
+      x, 0,
+      x + 35, 0,
+      x + 17, height
+    );
+  }
+
+  // Large distant ice crystals
+  ice.fillStyle(0x367da5, 0.45);
+
+  for (let x = 150; x < WORLD_WIDTH; x += 500) {
+    ice.fillTriangle(
+      x, 390,
+      x + 45, 240,
+      x + 90, 390
+    );
+  }
+
+  // Parallax movement
+  ice.setScrollFactor(0.2);
+}
 
     // 🧱 Platform data from the level: [x, y, width, height] -> add colour
     const platformData = levelData.platforms.map(([x, y, w, h]) => [
@@ -765,12 +811,13 @@ export default class GameScene extends Phaser.Scene {
 
     // ⭐ Numbers for the star rating, taken at the moment the flag is reached
     const finishStats = {
-      timeLeft:   this.timeLeft,
-      timeLimit:  levels[this.currentLevel].timeLimit,
-      coins:      this.totalCoins - this.coins.countActive(),
-      totalCoins: this.totalCoins,
-      lives:      this.lives
-    };
+  timeLeft: this.timeLeft,
+  timeLimit: levels[this.currentLevel].timeLimit,
+  coins: this.totalCoins - this.coins.countActive(),
+  totalCoins: this.totalCoins,
+  lives: this.lives,
+  difficulty: this.difficultyKey
+};
 
     this.player.setVelocityX(0);
     this.player.setVelocityY(0);

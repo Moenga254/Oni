@@ -13,51 +13,77 @@
 export const MAX_STARS = 3;
 
 export function calculateStars({ timeLeft, timeLimit, coins, totalCoins, lives }) {
-  if (!(timeLeft > 0) || !(lives >= 1)) return 0;                 // not a real finish
+  if (!(timeLeft > 0) || !(lives >= 1)) return 0;
 
-  const noCoinsToCollect = totalCoins === 0;                      // a level without coins can't hold you back
-  const overHalfCoins    = noCoinsToCollect || coins * 2 > totalCoins;
-  const quarterCoins     = noCoinsToCollect || coins * 4 >= totalCoins;
+  const noCoins = totalCoins === 0;
+  const overHalfCoins = noCoins || coins * 2 > totalCoins;
+  const quarterCoins = noCoins || coins * 4 >= totalCoins;
 
-  if (timeLeft * 2 > timeLimit  && overHalfCoins && lives >= 3) return 3;
-  if (timeLeft * 4 >= timeLimit && quarterCoins  && lives >= 2) return 2;
+  if (timeLeft * 2 > timeLimit && overHalfCoins && lives >= 3) return 3;
+  if (timeLeft * 4 >= timeLimit && quarterCoins && lives >= 2) return 2;
+
   return 1;
 }
 
-// The smallest numbers that earn each star on a level, e.g. for showing hints.
 export function starRequirements(timeLimit, totalCoins) {
   return {
-    3: { timeLeft: Math.floor(timeLimit / 2) + 1, coins: Math.floor(totalCoins / 2) + 1, lives: 3 },
-    2: { timeLeft: Math.ceil(timeLimit / 4),      coins: Math.ceil(totalCoins / 4),      lives: 2 },
-    1: { timeLeft: 1,                              coins: 0,                              lives: 1 },
+    3: {
+      timeLeft: Math.floor(timeLimit / 2) + 1,
+      coins: Math.floor(totalCoins / 2) + 1,
+      lives: 3
+    },
+    2: {
+      timeLeft: Math.ceil(timeLimit / 4),
+      coins: Math.ceil(totalCoins / 4),
+      lives: 2
+    },
+    1: { timeLeft: 1, coins: 0, lives: 1 }
   };
 }
 
-// ── Saved progress: the best stars you have ever earned on each level ──
-// (one number per level, shared by all difficulties)
 const STORAGE_KEY = "coinCollectorStars";
 
 export function loadStars() {
-  const clean = {};
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-    if (raw && typeof raw === "object") {
-      for (const [level, value] of Object.entries(raw)) {
-        const n = Number(value);
-        if (/^\d+$/.test(level) && Number.isInteger(n) && n >= 0 && n <= MAX_STARS) clean[level] = n;
-      }
+
+    // New format: { easy: { 0: 3 }, normal: { 0: 2 }, hard: { 0: 1 } }
+    if (raw.easy || raw.normal || raw.hard) {
+      return raw;
     }
-  } catch (e) { /* unreadable or blocked storage: start fresh */ }
-  return clean;
+
+    // Migrate old format: { 0: 3, 1: 2 }
+    // Old records are placed under Normal.
+    return {
+      easy: {},
+      normal: raw,
+      hard: {}
+    };
+  } catch {
+    return { easy: {}, normal: {}, hard: {} };
+  }
 }
 
-// Keeps the best result. Returns what it was before and whether this run improved it.
-export function saveBestStars(levelIndex, stars) {
+export function saveBestStars(levelIndex, difficulty, stars) {
   const all = loadStars();
-  const previous = all[levelIndex] || 0;
+
+  if (!all[difficulty]) all[difficulty] = {};
+
+  const previous = all[difficulty][levelIndex] || 0;
+
   if (stars > previous) {
-    all[levelIndex] = stars;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(all)); } catch (e) { /* ignore */ }
+    all[difficulty][levelIndex] = stars;
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    } catch (e) {
+      // Ignore storage errors
+    }
   }
-  return { best: Math.max(previous, stars), previous, improved: stars > previous };
+
+  return {
+    best: Math.max(previous, stars),
+    previous,
+    improved: stars > previous
+  };
 }
