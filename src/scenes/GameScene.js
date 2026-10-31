@@ -763,6 +763,15 @@ export default class GameScene extends Phaser.Scene {
     const timeBonus = this.timeLeft * 2;
     this.score += timeBonus;
 
+    // ⭐ Numbers for the star rating, taken at the moment the flag is reached
+    const finishStats = {
+      timeLeft:   this.timeLeft,
+      timeLimit:  levels[this.currentLevel].timeLimit,
+      coins:      this.totalCoins - this.coins.countActive(),
+      totalCoins: this.totalCoins,
+      lives:      this.lives
+    };
+
     this.player.setVelocityX(0);
     this.player.setVelocityY(0);
     this.time.delayedCall(1200, () => {
@@ -770,8 +779,8 @@ export default class GameScene extends Phaser.Scene {
         won: true,
         score: this.score,
         currentLevel: this.currentLevel,
-        timeLeft: this.timeLeft,
-        timeBonus
+        timeBonus,
+        ...finishStats
       });
     });
   }

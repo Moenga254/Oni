@@ -1,4 +1,6 @@
 import { levels } from "../data/levels.js";
+import { loadStars } from "../data/Stars.js";
+import { drawStarRow } from "../utils/Starrow.js";
 
 export default class LevelSelectScene extends Phaser.Scene {
   constructor() {
@@ -38,10 +40,11 @@ export default class LevelSelectScene extends Phaser.Scene {
     // Get saved progress
     const unlockedLevel = parseInt(localStorage.getItem("unlockedLevel") || "0");
     const highScores = JSON.parse(localStorage.getItem("highScores") || "{}");
+    const bestStars = loadStars();   // best star rating per level
 
     // 🎮 Level cards
     const cardW = 200;
-    const cardH = 220;
+    const cardH = 250;
     const startX = W / 2 - ((levels.length - 1) * (cardW + 30)) / 2;
 
     levels.forEach((level, index) => {
@@ -49,8 +52,14 @@ export default class LevelSelectScene extends Phaser.Scene {
       const y = H / 2 + 20;
       const unlocked = index <= unlockedLevel;
 
-      this.createLevelCard(x, y, cardW, cardH, level, index, unlocked, highScores[index]);
+      this.createLevelCard(x, y, cardW, cardH, level, index, unlocked, highScores[index], bestStars[index] || 0);
     });
+
+    // ⭐ How stars work
+    this.add.text(W / 2, 396, "Earn up to 3 stars: finish fast, collect coins, keep your lives", {
+      fontSize: "14px",
+      color: "#aaaaaa"
+    }).setOrigin(0.5);
 
     // 💡 Hint text
     this.add.text(W / 2, H - 25, "Complete a level to unlock the next one", {
@@ -59,7 +68,7 @@ export default class LevelSelectScene extends Phaser.Scene {
     }).setOrigin(0.5);
   }
 
-  createLevelCard(x, y, w, h, level, index, unlocked, highScore) {
+  createLevelCard(x, y, w, h, level, index, unlocked, highScore, stars = 0) {
     const colors = [0x4a7c2f, 0x6644aa, 0xcc4400];
     const color = colors[index] || 0x444444;
 
@@ -78,7 +87,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     if (unlocked) {
       // Level number
-      this.add.text(x, y - 70, index + 1 + "", {
+      this.add.text(x, y - 85, index + 1 + "", {
         fontSize: "52px",
         color: "#ffffff",
         fontStyle: "bold",
@@ -87,27 +96,30 @@ export default class LevelSelectScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       // Level name
-      this.add.text(x, y - 10, level.name, {
+      this.add.text(x, y - 30, level.name, {
         fontSize: "18px",
         color: "#ffffff",
         fontStyle: "bold"
       }).setOrigin(0.5);
 
+      // ⭐ Best stars (3 grey stars until you have earned some)
+      drawStarRow(this, x, y, stars, { radius: 11, gap: 30 });
+
       // Time limit
-      this.add.text(x, y + 20, "⏱ " + level.timeLimit + "s", {
+      this.add.text(x, y + 34, "⏱ " + level.timeLimit + "s", {
         fontSize: "16px",
         color: "#ffdd00"
       }).setOrigin(0.5);
 
       // High score
       const scoreText = highScore ? "Best: " + highScore : "Not played";
-      this.add.text(x, y + 50, scoreText, {
+      this.add.text(x, y + 58, scoreText, {
         fontSize: "15px",
         color: highScore ? "#88ff88" : "#888888"
       }).setOrigin(0.5);
 
       // Play button
-      const playBtn = this.add.text(x, y + 85, "▶  PLAY", {
+      const playBtn = this.add.text(x, y + 98, "▶  PLAY", {
         fontSize: "18px",
         color: "#ffffff",
         fontStyle: "bold",
