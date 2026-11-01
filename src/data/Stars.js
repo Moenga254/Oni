@@ -42,38 +42,48 @@ export function starRequirements(timeLimit, totalCoins) {
 }
 
 const STORAGE_KEY = "coinCollectorStars";
+const MODES = ["easy", "normal", "hard"];
 
-export function loadStars() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-
-    // New format: { easy: { 0: 3 }, normal: { 0: 2 }, hard: { 0: 1 } }
-    if (raw.easy || raw.normal || raw.hard) {
-      return raw;
+// Keep only sensible entries: level number -> 0..3 stars
+function cleanLevels(raw) {
+  const clean = {};
+  if (raw && typeof raw === "object") {
+    for (const [level, value] of Object.entries(raw)) {
+      const n = Number(value);
+      if (/^\d+$/.test(level) && Number.isInteger(n) && n >= 0 && n <= MAX_STARS) clean[level] = n;
     }
-
-    // Migrate old format: { 0: 3, 1: 2 }
-    // Old records are placed under Normal.
-    return {
-      easy: {},
-      normal: raw,
-      hard: {}
-    };
-  } catch {
-    return { easy: {}, normal: {}, hard: {} };
   }
+  return clean;
 }
 
+// Always returns { easy: {...}, normal: {...}, hard: {...} }, each mapping level -> best stars.
+// Anything broken or missing is treated as "no stars yet" instead of crashing the Level Select.
+export function loadStars() {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch (e) { raw = null; }
+
+  const result = { easy: {}, normal: {}, hard: {} };
+  if (!raw || typeof raw !== "object") return result;
+
+  if (MODES.some(mode => mode in raw)) {
+    // Current format: { easy: { 0: 3 }, normal: { 0: 2 }, hard: { 0: 1 } }
+    MODES.forEach(mode => { result[mode] = cleanLevels(raw[mode]); });
+  } else {
+    // Old format { 0: 3, 1: 2 } (saved before stars were kept per difficulty) counts as Normal
+    result.normal = cleanLevels(raw);
+  }
+  return result;
+}
+
+// Keeps the best result for that level in that difficulty (every other level and mode is left alone)
 export function saveBestStars(levelIndex, difficulty, stars) {
+  const mode = MODES.includes(difficulty) ? difficulty : "normal";
   const all = loadStars();
 
-  if (!all[difficulty]) all[difficulty] = {};
-
-  const previous = all[difficulty][levelIndex] || 0;
+  const previous = all[mode][levelIndex] || 0;
 
   if (stars > previous) {
-    all[difficulty][levelIndex] = stars;
-
+    all[mode][levelIndex] = stars;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
     } catch (e) {
