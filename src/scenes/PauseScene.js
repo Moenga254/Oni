@@ -5,10 +5,16 @@ export default class PauseScene extends Phaser.Scene {
   }
 
   create() {
-    // 🌑 Dark overlay — covers the game behind it
+    // The panel is laid out for an 800px-wide screen; on wider screens, shift the view so it stays centred
+    const camW = this.cameras.main.width;
+    const camH = this.cameras.main.height;
+    const offsetX = (camW - 800) / 2;
+    this.cameras.main.setScroll(-offsetX, 0);
+
+    // 🌑 Dark overlay — covers the whole screen, whatever its width
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.6);
-    overlay.fillRect(0, 0, 800, 600);
+    overlay.fillRect(-offsetX, 0, camW, camH);
 
     // 📋 Pause panel
     const panel = this.add.graphics();
@@ -35,7 +41,7 @@ export default class PauseScene extends Phaser.Scene {
     // 🔁 Restart button
     const restartBtn = this.createButton(400, 340, "↺  Restart", 0x4488cc);
     restartBtn.on("pointerdown", () => {
-      SoundManager_stop();
+      SoundManager.stopMusic();
       this.scene.stop("PauseScene");
       this.scene.stop("GameScene");
       this.scene.start("GameScene");
@@ -44,7 +50,7 @@ export default class PauseScene extends Phaser.Scene {
     // 🏠 Menu button
     const menuBtn = this.createButton(400, 400, "⌂  Main Menu", 0x888888);
     menuBtn.on("pointerdown", () => {
-      SoundManager_stop();
+      SoundManager.stopMusic();
       this.scene.stop("PauseScene");
       this.scene.stop("GameScene");
       this.scene.start("MenuScene");
@@ -97,12 +103,3 @@ export default class PauseScene extends Phaser.Scene {
     SoundManager.startMusic();     // 👈 restart music when resuming
   }
 }
-
-// Helper to stop music without importing SoundManager
-function SoundManager_stop() {
-  // Access the interval directly
-  const ctx = Phaser.Sound && Phaser.Sound.context;
-  clearInterval(window._musicInterval);
-}
-
-export { SoundManager_stop };

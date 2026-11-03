@@ -146,19 +146,23 @@ export default class GameScene extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasInAir = false;
 
-    // 🎞️ Animations
-    this.anims.create({
-      key: "walk",
-      frames: this.anims.generateFrameNumbers("player", { start: 0, end: 3 }),
-      frameRate: 10,
-      repeat: -1
-    });
+    // 🎞️ Animations (shared by the whole game, so only create them the first time a level starts)
+    if (!this.anims.exists("walk")) {
+      this.anims.create({
+        key: "walk",
+        frames: this.anims.generateFrameNumbers("player", { start: 0, end: 3 }),
+        frameRate: 10,
+        repeat: -1
+      });
+    }
 
-    this.anims.create({
-      key: "idle",
-      frames: [{ key: "player", frame: 4 }],
-      frameRate: 20
-    });
+    if (!this.anims.exists("idle")) {
+      this.anims.create({
+        key: "idle",
+        frames: [{ key: "player", frame: 4 }],
+        frameRate: 20
+      });
+    }
 
     // 👾 Enemies
     this.enemies = [];
@@ -305,8 +309,8 @@ export default class GameScene extends Phaser.Scene {
     this.progressBar = this.add.graphics().setScrollFactor(0);
     this.updateProgressBar();
 
-    // ⏸ Pause button
-    const pauseBtn = this.add.text(780, 16, "⏸", {
+    // ⏸ Pause button (top-right corner, however wide the screen is)
+    const pauseBtn = this.add.text(this.cameras.main.width - 20, 16, "⏸", {
       fontSize: "28px",
       color: "#ffffff",
       stroke: "#000000",
@@ -327,7 +331,8 @@ export default class GameScene extends Phaser.Scene {
     this.timeLeft = levelData.timeLimit;
     const startMins = Math.floor(this.timeLeft / 60);
     const startSecs = String(this.timeLeft % 60).padStart(2, "0");
-    this.timerText = this.add.text(400, 16, `⏱ ${startMins}:${startSecs}`, {
+    this.timerX = this.cameras.main.width / 2;   // centred, like the progress bar
+    this.timerText = this.add.text(this.timerX, 16, `⏱ ${startMins}:${startSecs}`, {
       fontSize: "24px",
       color: "#ffffff",
       stroke: "#000000",
@@ -418,11 +423,11 @@ export default class GameScene extends Phaser.Scene {
       // Shake the timer text for urgency
       this.tweens.add({
         targets: this.timerText,
-        x: 403,
+        x: this.timerX + 3,
         duration: 50,
         yoyo: true,
         repeat: 2,
-        onComplete: () => this.timerText.x = 400
+        onComplete: () => this.timerText.x = this.timerX
       });
     }
 
@@ -587,14 +592,15 @@ export default class GameScene extends Phaser.Scene {
   }
 
   updateProgressBar() {
+    const left = this.cameras.main.width / 2 - 200;   // 400px bar, centred on screen
     this.progressBar.clear();
     this.progressBar.fillStyle(0x000000, 0.5);
-    this.progressBar.fillRect(200, 20, 400, 12);
+    this.progressBar.fillRect(left, 20, 400, 12);
     const progress = this.player ? this.player.x / this.worldWidth : 0;
     this.progressBar.fillStyle(0x00ff88, 1);
-    this.progressBar.fillRect(200, 20, 400 * progress, 12);
+    this.progressBar.fillRect(left, 20, 400 * progress, 12);
     this.progressBar.lineStyle(2, 0xffffff, 1);
-    this.progressBar.strokeRect(200, 20, 400, 12);
+    this.progressBar.strokeRect(left, 20, 400, 12);
   }
 
   update() {
@@ -690,7 +696,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   loseLife(cause = "enemy") {
-    if (this.invincible) return;
+    // Invincibility only protects from enemies: falling off the world always costs a life,
+    // otherwise you would keep falling off-screen until the blinking ends
+    if (this.invincible && cause !== "fall") return;
+    this.tweens.killTweensOf(this.player);   // stop the old blink, so it can't end the new one early
     SoundManager.play("hit");
     Particles.deathBurst(this, this.player.x, this.player.y);
     this.lives--;
