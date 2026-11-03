@@ -9,8 +9,7 @@ super("GameOverScene");
 
 init(data) {
     this.won        = data.won;
-    this.won = data.won;
-this.finalScore = data.score;
+    this.finalScore = data.score;
     this.timeLeft   = data.timeLeft  ?? 0;
     this.timeBonus  = data.timeBonus ?? 0;
     this.currentLevel = data.currentLevel || 0;

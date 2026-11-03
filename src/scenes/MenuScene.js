@@ -16,7 +16,7 @@ export default class MenuScene extends Phaser.Scene {
       fontStyle: "bold"
     }).setOrigin(0.5);
 
-    this.add.text(400, 92, "Collect all 10 coins to win!", {
+    this.add.text(400, 92, "Reach the flag to win! Grab coins for points and stars.", {
       fontSize: "22px",
       color: "#ffffff"
     }).setOrigin(0.5);
