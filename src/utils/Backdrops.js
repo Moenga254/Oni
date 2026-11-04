@@ -218,3 +218,124 @@ export function drawDeepSeaBackdrop(scene, { colors, worldWidth, worldHeight }) 
   });
   bubbles.setScrollFactor(0);
 }
+
+// A soft round puff (used for fog), drawn once and reused
+function ensureSoftTexture(scene, key, color) {
+  if (scene.textures.exists(key)) return;
+  const tex = scene.textures.createCanvas(key, 256, 256);
+  const ctx = tex.getContext();
+  const rgb = `${(color >> 16) & 255},${(color >> 8) & 255},${color & 255}`;
+  const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  grad.addColorStop(0, `rgba(${rgb},1)`);
+  grad.addColorStop(0.5, `rgba(${rgb},0.45)`);
+  grad.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 256);
+  tex.refresh();
+}
+
+// A firefly: a small yellow-green dot with a soft halo
+function ensureFireflyTexture(scene) {
+  if (scene.textures.exists("firefly")) return;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0xd8ff6a, 0.25);
+  g.fillCircle(6, 6, 6);
+  g.fillStyle(0xf2ffb0, 1);
+  g.fillCircle(6, 6, 2);
+  g.generateTexture("firefly", 12, 12);
+  g.destroy();
+}
+
+// 🦉 Night Owl backdrop: a dark night sky with stars and a moon, fog drifting along the top,
+// layers of dark pine silhouettes that scroll at different speeds, owls blinking in the trees,
+// and fireflies. Built the same way as the other backdrops: the trees are baked into textures once.
+export function drawNightForestBackdrop(scene, { colors, worldWidth, worldHeight }) {
+  const camW = scene.cameras.main.width;
+  const camH = scene.cameras.main.height;
+  const maxScrollX = Math.max(0, worldWidth - camW);
+  const maxScrollY = Math.max(0, worldHeight - camH);
+  const random = makeRandom(20261104);
+
+  // 1) Night sky, fixed to the screen
+  const sky = scene.add.graphics();
+  sky.fillGradientStyle(colors[0], colors[1], colors[2], colors[3], 1);
+  sky.fillRect(-20, -20, camW + 40, camH + 40);
+  sky.setScrollFactor(0);
+
+  // 2) Stars and the moon (they barely move: they are very far away)
+  const stars = scene.add.graphics().setScrollFactor(0.02, 0);
+  for (let i = 0; i < 70; i++) {
+    stars.fillStyle(0xffffff, 0.3 + random() * 0.6);
+    stars.fillCircle(random() * (camW + 200), random() * camH * 0.55, random() < 0.15 ? 1.6 : 0.9);
+  }
+  addGlow(scene, "moonglow", camW * 0.78, 78, 220, 220, 0xcfd8ff, 0.35);
+  const moon = scene.add.graphics().setScrollFactor(0);
+  moon.fillStyle(0xf3f1dc, 1);
+  moon.fillCircle(camW * 0.78, 78, 26);
+  moon.fillStyle(0xd9d6bd, 1);
+  moon.fillCircle(camW * 0.78 - 8, 72, 5);
+  moon.fillCircle(camW * 0.78 + 9, 86, 3.5);
+
+  // 3) Pine forest: far trees are lighter (hazy) and slow, near trees almost black and faster
+  const widthFor = (sx) => camW + 300 + sx * maxScrollX;
+  const bottomBase = (sy) => camH + sy * maxScrollY + 24;
+
+  const layers = [
+    // [name, scrollX, scrollY, color, alpha, spikes config, baseline]
+    ["forest_far",  0.12, 0.08, 0x1f2c4a, 0.95, { minH: 170, maxH: 300, minW: 60, maxW: 120 }, bottomBase(0.08)],
+    ["forest_mid",  0.28, 0.16, 0x111a2e, 1.00, { minH: 150, maxH: 270, minW: 55, maxW: 110 }, bottomBase(0.16)],
+    ["forest_near", 0.48, 0.28, 0x060a13, 1.00, { minH: 110, maxH: 230, minW: 45, maxW: 95  }, bottomBase(0.28)],
+  ];
+  layers.forEach(([name, sx, sy, color, alpha, cfg, baseline]) => {
+    const width = widthFor(sx);
+    bakeLayer(scene, name, { color, alpha, width, maxH: cfg.maxH, up: true, spikes: planSpikes(width, cfg, random), baseline, scrollX: sx, scrollY: sy });
+
+    // 🦉 Owls: pairs of yellow eyes in the far and middle trees that blink now and then
+    if (name === "forest_near") return;
+    for (let x = 300 + random() * 300; x < width - 100; x += 700 + random() * 600) {
+      const eyes = scene.add.graphics().setScrollFactor(sx, sy);
+      eyes.fillStyle(0xffd23f, name === "forest_far" ? 0.55 : 0.85);
+      eyes.fillCircle(-5, 0, 2.6);
+      eyes.fillCircle(5, 0, 2.6);
+      eyes.x = x;
+      eyes.y = baseline - 150 - random() * 90;
+      scene.tweens.add({
+        targets: eyes, scaleY: 0.1, duration: 90, yoyo: true,
+        repeat: -1, repeatDelay: 2500 + random() * 4000, delay: random() * 3000
+      });
+    }
+  });
+
+  // 4) Fog along the top: a soft pale band, plus big puffs that drift slowly sideways
+  const band = scene.add.graphics().setScrollFactor(0);
+  band.fillGradientStyle(0x9aa6c4, 0x9aa6c4, 0x9aa6c4, 0x9aa6c4, 0.32, 0.32, 0, 0);
+  band.fillRect(-20, -20, camW + 40, camH * 0.42);
+
+  ensureSoftTexture(scene, "fogpuff", 0xb6c0dc);
+  for (let i = 0; i < 9; i++) {
+    const puff = scene.add.image(i * (camW / 7) - 60 + random() * 80, 20 + random() * 70, "fogpuff")
+      .setDisplaySize(340 + random() * 220, 110 + random() * 60)
+      .setAlpha(0.18 + random() * 0.14)
+      .setScrollFactor(0);
+    scene.tweens.add({
+      targets: puff, x: puff.x + 60 + random() * 60, duration: 9000 + random() * 6000,
+      yoyo: true, repeat: -1, ease: "Sine.InOut"
+    });
+  }
+
+  // 5) Fireflies drifting and glowing on and off near the forest floor
+  ensureFireflyTexture(scene);
+  const fireflies = scene.add.particles(0, 0, "firefly", {
+    x: { min: 0, max: camW },
+    y: { min: camH * 0.45, max: camH - 30 },
+    lifespan: 5000,
+    speedX: { min: -12, max: 12 },
+    speedY: { min: -10, max: 6 },
+    scale: { min: 0.7, max: 1.2 },
+    alpha: { values: [0, 1, 0.3, 1, 0] },
+    frequency: 380,
+    quantity: 1,
+    advance: 5000
+  });
+  fireflies.setScrollFactor(0);
+}

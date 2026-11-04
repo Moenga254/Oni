@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { levels } from "../data/levels.js";
-import { drawIceCaveBackdrop, drawDeepSeaBackdrop } from "../utils/Backdrops.js";
+import { drawIceCaveBackdrop, drawDeepSeaBackdrop, drawNightForestBackdrop } from "../utils/Backdrops.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
@@ -61,6 +61,9 @@ export default class GameScene extends Phaser.Scene {
     } else if (levelData.theme === "sea") {
       // 🌊 Deep Sea: light rays, rocks and kelp, rising bubbles (see src/utils/Backdrops.js)
       drawDeepSeaBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    } else if (levelData.theme === "forest") {
+      // 🦉 Night Owl: moon and stars, pine silhouettes, fog along the top, owls and fireflies (see src/utils/Backdrops.js)
+      drawNightForestBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
     } else {
       const bg = this.add.graphics();
       bg.fillGradientStyle(...levelData.background, 1);
@@ -173,20 +176,26 @@ export default class GameScene extends Phaser.Scene {
     // [x, y, patrolLeft, patrolRight, speed, colour]
     const enemyData = levelData.enemies;
 
-    // 🐟 Under the sea the enemies are fish: they swim at their own height (no gravity) instead of walking
-    const swimming = levelData.theme === "sea";
-    this.swimmingEnemies = swimming;
+    // What the enemies look like depends on the level:
+    //   🐟 fish  (Deep Sea): swim at their own height (no gravity) instead of walking
+    //   🐍 snake (Night Owl): long and low, slithering along the ground
+    //   slime   (every other level)
+    const kind = { sea: "fish", forest: "snake" }[levelData.theme] || "slime";
+    const swimming = kind === "fish";
+    this.enemyKind = kind;
 
     enemyData.forEach(([x, y, left, right, speed, color], i) => {
       const enemySpeed = scaleEnemySpeed(speed, this.difficulty.enemySpeed);   // Easy slower, Hard faster
       const gfx = this.add.graphics();
-      if (swimming) this.drawFish(gfx, color);
+      if (kind === "fish") this.drawFish(gfx, color);
+      else if (kind === "snake") this.drawSnake(gfx, color);
       else this.drawEnemy(gfx, color);
       gfx.x = x;
-      gfx.y = swimming ? y : y - 16;
+      gfx.y = kind === "slime" ? y - 16 : y;
 
       const body = this.physics.add.image(x, y, null);
-      body.setDisplaySize(28, swimming ? 20 : 28);
+      const hitbox = { fish: [28, 20], snake: [34, 16], slime: [28, 28] }[kind];
+      body.setDisplaySize(hitbox[0], hitbox[1]);
       body.setVisible(false);
       body.setCollideWorldBounds(false);
       body.setImmovable(false);
@@ -198,7 +207,7 @@ export default class GameScene extends Phaser.Scene {
         this.physics.add.collider(body, this.platforms);
       }
 
-      // bobPhase: each fish bobs up and down a little, out of step with the others
+      // bobPhase: each fish bobs (or snake slithers) a little, out of step with the others
       const enemy = { body, gfx, left, right, speed: enemySpeed, color, direction: 1, bobPhase: i * 1.7 };
       this.enemies.push(enemy);
     });
@@ -621,6 +630,36 @@ export default class GameScene extends Phaser.Scene {
     gfx.fillCircle(8, -2, 2);
   }
 
+  // 🐍 Draw a small snake facing right (it is flipped when it slithers left).
+  // It is drawn so its belly rests on the bottom of its hitbox (y = +8).
+  drawSnake(gfx, color) {
+    gfx.clear();
+    // Wavy body: overlapping circles that get thinner towards the tail
+    for (let i = 0; i < 7; i++) {
+      const x = -20 + i * 5;
+      const r = 3 + i * 0.45;
+      gfx.fillStyle(color, 1);
+      gfx.fillCircle(x, 8 - r + Math.sin(i * 1.4) * 2, r);
+    }
+    // Head
+    gfx.fillStyle(color, 1);
+    gfx.fillEllipse(17, 2, 13, 10);
+    // Darker stripes along the back
+    gfx.fillStyle(0x000000, 0.25);
+    gfx.fillCircle(-9, 3, 2);
+    gfx.fillCircle(1, 2, 2.4);
+    gfx.fillCircle(10, 1, 2.4);
+    // Eye (with a little glow, so it shows in the dark) and flicking tongue
+    gfx.fillStyle(0xfff3a0, 1);
+    gfx.fillCircle(19, -1, 2.4);
+    gfx.fillStyle(0x000000, 1);
+    gfx.fillRect(19, -2.5, 1, 3);
+    gfx.lineStyle(1.5, 0xff3b3b, 1);
+    gfx.lineBetween(23, 3, 28, 3);
+    gfx.lineBetween(28, 3, 30, 1);
+    gfx.lineBetween(28, 3, 30, 5);
+  }
+
   updateProgressBar() {
     const left = this.cameras.main.width / 2 - 200;   // 400px bar, centred on screen
     this.progressBar.clear();
@@ -695,11 +734,19 @@ export default class GameScene extends Phaser.Scene {
         enemy.direction = 1;
       }
 
+      // Only the picture bobs or stretches, never the hitbox
+      const wave = Math.sin(this.time.now / 300 + enemy.bobPhase);
       enemy.gfx.x = enemy.body.x;
-      enemy.gfx.y = this.swimmingEnemies
-        ? enemy.body.y + Math.sin(this.time.now / 300 + enemy.bobPhase) * 3   // only the picture bobs, not the hitbox
-        : enemy.body.y - 16;
-      enemy.gfx.setScale(enemy.direction, 1);
+      if (this.enemyKind === "fish") {
+        enemy.gfx.y = enemy.body.y + wave * 3;
+        enemy.gfx.setScale(enemy.direction, 1);
+      } else if (this.enemyKind === "snake") {
+        enemy.gfx.y = enemy.body.y;
+        enemy.gfx.setScale(enemy.direction * (1 + wave * 0.07), 1 - wave * 0.07);   // stretches and squashes as it slithers
+      } else {
+        enemy.gfx.y = enemy.body.y - 16;
+        enemy.gfx.setScale(enemy.direction, 1);
+      }
     });
 
     // 🛗 Move platforms back and forth
