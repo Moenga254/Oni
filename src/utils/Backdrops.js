@@ -141,3 +141,80 @@ export function drawIceCaveBackdrop(scene, { colors, worldWidth, worldHeight }) 
   snow.setScrollFactor(0);
 
 }
+
+// A bubble: a thin see-through ring with a small shine, drawn once
+function ensureBubbleTexture(scene) {
+  if (scene.textures.exists("bubble")) return;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0xbfefff, 0.25);
+  g.fillCircle(8, 8, 7);
+  g.lineStyle(1.5, 0xe6fbff, 0.9);
+  g.strokeCircle(8, 8, 7);
+  g.fillStyle(0xffffff, 0.9);
+  g.fillCircle(5.5, 5.5, 2);
+  g.generateTexture("bubble", 16, 16);
+  g.destroy();
+}
+
+// 🌊 Deep Sea backdrop: bright water near the surface fading to deep blue, slanted light rays,
+// rocky ridges and kelp forests that scroll at different speeds, and bubbles rising to the surface.
+// Built the same way as the Ice Cave: the layers are baked into textures once, when the level starts.
+export function drawDeepSeaBackdrop(scene, { colors, worldWidth, worldHeight }) {
+  const camW = scene.cameras.main.width;
+  const camH = scene.cameras.main.height;
+  const maxScrollX = Math.max(0, worldWidth - camW);
+  const maxScrollY = Math.max(0, worldHeight - camH);
+  const random = makeRandom(20251103);
+
+  // 1) Water gradient, fixed to the screen: lighter above, deep blue below
+  const water = scene.add.graphics();
+  water.fillGradientStyle(colors[0], colors[1], colors[2], colors[3], 1);
+  water.fillRect(-20, -20, camW + 40, camH + 40);
+  water.setScrollFactor(0);
+
+  // 2) Sunlight from the surface, and slanted light rays that slowly fade in and out
+  addGlow(scene, "seaglow", camW * 0.5, -40, camW * 1.3, 260, 0x9fe8ff, 0.35);
+
+  const rays = scene.add.graphics().setScrollFactor(0.05, 0);
+  for (let i = 0; i < 6; i++) {
+    const x = (i + 0.3) * (camW / 5) + random() * 60;
+    const top = 26 + random() * 30;
+    const bottom = 110 + random() * 90;
+    rays.fillStyle(0xd8f6ff, 0.05 + random() * 0.04);
+    rays.fillTriangle(x - top / 2, -10, x + top / 2, -10, x + 140 + bottom / 2, camH * 0.95);
+    rays.fillTriangle(x - top / 2, -10, x + 140 - bottom / 2, camH * 0.95, x + 140 + bottom / 2, camH * 0.95);
+  }
+  scene.tweens.add({ targets: rays, alpha: 0.55, duration: 3200, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+
+  // 3) Silhouettes: far rocky ridges, then kelp forests (tall thin "spikes" that lean a little, like weed)
+  const widthFor = (sx) => camW + 300 + sx * maxScrollX;
+  const bottomBase = (sy) => camH + sy * maxScrollY + 24;
+
+  const layers = [
+    // [name, scrollX, scrollY, color, alpha, spikes config, baseline]
+    ["sea_far_ridges", 0.12, 0.08, 0x0a4c7a, 0.70, { minH: 90, maxH: 200, minW: 160, maxW: 300 }, bottomBase(0.08)],
+    ["sea_far_kelp",   0.22, 0.12, 0x0b5a5a, 0.55, { minH: 90, maxH: 220, minW: 14,  maxW: 30  }, bottomBase(0.12)],
+    ["sea_mid_rocks",  0.32, 0.18, 0x06304f, 0.90, { minH: 60, maxH: 140, minW: 90,  maxW: 180 }, bottomBase(0.18)],
+    ["sea_near_kelp",  0.48, 0.28, 0x053b2c, 0.95, { minH: 70, maxH: 190, minW: 16,  maxW: 34  }, bottomBase(0.28)],
+  ];
+  layers.forEach(([name, sx, sy, color, alpha, cfg, baseline]) => {
+    const width = widthFor(sx);
+    bakeLayer(scene, name, { color, alpha, width, maxH: cfg.maxH, up: true, spikes: planSpikes(width, cfg, random), baseline, scrollX: sx, scrollY: sy });
+  });
+
+  // 4) Small bubbles rising from the bottom of the screen, wobbling a little on the way up
+  ensureBubbleTexture(scene);
+  const bubbles = scene.add.particles(0, 0, "bubble", {
+    x: { min: 0, max: camW },
+    y: camH + 10,
+    lifespan: 9000,
+    speedY: { min: -70, max: -35 },
+    speedX: { min: -8, max: 8 },
+    scale: { min: 0.3, max: 0.9 },
+    alpha: { start: 0.9, end: 0 },
+    frequency: 160,
+    quantity: 1,
+    advance: 8000            // start with bubbles already on their way up
+  });
+  bubbles.setScrollFactor(0);
+}

@@ -353,5 +353,106 @@ export const levels = [
     [3100, 280, 100, 120, 120],
     [3650, 300, 100, 120, 110]
   ]
-}
+},
+
+  {
+    id: 4,
+    name: "Deep Sea",
+    subtitle: "Level 5",
+
+    // 🌊 Underwater: light from the surface fading into dark blue, rising bubbles (see src/utils/Backdrops.js).
+    // Enemies here are fish: they SWIM at their own height instead of walking on the ground.
+    theme: "sea",
+    background: [0x0d6aa0, 0x0d6aa0, 0x03264f, 0x021a38],
+    groundColor: 0x9c8457,     // sandy sea floor
+    platformColor: 0x3f8f8a,   // mossy floating rocks
+
+    worldWidth: 4800,
+    playerStart: [80, 490],
+    flagX: 4700,
+    timeLimit: 75,
+
+    // 🟢 Two checkpoints, each on a sea-floor section with no fish on it
+    checkpoints: [1560, 3290],
+
+    platforms: [
+      // Sea floor: longer sections than the Ice Cave, with short gaps between them
+      [0,    570, 400, 30],
+      [520,  570, 300, 30],
+      [950,  570, 300, 30],
+      [1380, 570, 320, 30],   // checkpoint 1
+      [1830, 570, 270, 30],
+      [2230, 570, 320, 30],
+      [2680, 570, 320, 30],
+      [3130, 570, 320, 30],   // checkpoint 2
+      [3580, 570, 320, 30],
+      [4030, 570, 270, 30],
+      [4420, 570, 380, 30],   // finish
+
+      // Floating rocks: a low/high staircase all the way along
+      [300,  460, 100, 20],
+      [470,  370, 100, 20],
+      [680,  460, 100, 20],
+      [860,  350, 110, 20],
+      [1060, 450, 100, 20],
+      [1250, 360, 100, 20],
+      [1460, 450, 100, 20],
+      [1700, 350, 110, 20],
+      [1900, 450, 100, 20],
+      [2100, 340, 110, 20],
+      [2320, 450, 100, 20],
+      [2520, 350, 100, 20],
+      [2740, 450, 100, 20],
+      [2950, 340, 110, 20],
+      [3180, 450, 100, 20],
+      [3400, 350, 100, 20],
+      [3620, 450, 100, 20],
+      [3830, 340, 110, 20],
+      [4060, 450, 100, 20],
+      [4280, 360, 100, 20],
+    ],
+
+    // One coin above most floating rocks (they drop onto the rock)
+    coins: [
+      [350, 430],  [520, 340],  [730, 430],  [915, 320],
+      [1300, 330], [1510, 420], [1755, 320], [2155, 310],
+      [2370, 420], [2570, 320], [2790, 420], [3005, 310],
+      [3450, 320], [3670, 420], [3885, 310], [4110, 420],
+      [4330, 330], [1110, 420]
+    ],
+
+    // [x, y, patrolLeft, patrolRight, speed, colour]: y is the height the fish swims at
+    enemies: [
+      // ── Sea-floor fish (y 540: you meet them when walking). The left end of each section stays free: that is where you land.
+      [300,  540, 220,  390,  100, 0xff7f50],
+      [700,  540, 600,  800,  110, 0xffd23f],
+      [1130, 540, 1030, 1230, 120, 0xff5fa2],
+      [2000, 540, 1910, 2080, 120, 0x3ddc97],
+      [2430, 540, 2310, 2530, 130, 0xff7f50],
+      [2880, 540, 2760, 2980, 130, 0xffd23f],
+      [3780, 540, 3660, 3880, 130, 0xff5fa2],
+      [4200, 540, 4110, 4280, 120, 0x3ddc97],
+      [4580, 540, 4500, 4640, 110, 0xff7f50],
+
+      // ── Mid-water fish (y 475: they pass over your head, so mind them when you jump)
+      [1100, 475, 980,  1220, 70, 0x00bbf9],
+      [2400, 475, 2260, 2540, 75, 0x00bbf9],
+      [3760, 475, 3600, 3890, 80, 0x00bbf9],
+
+      // ── Fish guarding floating rocks (they stay above their own rock)
+      [900,  330, 875,  955,  70, 0x9b5de5],
+      [1740, 330, 1715, 1795, 70, 0x9b5de5],
+      [2990, 320, 2965, 3045, 75, 0x9b5de5],
+      [3870, 320, 3845, 3925, 75, 0x9b5de5],
+    ],
+
+    movingPlatforms: [
+      [600,  290, 100, 120, 100],
+      [1500, 270, 100, 120, 110],
+      [2200, 280, 100, 120, 110],
+      [3000, 270, 100, 120, 120],
+      [3700, 280, 100, 120, 110],
+      [4300, 300, 100, 100, 100],
+    ]
+  }
 ];

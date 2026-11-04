@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { levels } from "../data/levels.js";
-import { drawIceCaveBackdrop } from "../utils/Backdrops.js";
+import { drawIceCaveBackdrop, drawDeepSeaBackdrop } from "../utils/Backdrops.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
@@ -58,6 +58,9 @@ export default class GameScene extends Phaser.Scene {
     if (levelData.theme === "ice") {
       // 🧊 Ice Cave: cold gradient, layered silhouettes and drifting snow (see src/utils/Backdrops.js)
       drawIceCaveBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    } else if (levelData.theme === "sea") {
+      // 🌊 Deep Sea: light rays, rocks and kelp, rising bubbles (see src/utils/Backdrops.js)
+      drawDeepSeaBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
     } else {
       const bg = this.add.graphics();
       bg.fillGradientStyle(...levelData.background, 1);
@@ -65,8 +68,8 @@ export default class GameScene extends Phaser.Scene {
       bg.setScrollFactor(0.1);
     }
 
-    // ☁️ Clouds
-    if (levelData.theme !== "ice") 
+    // ☁️ Clouds (only on the plain sky levels, not in the cave or under the sea)
+    if (!levelData.theme)
       {
     const cloudGraphics = this.add.graphics();
     cloudGraphics.fillStyle(0xffffff, 0.9);
@@ -170,23 +173,33 @@ export default class GameScene extends Phaser.Scene {
     // [x, y, patrolLeft, patrolRight, speed, colour]
     const enemyData = levelData.enemies;
 
-    enemyData.forEach(([x, y, left, right, speed, color]) => {
+    // 🐟 Under the sea the enemies are fish: they swim at their own height (no gravity) instead of walking
+    const swimming = levelData.theme === "sea";
+    this.swimmingEnemies = swimming;
+
+    enemyData.forEach(([x, y, left, right, speed, color], i) => {
       const enemySpeed = scaleEnemySpeed(speed, this.difficulty.enemySpeed);   // Easy slower, Hard faster
       const gfx = this.add.graphics();
-      this.drawEnemy(gfx, color);
+      if (swimming) this.drawFish(gfx, color);
+      else this.drawEnemy(gfx, color);
       gfx.x = x;
-      gfx.y = y - 16;
+      gfx.y = swimming ? y : y - 16;
 
       const body = this.physics.add.image(x, y, null);
-      body.setDisplaySize(28, 28);
+      body.setDisplaySize(28, swimming ? 20 : 28);
       body.setVisible(false);
       body.setCollideWorldBounds(false);
-      body.body.setGravityY(200);
       body.setImmovable(false);
 
-      this.physics.add.collider(body, this.platforms);
+      if (swimming) {
+        body.body.setAllowGravity(false);
+      } else {
+        body.body.setGravityY(200);
+        this.physics.add.collider(body, this.platforms);
+      }
 
-      const enemy = { body, gfx, left, right, speed: enemySpeed, color, direction: 1 };
+      // bobPhase: each fish bobs up and down a little, out of step with the others
+      const enemy = { body, gfx, left, right, speed: enemySpeed, color, direction: 1, bobPhase: i * 1.7 };
       this.enemies.push(enemy);
     });
 
@@ -591,6 +604,23 @@ export default class GameScene extends Phaser.Scene {
     gfx.fillCircle(7, -2, 3);
   }
 
+  // 🐟 Draw a small fish facing right (it is flipped when it swims left)
+  drawFish(gfx, color) {
+    gfx.clear();
+    gfx.fillStyle(color, 1);
+    gfx.fillTriangle(-10, 0, -20, -9, -20, 9);      // tail
+    gfx.fillEllipse(0, 0, 28, 18);                  // body
+    gfx.fillTriangle(-4, -7, 6, -7, -2, -14);       // top fin
+    gfx.fillStyle(0xffffff, 0.35);
+    gfx.fillEllipse(1, 3, 16, 6);                   // lighter belly
+    gfx.fillStyle(0x000000, 0.25);
+    gfx.fillRect(-3, -8, 3, 16);                    // stripe
+    gfx.fillStyle(0xffffff, 1);
+    gfx.fillCircle(7, -2, 4);                       // eye
+    gfx.fillStyle(0x000000, 1);
+    gfx.fillCircle(8, -2, 2);
+  }
+
   updateProgressBar() {
     const left = this.cameras.main.width / 2 - 200;   // 400px bar, centred on screen
     this.progressBar.clear();
@@ -666,7 +696,9 @@ export default class GameScene extends Phaser.Scene {
       }
 
       enemy.gfx.x = enemy.body.x;
-      enemy.gfx.y = enemy.body.y - 16;
+      enemy.gfx.y = this.swimmingEnemies
+        ? enemy.body.y + Math.sin(this.time.now / 300 + enemy.bobPhase) * 3   // only the picture bobs, not the hitbox
+        : enemy.body.y - 16;
       enemy.gfx.setScale(enemy.direction, 1);
     });
 

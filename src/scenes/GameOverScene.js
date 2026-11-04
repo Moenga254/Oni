@@ -204,7 +204,7 @@ showLoseScreen() {
   const reasons = {
     time:  "Time's up! ⏱",
     fall:  "You fell off the edge!",
-    enemy: "A slime got you!"
+    enemy: levels[this.currentLevel].theme === "sea" ? "A fish got you!" : "A slime got you!"
   };
   this.add.text(W / 2, 145, reasons[cause] || reasons.fall, {
     fontSize: "24px",
