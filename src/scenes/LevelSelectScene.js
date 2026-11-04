@@ -127,7 +127,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
   // One compact card: level, name, the best stars in each mode, best score, PLAY
   createLevelCard(x, y, level, index, unlocked, highScore, allStars) {
-    const colors = [0x4a7c2f, 0x6644aa, 0xcc4400, 0x167a9e, 0x0b4f8a];
+    const colors = [0x4a7c2f, 0x6644aa, 0xcc4400, 0x167a9e, 0x0b4f8a, 0x2c2a4a];
     const color = colors[index % colors.length];
     const left = x - CARD_W / 2;
     const top = y - CARD_H / 2;

@@ -454,5 +454,118 @@ export const levels = [
       [3700, 280, 100, 120, 110],
       [4300, 300, 100, 100, 100],
     ]
+  },
+
+  {
+    id: 5,
+    name: "Night Owl",
+    subtitle: "Level 6",
+
+    // 🦉 A forest at night: dark pine silhouettes, a moon, fog drifting along the top, fireflies
+    // and owls blinking in the trees (see src/utils/Backdrops.js). Enemies here are snakes.
+    theme: "forest",
+    background: [0x1a2240, 0x1a2240, 0x070b16, 0x05080f],
+    groundColor: 0x2f4a2a,     // mossy forest floor
+    platformColor: 0x6b4a2b,   // fallen logs and branches
+
+    worldWidth: 6400,          // the longest level: about 2 minutes of play
+    playerStart: [80, 490],
+    flagX: 6300,
+    timeLimit: 120,
+
+    // 🟢 Two checkpoints, each on a stretch of forest floor with no snakes on it
+    checkpoints: [2300, 4320],
+
+    platforms: [
+      // Forest floor: long stretches (350-400px) with short gaps between them
+      [0,    570, 500, 30],
+      [630,  570, 350, 30],
+      [1110, 570, 400, 30],
+      [1640, 570, 350, 30],
+      [2120, 570, 400, 30],   // checkpoint 1
+      [2650, 570, 350, 30],
+      [3130, 570, 400, 30],
+      [3660, 570, 350, 30],
+      [4140, 570, 400, 30],   // checkpoint 2
+      [4670, 570, 350, 30],
+      [5150, 570, 400, 30],
+      [5680, 570, 350, 30],
+      [6160, 570, 240, 30],   // finish
+
+      // Floating logs: a low/high staircase all the way along
+      [300,  450, 100, 20],
+      [510,  350, 110, 20],
+      [720,  450, 100, 20],
+      [930,  350, 110, 20],
+      [1140, 450, 100, 20],
+      [1350, 350, 110, 20],
+      [1560, 450, 100, 20],
+      [1770, 350, 110, 20],
+      [1980, 450, 100, 20],
+      [2190, 350, 110, 20],
+      [2400, 450, 100, 20],
+      [2610, 350, 110, 20],
+      [2820, 450, 100, 20],
+      [3030, 350, 110, 20],
+      [3240, 450, 100, 20],
+      [3450, 350, 110, 20],
+      [3660, 450, 100, 20],
+      [3870, 350, 110, 20],
+      [4080, 450, 100, 20],
+      [4290, 350, 110, 20],
+      [4500, 450, 100, 20],
+      [4710, 350, 110, 20],
+      [4920, 450, 100, 20],
+      [5130, 350, 110, 20],
+      [5340, 450, 100, 20],
+      [5550, 350, 110, 20],
+      [5760, 450, 100, 20],
+      [5970, 350, 110, 20],
+    ],
+
+    // Coins sit on the logs (every log except one in four)
+    coins: [
+      [350, 420],  [565, 320],  [770, 420],  [1190, 420],
+      [1405, 320], [1610, 420], [2030, 420], [2245, 320],
+      [2450, 420], [2870, 420], [3085, 320], [3290, 420],
+      [3710, 420], [3925, 320], [4130, 420], [4550, 420],
+      [4765, 320], [4970, 420], [5390, 420], [5605, 320],
+      [5810, 420],
+    ],
+
+    // [x, y, patrolLeft, patrolRight, speed, colour]: snakes drop onto the ground below them and slither along it
+    enemies: [
+      // ── Forest-floor snakes. The left end of each stretch stays free: that is where you land.
+      [340,  540, 200,  480,  90,  0x6bbf3a],
+      [830,  540, 710,  960,  100, 0xc9a227],
+      [1260, 540, 1190, 1340, 100, 0xb5482f],
+      [1420, 540, 1360, 1490, 110, 0x6bbf3a],
+      [1820, 540, 1720, 1970, 110, 0x3fae8c],
+      [2830, 540, 2730, 2980, 110, 0xc9a227],
+      [3280, 540, 3210, 3360, 110, 0xb5482f],
+      [3440, 540, 3380, 3510, 120, 0x6bbf3a],
+      [3860, 540, 3740, 3990, 120, 0x3fae8c],
+      [4860, 540, 4750, 5000, 120, 0xc9a227],
+      [5300, 540, 5230, 5380, 120, 0xb5482f],
+      [5460, 540, 5400, 5530, 130, 0x6bbf3a],
+      [5880, 540, 5760, 6010, 130, 0x3fae8c],
+      // (the finish stretch, 6160-6400, has no snakes)
+
+      // ── Snakes curled up on high logs (they stay on their own log)
+      [1400, 320, 1365, 1445, 70, 0xc9a227],
+      [2660, 320, 2625, 2705, 70, 0xb5482f],
+      [3920, 320, 3885, 3965, 75, 0xc9a227],
+      [5180, 320, 5145, 5225, 75, 0xb5482f],
+    ],
+
+    movingPlatforms: [
+      [700,  290, 100, 120, 100],
+      [1600, 280, 100, 120, 110],
+      [2500, 290, 100, 120, 110],
+      [3400, 280, 100, 120, 120],
+      [4300, 280, 100, 120, 110],
+      [5200, 290, 100, 120, 120],
+      [5900, 300, 100, 100, 100],
+    ]
   }
 ];
