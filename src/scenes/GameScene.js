@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { levels } from "../data/levels.js";
-import { drawIceCaveBackdrop, drawDeepSeaBackdrop, drawNightForestBackdrop } from "../utils/Backdrops.js";
+import { drawIceCaveBackdrop, drawDeepSeaBackdrop, drawNightForestBackdrop, drawCrystalCaveBackdrop } from "../utils/Backdrops.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
@@ -55,7 +55,10 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
     // 🎨 Background
-    if (levelData.theme === "ice") {
+    if (levelData.theme === "crystal") {
+      // 💎 Crystal Cave: purple cave, glowing crystals on the floor and ceiling, sparkles (see src/utils/Backdrops.js)
+      drawCrystalCaveBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    } else if (levelData.theme === "ice") {
       // 🧊 Ice Cave: cold gradient, layered silhouettes and drifting snow (see src/utils/Backdrops.js)
       drawIceCaveBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
     } else if (levelData.theme === "sea") {

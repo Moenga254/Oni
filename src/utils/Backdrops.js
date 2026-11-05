@@ -339,3 +339,183 @@ export function drawNightForestBackdrop(scene, { colors, worldWidth, worldHeight
   });
   fireflies.setScrollFactor(0);
 }
+
+// Bakes a layer into a few wide textures, like bakeLayer, but lets the caller draw anything.
+// draw(g, left, chunkW) draws the layer shifted by -left; whatever falls outside the chunk is cut off.
+function bakeChunks(scene, name, { width, h, imageY, alpha, scrollX, scrollY, draw }) {
+  const CHUNK = 1024;
+  const chunks = Math.ceil(width / CHUNK);
+  for (let c = 0; c < chunks; c++) {
+    const key = `${name}_${c}`;
+    if (scene.textures.exists(key)) scene.textures.remove(key);
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    draw(g, c * CHUNK, CHUNK);
+    g.generateTexture(key, CHUNK, h);
+    g.destroy();
+    scene.add.image(c * CHUNK, imageY, key).setOrigin(0, 0).setAlpha(alpha).setScrollFactor(scrollX, scrollY);
+  }
+}
+
+// One crystal shard: a long six-sided gem with a pointed tip, a lighter facet on one side,
+// a bright outline and a small shine. dir = -1 grows up from the ground, +1 hangs down from the ceiling.
+function drawShard(g, { x, y, angle, length: L, width: W, dir }, colors) {
+  const ax = Math.sin(angle), ay = dir * Math.cos(angle);        // along the crystal, base -> tip
+  const px = Math.cos(angle), py = -dir * Math.sin(angle);       // across it
+  const at = (v, u) => ({ x: x + px * v + ax * u, y: y + py * v + ay * u });
+
+  const outline = [at(-W / 2, 0), at(-W / 2, 0.72 * L), at(0, L), at(W / 2, 0.72 * L), at(W / 2, 0)];
+  const facet   = [at(0, 0), at(0, L), at(W / 2, 0.72 * L), at(W / 2, 0)];
+
+  g.fillStyle(colors.body, 1);
+  g.fillPoints(outline, true);
+  g.fillStyle(colors.facet, 1);
+  g.fillPoints(facet, true);
+  g.lineStyle(1.5, colors.edge, 0.9);
+  g.strokePoints(outline, true);
+  const s1 = at(-W / 4, 0.15 * L), s2 = at(-W / 4, 0.6 * L);   // shine
+  g.lineStyle(2, 0xffffff, 0.45);
+  g.lineBetween(s1.x, s1.y, s2.x, s2.y);
+}
+
+// Where the crystal clusters go along a layer: [{ x, shards, size }], each cluster a fan of 3-6 shards
+function planClusters(width, { minL, maxL, minGap, maxGap, minW, maxW }, rand) {
+  const clusters = [];
+  for (let x = 80 + rand() * 160; x < width + 60; x += minGap + rand() * (maxGap - minGap)) {
+    const count = 3 + Math.floor(rand() * 4);
+    const shards = [];
+    for (let i = 0; i < count; i++) {
+      const t = i / (count - 1) - 0.5;                                    // -0.5 .. 0.5 across the fan
+      const centre = 1 - Math.abs(t) * 1.1;                               // the middle shard is the tallest
+      shards.push({
+        dx: t * 34 + (rand() - 0.5) * 8,
+        angle: t * 0.85 + (rand() - 0.5) * 0.2,
+        length: (minL + rand() * (maxL - minL)) * (0.55 + 0.45 * centre),
+        width: (minW + rand() * (maxW - minW)) * (0.7 + 0.3 * centre)
+      });
+    }
+    clusters.push({ x, shards, size: maxL });
+  }
+  return clusters;
+}
+
+// A tiny four-pointed sparkle
+function ensureSparkleTexture(scene) {
+  if (scene.textures.exists("sparkle")) return;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0xd9b8ff, 0.35);
+  g.fillCircle(6, 6, 5);
+  g.fillStyle(0xffffff, 1);
+  g.fillTriangle(6, 0, 4.8, 6, 7.2, 6);
+  g.fillTriangle(6, 12, 4.8, 6, 7.2, 6);
+  g.fillTriangle(0, 6, 6, 4.8, 6, 7.2);
+  g.fillTriangle(12, 6, 6, 4.8, 6, 7.2);
+  g.generateTexture("sparkle", 12, 12);
+  g.destroy();
+}
+
+// 💎 Crystal Cave backdrop: a deep purple cave with rocky walls, stalactites and crystals hanging
+// from the ceiling, clusters of glowing purple crystals growing from the floor (each with a soft
+// light that slowly pulses), and tiny sparkles floating in the air.
+// Built the same way as the other backdrops: the rocks and crystals are baked into textures once.
+export function drawCrystalCaveBackdrop(scene, { colors, worldWidth, worldHeight }) {
+  const camW = scene.cameras.main.width;
+  const camH = scene.cameras.main.height;
+  const maxScrollX = Math.max(0, worldWidth - camW);
+  const maxScrollY = Math.max(0, worldHeight - camH);
+  const random = makeRandom(20261105);
+
+  // 1) Deep purple cave, fixed to the screen, with a faint purple light in the middle
+  const cave = scene.add.graphics();
+  cave.fillGradientStyle(colors[0], colors[1], colors[2], colors[3], 1);
+  cave.fillRect(-20, -20, camW + 40, camH + 40);
+  cave.setScrollFactor(0);
+  addGlow(scene, "cavelight", camW * 0.5, camH * 0.55, camW * 1.2, camH * 0.9, 0x7a3cff, 0.22);
+
+  const widthFor = (sx) => camW + 300 + sx * maxScrollX;
+  const bottomBase = (sy) => camH + sy * maxScrollY + 24;
+
+  // 2) Rock layers: far cave wall, stalactites on the ceiling, and nearer rocks on the floor.
+  //    [name, scrollX, scrollY, color, spikes config, up, baseline]
+  const rocks = [
+    ["crystal_far_rocks",   0.10, 0.06, 0x1d0f36, { minH: 120, maxH: 260, minW: 140, maxW: 280 }, true,  bottomBase(0.06)],
+    ["crystal_stalactites", 0.30, 0.18, 0x0f0720, { minH: 40,  maxH: 130, minW: 40,  maxW: 100 }, false, -24],
+    ["crystal_mid_rocks",   0.34, 0.20, 0x130a26, { minH: 50,  maxH: 140, minW: 90,  maxW: 190 }, true,  bottomBase(0.20)],
+  ];
+  const crystals = [
+    // [name, scrollX, scrollY, colours, alpha, cluster config, dir, baseline, glow]
+    ["crystal_far",     0.18, 0.10, "dim",    0.95, { minL: 45, maxL: 100, minGap: 200, maxGap: 340, minW: 13, maxW: 20 }, -1, bottomBase(0.10), false],
+    ["crystal_ceiling", 0.30, 0.18, "bright", 0.85, { minL: 28, maxL: 65,  minGap: 240, maxGap: 420, minW: 10, maxW: 16 },  1, -18,              true ],
+    ["crystal_near",    0.42, 0.24, "bright", 1.00, { minL: 75, maxL: 165, minGap: 240, maxGap: 400, minW: 20, maxW: 32 }, -1, bottomBase(0.24) - 12, true ],
+  ];
+  const palettes = {
+    dim:    { body: 0x4a2486, facet: 0x6a3fb8, edge: 0x9f7ae6 },
+    bright: { body: 0x8a3ffc, facet: 0xc39bff, edge: 0xf3e6ff },
+  };
+
+  const addRocks = ([name, sx, sy, color, cfg, up, baseline]) => {
+    const width = widthFor(sx);
+    bakeLayer(scene, name, { color, alpha: 1, width, maxH: cfg.maxH, up, spikes: planSpikes(width, cfg, random), baseline, scrollX: sx, scrollY: sy });
+  };
+
+  ensureSoftTexture(scene, "crystalglow", 0xa25bff);
+  const addCrystals = ([name, sx, sy, paletteName, alpha, cfg, dir, baseline, glow]) => {
+    const width = widthFor(sx);
+    const clusters = planClusters(width, cfg, random);
+    const pad = 4;
+    const h = Math.ceil(cfg.maxL) + pad * 2;
+    const baseInTexture = dir < 0 ? h - pad : pad;
+    const imageY = baseline - baseInTexture;
+
+    // 💡 A soft light behind each cluster (added first, so the crystals sit in front of it), pulsing slowly
+    if (glow) {
+      clusters.forEach(cl => {
+        const light = scene.add.image(cl.x, baseline + dir * cl.size * 0.55, "crystalglow")
+          .setDisplaySize(cl.size * 2.6, cl.size * 2.0)
+          .setScrollFactor(sx, sy)
+          .setBlendMode("ADD")
+          .setAlpha(0.35);
+        scene.tweens.add({
+          targets: light, alpha: 0.7, duration: 1600 + random() * 1600,
+          yoyo: true, repeat: -1, ease: "Sine.InOut", delay: random() * 1500
+        });
+      });
+    }
+
+    bakeChunks(scene, name, {
+      width, h, imageY, alpha, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        clusters.forEach(cl => {
+          if (cl.x + cfg.maxL < left - 4 || cl.x - cfg.maxL > left + chunkW + 4) return;   // nowhere near this chunk
+          cl.shards.forEach(sh => drawShard(g, {
+            x: cl.x + sh.dx - left, y: baseInTexture, angle: sh.angle, length: sh.length, width: sh.width, dir
+          }, palettes[paletteName]));
+        });
+      }
+    });
+  };
+
+  // Back to front: far wall, far crystals, ceiling (stalactites then hanging crystals), floor rocks, near crystals
+  addRocks(rocks[0]);
+  addCrystals(crystals[0]);
+  addRocks(rocks[1]);
+  addCrystals(crystals[1]);
+  addRocks(rocks[2]);
+  addCrystals(crystals[2]);
+
+  // 3) Tiny sparkles floating up through the cave and twinkling
+  ensureSparkleTexture(scene);
+  const sparkles = scene.add.particles(0, 0, "sparkle", {
+    x: { min: 0, max: camW },
+    y: { min: camH * 0.2, max: camH },
+    lifespan: 4500,
+    speedY: { min: -18, max: -6 },
+    speedX: { min: -6, max: 6 },
+    scale: { min: 0.5, max: 1.1 },
+    alpha: { values: [0, 1, 0.2, 0.9, 0] },
+    rotate: { min: 0, max: 90 },
+    frequency: 240,
+    quantity: 1,
+    advance: 4500
+  });
+  sparkles.setScrollFactor(0);
+}
