@@ -1,6 +1,6 @@
 {
-  "name": "Coin Collector",
-  "short_name": "CoinCollector",
+  "name": "Oni",
+  "short_name": "Oni",
   "description": "A fast-paced platformer — collect all coins before time runs out!",
   "start_url": "/",
   "display": "fullscreen",
