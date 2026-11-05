@@ -64,8 +64,11 @@ export const levels = [
     id: 1,
     name: "Crystal Cave",
     subtitle: "Level 2",
-    background: [0x1a1a3e, 0x1a1a3e, 0x2a0a4e, 0x2a0a4e],
-    groundColor: 0x445566,
+
+    // 💎 A deep purple cave full of glowing crystals, with sparkles in the air (see src/utils/Backdrops.js)
+    theme: "crystal",
+    background: [0x2a0f4f, 0x2a0f4f, 0x0c0420, 0x08021a],
+    groundColor: 0x3a2f55,
     platformColor: 0x6644aa,
     worldWidth: 3800,
     playerStart: [80, 490],
