@@ -519,3 +519,266 @@ export function drawCrystalCaveBackdrop(scene, { colors, worldWidth, worldHeight
   });
   sparkles.setScrollFactor(0);
 }
+
+// ─── Grasslands ──────────────────────────────────────────────────────────────────────────────
+
+// Height of a gentle rolling hill line at world position gx (several waves added together)
+function hillHeight(gx, base, amp, seed) {
+  return base
+    + Math.sin(gx / 310 + seed) * amp
+    + Math.sin(gx / 127 + seed * 2.3) * amp * 0.45
+    + Math.sin(gx / 53 + seed * 3.7) * amp * 0.12;
+}
+
+// A fluffy cumulus cloud: a shaded flat bottom, white puffs on top and a soft highlight.
+// It is drawn a little below the texture's bottom edge, so the bottom comes out flat.
+function makeCloudTexture(scene, key, w, h, rand) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const base = h;
+  const puffs = [];
+  const count = 5 + Math.floor(rand() * 3);
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1);
+    const middle = 1 - Math.abs(t - 0.5) * 1.3;                       // puffs are biggest in the middle
+    const r = h * (0.22 + 0.24 * middle + rand() * 0.08);
+    puffs.push({ x: w * (0.14 + t * 0.72) + (rand() - 0.5) * 10, y: base - r * 0.55 - middle * h * 0.12, r });
+  }
+  g.fillStyle(0xc9d7ea, 1);                                            // shaded underside
+  puffs.forEach(p => g.fillCircle(p.x, p.y + p.r * 0.3, p.r));
+  g.fillStyle(0xe9f1fa, 1);                                            // body
+  puffs.forEach(p => g.fillCircle(p.x, p.y, p.r * 0.95));
+  g.fillStyle(0xffffff, 1);                                            // sunlit tops
+  puffs.forEach(p => g.fillCircle(p.x - p.r * 0.12, p.y - p.r * 0.14, p.r * 0.78));
+  g.generateTexture(key, w, base);
+  g.destroy();
+}
+
+// ☀️ Grasslands backdrop: a deep blue sky fading to a pale horizon, a warm sun, hazy snow-capped
+// mountains, rolling hills with trees at two distances, fluffy clouds drifting at two depths,
+// and a few birds flying past. Built like the other backdrops: hills and trees are baked once.
+export function drawGrasslandsBackdrop(scene, { colors, worldWidth, worldHeight }) {
+  const camW = scene.cameras.main.width;
+  const camH = scene.cameras.main.height;
+  const maxScrollX = Math.max(0, worldWidth - camW);
+  const maxScrollY = Math.max(0, worldHeight - camH);
+  const random = makeRandom(20261107);
+  const widthFor = (sx) => camW + 300 + sx * maxScrollX;
+  const bottomBase = (sy) => camH + sy * maxScrollY + 24;
+
+  // 1) Sky, fixed to the screen
+  const sky = scene.add.graphics();
+  sky.fillGradientStyle(colors[0], colors[1], colors[2], colors[3], 1);
+  sky.fillRect(-20, -20, camW + 40, camH + 40);
+  sky.setScrollFactor(0);
+
+  // 2) Sun with a big warm glow
+  addGlow(scene, "sunglow", camW * 0.8, camH * 0.17, 520, 420, 0xfff1c4, 0.55);
+  const sun = scene.add.graphics().setScrollFactor(0);
+  sun.fillStyle(0xfffbe8, 0.5);
+  sun.fillCircle(camW * 0.8, camH * 0.17, 38);
+  sun.fillStyle(0xfffdf4, 1);
+  sun.fillCircle(camW * 0.8, camH * 0.17, 28);
+
+  // 3) Far clouds (small, pale, barely moving)
+  for (let i = 0; i < 4; i++) makeCloudTexture(scene, `cloud_small_${i}`, 150 + random() * 60, 52 + random() * 14, random);
+  for (let i = 0; i < 4; i++) makeCloudTexture(scene, `cloud_big_${i}`, 230 + random() * 90, 78 + random() * 22, random);
+  const addClouds = (prefix, sx, minY, maxY, scaleMin, scaleMax, alpha, spacing) => {
+    const width = widthFor(sx);
+    for (let x = random() * spacing; x < width; x += spacing * (0.7 + random() * 0.6)) {
+      const cloud = scene.add.image(x, minY + random() * (maxY - minY), `${prefix}_${Math.floor(random() * 4)}`)
+        .setScale(scaleMin + random() * (scaleMax - scaleMin))
+        .setAlpha(alpha)
+        .setScrollFactor(sx, 0.05);
+      scene.tweens.add({ targets: cloud, x: cloud.x + 40 + random() * 50, duration: 14000 + random() * 10000, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+    }
+  };
+  addClouds("cloud_small", 0.05, 40, 120, 0.6, 0.9, 0.8, 260);
+
+  // 4) Hazy blue mountains with snow on their peaks
+  {
+    const sx = 0.08, sy = 0.05, width = widthFor(sx);
+    const peaks = planSpikes(width, { minH: 120, maxH: 210, minW: 240, maxW: 420 }, random);
+    const h = 220;
+    bakeChunks(scene, "grass_mountains", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        peaks.forEach(p => {
+          const x0 = p.x - left;
+          if (x0 + p.w < -2 || x0 > chunkW + 2) return;
+          const tipX = x0 + p.w / 2 + p.lean, tipY = h - p.h;
+          g.fillStyle(0x8fb3d4, 1);
+          g.fillTriangle(x0, h, x0 + p.w, h, tipX, tipY);
+          g.fillStyle(0x7ea3c6, 1);                                       // shaded side
+          g.fillTriangle(tipX, tipY, x0 + p.w, h, tipX + p.w * 0.12, h);
+          const k = 0.22;                                                  // snow cap: the top 22%
+          g.fillStyle(0xf4f8fc, 1);
+          g.fillTriangle(tipX + (x0 - tipX) * k, tipY + p.h * k, tipX + (x0 + p.w - tipX) * k, tipY + p.h * k, tipX, tipY);
+        });
+      }
+    });
+  }
+
+  // 5) Near clouds (big and bright), in front of the mountains
+  addClouds("cloud_big", 0.14, 30, 150, 0.8, 1.15, 0.95, 420);
+
+  // 6) Rolling hills with trees: far ones hazy and pale, near ones rich green
+  const hillLayers = [
+    // [name, scrollX, scrollY, hill colour, tree colour, base height, amplitude, seed, tree spacing]
+    ["grass_far_hills",  0.2,  0.12, 0x8cc47a, 0x6fa864, 110, 26, 1.3, 60],
+    ["grass_near_hills", 0.36, 0.22, 0x5fa843, 0x3f7f2c, 70,  22, 4.1, 46],
+  ];
+  hillLayers.forEach(([name, sx, sy, color, treeColor, base, amp, seed, treeGap]) => {
+    const width = widthFor(sx);
+    const h = Math.ceil(base + amp * 1.6 + 60);
+    const trees = [];
+    for (let gx = random() * treeGap; gx < width; gx += treeGap * (0.4 + random() * 1.6)) {
+      if (random() < 0.35) continue;                                       // gaps between groves
+      trees.push({ gx, size: 9 + random() * 9, round: random() < 0.6 });
+    }
+    bakeChunks(scene, name, {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        // trees first, so the hill covers their bottoms
+        trees.forEach(t => {
+          const x = t.gx - left;
+          if (x < -30 || x > chunkW + 30) return;
+          const groundY = h - hillHeight(t.gx, base, amp, seed);
+          g.fillStyle(0x5a4030, 1);
+          g.fillRect(x - 1.5, groundY - t.size * 0.9, 3, t.size);
+          g.fillStyle(treeColor, 1);
+          if (t.round) {
+            g.fillCircle(x, groundY - t.size * 1.3, t.size * 0.75);
+            g.fillCircle(x - t.size * 0.45, groundY - t.size * 0.95, t.size * 0.55);
+            g.fillCircle(x + t.size * 0.45, groundY - t.size * 0.95, t.size * 0.55);
+            g.fillStyle(0xffffff, 0.12);
+            g.fillCircle(x - t.size * 0.2, groundY - t.size * 1.5, t.size * 0.35);
+          } else {
+            g.fillTriangle(x - t.size * 0.6, groundY - t.size * 0.5, x + t.size * 0.6, groundY - t.size * 0.5, x, groundY - t.size * 2.4);
+          }
+        });
+        g.fillStyle(color, 1);
+        const pts = [{ x: -4, y: h }];
+        for (let lx = -4; lx <= chunkW + 4; lx += 8) pts.push({ x: lx, y: h - hillHeight(left + lx, base, amp, seed) });
+        pts.push({ x: chunkW + 4, y: h });
+        g.fillPoints(pts, true);
+        g.fillStyle(0xffffff, 0.08);                                         // light catching the hilltops
+        const rim = [];
+        for (let lx = -4; lx <= chunkW + 4; lx += 8) rim.push({ x: lx, y: h - hillHeight(left + lx, base, amp, seed) });
+        for (let i = rim.length - 1; i >= 0; i--) rim.push({ x: rim[i].x, y: rim[i].y + 6 });
+        g.fillPoints(rim, true);
+      }
+    });
+  });
+
+  // 7) A few birds flapping across the sky now and then
+  for (let i = 0; i < 3; i++) {
+    const bird = scene.add.graphics().setScrollFactor(0);
+    bird.lineStyle(2, 0x2c3e50, 0.8);
+    bird.beginPath(); bird.moveTo(-7, -2); bird.lineTo(0, 2); bird.lineTo(7, -2); bird.strokePath();
+    const y = 50 + random() * 90;
+    bird.setPosition(-30, y);
+    scene.tweens.add({ targets: bird, scaleY: 0.3, duration: 220, yoyo: true, repeat: -1 });
+    scene.tweens.add({
+      targets: bird, x: camW + 30, y: y - 20 + random() * 40, duration: 16000 + random() * 8000,
+      repeat: -1, delay: i * 5000 + random() * 3000, repeatDelay: 4000 + random() * 6000
+    });
+  }
+}
+
+// 🌱 A grass-topped platform: layered soil with pebbles, a thick grass cap with blades sticking up,
+// and (on the ground) a few flowers. Floating ones get a rounded underside and dangling roots.
+// Returns how far the grass sticks up above the platform's top, so the caller can place the picture.
+export function bakeGrassPlatform(scene, key, w, h, floating, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(9000 + seed * 131);
+  const over = 10;                         // room above the platform for grass blades and flowers
+  const under = floating ? 8 : 0;          // room below for roots
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const top = over;
+
+  // Soil: three bands, darker further down
+  const soil = [0x8b5a2b, 0x76491f, 0x5f3a19];
+  const bandH = h / 3;
+  soil.forEach((c, i) => {
+    g.fillStyle(c, 1);
+    if (floating && i === 2) g.fillRoundedRect(0, top + bandH * i, w, bandH + 1, { tl: 0, tr: 0, bl: 6, br: 6 });
+    else g.fillRect(0, top + bandH * i, w, bandH + 1);
+  });
+  // Pebbles
+  for (let i = 0; i < w / 18; i++) {
+    g.fillStyle(rand() < 0.5 ? 0x9c8a74 : 0x6f6255, 1);
+    g.fillEllipse(4 + rand() * (w - 8), top + 9 + rand() * (h - 12), 3 + rand() * 4, 2 + rand() * 2.5);
+  }
+  // Roots dangling under floating platforms
+  if (floating) {
+    g.lineStyle(1.5, 0x5a3a1c, 1);
+    for (let x = 10 + rand() * 12; x < w - 8; x += 16 + rand() * 18) {
+      g.beginPath(); g.moveTo(x, top + h - 2);
+      g.lineTo(x + (rand() - 0.5) * 6, top + h + 3 + rand() * 4);
+      g.strokePath();
+    }
+  }
+
+  // Grass cap: a thick green strip with a wavy lower edge and a light top line
+  g.fillStyle(0x4c9a2a, 1);
+  g.fillRect(0, top, w, 7);
+  for (let x = 0; x <= w; x += 6) g.fillCircle(x, top + 7, 2.5 + rand() * 2);
+  g.fillStyle(0x6cc24a, 1);
+  g.fillRect(0, top, w, 3);
+  if (floating) {                          // rounded grassy ends
+    g.fillStyle(0x4c9a2a, 1);
+    g.fillCircle(0, top + 4, 4);
+    g.fillCircle(w, top + 4, 4);
+  }
+
+  // Grass blades
+  for (let x = 1; x < w - 1; x += 2 + rand() * 3) {
+    const bh = 3 + rand() * 6;
+    const lean = (rand() - 0.5) * 3;
+    g.fillStyle(rand() < 0.5 ? 0x5fb53a : 0x3f8a26, 1);
+    g.fillTriangle(x - 1.3, top + 2, x + 1.3, top + 2, x + lean, top + 2 - bh);
+  }
+
+  // Flowers on the ground
+  if (!floating) {
+    const petals = [0xffffff, 0xffe066, 0xff8fb1, 0xc39bff];
+    for (let x = 12 + rand() * 30; x < w - 8; x += 30 + rand() * 60) {
+      const fh = 5 + rand() * 3;
+      g.lineStyle(1, 0x3f8a26, 1);
+      g.lineBetween(x, top + 2, x, top + 2 - fh);
+      g.fillStyle(petals[Math.floor(rand() * petals.length)], 1);
+      g.fillCircle(x, top + 2 - fh, 2.2);
+      g.fillStyle(0xffc533, 1);
+      g.fillCircle(x, top + 2 - fh, 0.9);
+    }
+  }
+
+  g.generateTexture(key, w, over + h + under);
+  g.destroy();
+  return over;
+}
+
+// 🪵 A wooden plank platform (for the moving platforms on the Grasslands)
+export function bakeWoodPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(7000 + seed * 53);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x6b4423, 1);
+  g.fillRoundedRect(0, 0, w, h, 4);
+  g.fillStyle(0x9a6435, 1);
+  g.fillRoundedRect(1, 1, w - 2, h - 5, 3);
+  g.fillStyle(0xb37a45, 1);
+  g.fillRect(2, 2, w - 4, 3);                        // light top edge
+  g.lineStyle(1, 0x5a3a1c, 0.8);
+  for (let x = 18 + rand() * 6; x < w - 8; x += 20 + rand() * 8) g.lineBetween(x, 2, x, h - 5);   // plank joins
+  g.lineStyle(1, 0x7d5129, 0.7);
+  for (let i = 0; i < 3; i++) {                       // wood grain
+    const y = 6 + rand() * (h - 13);
+    g.lineBetween(4 + rand() * 10, y, w - 4 - rand() * 10, y);
+  }
+  g.fillStyle(0x3a2a1a, 1);                           // nails
+  [5, w - 5].forEach(x => { g.fillCircle(x, 5, 1.2); g.fillCircle(x, h - 8, 1.2); });
+  g.generateTexture(key, w, h);
+  g.destroy();
+}

@@ -1,6 +1,9 @@
 import Phaser from "phaser";
 import { levels } from "../data/levels.js";
-import { drawIceCaveBackdrop, drawDeepSeaBackdrop, drawNightForestBackdrop, drawCrystalCaveBackdrop } from "../utils/Backdrops.js";
+import {
+  drawIceCaveBackdrop, drawDeepSeaBackdrop, drawNightForestBackdrop, drawCrystalCaveBackdrop,
+  drawGrasslandsBackdrop, bakeGrassPlatform, bakeWoodPlatform
+} from "../utils/Backdrops.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
@@ -55,7 +58,10 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
     // 🎨 Background
-    if (levelData.theme === "crystal") {
+    if (levelData.theme === "grass") {
+      // ☀️ Grasslands: sun, snowy mountains, rolling hills with trees, fluffy clouds, birds (see src/utils/Backdrops.js)
+      drawGrasslandsBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    } else if (levelData.theme === "crystal") {
       // 💎 Crystal Cave: purple cave, glowing crystals on the floor and ceiling, sparkles (see src/utils/Backdrops.js)
       drawCrystalCaveBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
     } else if (levelData.theme === "ice") {
@@ -99,14 +105,23 @@ export default class GameScene extends Phaser.Scene {
     this.platforms = this.physics.add.staticGroup();
     this.platformData = platformData;
 
-    platformData.forEach(([x, y, w, h, color]) => {
-      const gfx = this.add.graphics();
-      gfx.fillStyle(color);
-      gfx.fillRect(0, 0, w, h);
-      gfx.fillStyle(0xffffff, 0.2);
-      gfx.fillRect(0, 0, w, 4);
-      gfx.x = x;
-      gfx.y = y;
+    // 🌱 On the Grasslands, platforms are grass-topped soil (drawn once into a picture each)
+    const grassy = levelData.theme === "grass";
+
+    platformData.forEach(([x, y, w, h, color], i) => {
+      if (grassy) {
+        const key = `grass_platform_${i}`;
+        const over = bakeGrassPlatform(this, key, w, h, h < 30, i);
+        this.add.image(x, y - over, key).setOrigin(0, 0);
+      } else {
+        const gfx = this.add.graphics();
+        gfx.fillStyle(color);
+        gfx.fillRect(0, 0, w, h);
+        gfx.fillStyle(0xffffff, 0.2);
+        gfx.fillRect(0, 0, w, 4);
+        gfx.x = x;
+        gfx.y = y;
+      }
 
       const platform = this.platforms.create(x + w / 2, y + h / 2, null);
       platform.setDisplaySize(w, h);
@@ -114,15 +129,38 @@ export default class GameScene extends Phaser.Scene {
       platform.setVisible(false);
     });
 
+    // 🕳️ On the Grasslands the hills behind would make gaps in the ground look like grass,
+    // so each gap gets a dark pit, making it obvious there's nothing to stand on
+    if (grassy) {
+      const ground = platformData.filter(([, , , h]) => h >= 30).sort((a, b) => a[0] - b[0]);
+      const pits = this.add.graphics();
+      for (let i = 0; i < ground.length - 1; i++) {
+        const [gx, gy, gw] = ground[i];
+        const gapX = gx + gw, gapW = ground[i + 1][0] - gapX;
+        if (gapW <= 0) continue;
+        pits.fillStyle(0x2b1a0e, 1);
+        pits.fillRect(gapX, gy + 8, gapW, WORLD_HEIGHT - gy);
+        pits.fillStyle(0x120a05, 1);
+        pits.fillRect(gapX + 4, gy + 14, gapW - 8, WORLD_HEIGHT - gy);
+      }
+    }
+
     // 🛗 Moving platforms: [x, y, width, moveX, speed]
     this.movingPlatforms = [];
-    (levelData.movingPlatforms || []).forEach(([x, y, w, moveX, speed]) => {
+    (levelData.movingPlatforms || []).forEach(([x, y, w, moveX, speed], i) => {
       const h = 20;
-      const gfx = this.add.graphics();
-      gfx.fillStyle(levelData.platformColor);
-      gfx.fillRect(0, 0, w, h);
-      gfx.fillStyle(0xffffff, 0.35);
-      gfx.fillRect(0, 0, w, 4);
+      let gfx;
+      if (grassy) {
+        // 🪵 wooden planks
+        bakeWoodPlatform(this, `wood_platform_${i}`, w, h, i);
+        gfx = this.add.image(x, y, `wood_platform_${i}`).setOrigin(0, 0);
+      } else {
+        gfx = this.add.graphics();
+        gfx.fillStyle(levelData.platformColor);
+        gfx.fillRect(0, 0, w, h);
+        gfx.fillStyle(0xffffff, 0.35);
+        gfx.fillRect(0, 0, w, 4);
+      }
 
       const body = this.physics.add.image(x + w / 2, y + h / 2, null);
       body.setDisplaySize(w, h);

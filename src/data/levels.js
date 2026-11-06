@@ -3,7 +3,10 @@ export const levels = [
     id: 0,
     name: "Grasslands",
     subtitle: "Level 1",
-    background: [0x87ceeb, 0x87ceeb, 0xffffff, 0xffffff], // sky gradient
+
+    // ☀️ Sunny meadow: snowy mountains, rolling hills with trees, fluffy clouds, grassy platforms (see src/utils/Backdrops.js)
+    theme: "grass",
+    background: [0x2f7fd0, 0x2f7fd0, 0xa9dcff, 0xe2f4ff], // deep blue sky fading to a pale horizon
     groundColor: 0x4a7c2f,
     platformColor: 0x8B4513,
     worldWidth: 3200,
