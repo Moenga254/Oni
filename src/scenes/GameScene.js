@@ -2,7 +2,8 @@ import Phaser from "phaser";
 import { levels } from "../data/levels.js";
 import {
   drawIceCaveBackdrop, drawDeepSeaBackdrop, drawNightForestBackdrop, drawCrystalCaveBackdrop,
-  drawGrasslandsBackdrop, bakeGrassPlatform, bakeWoodPlatform
+  drawGrasslandsBackdrop, bakeGrassPlatform, bakeWoodPlatform,
+  drawSkyKingdomBackdrop, bakeSkyIslandPlatform, bakeMarblePlatform, bakeCloudPlatform
 } from "../utils/Backdrops.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
@@ -61,6 +62,9 @@ export default class GameScene extends Phaser.Scene {
     if (levelData.theme === "grass") {
       // ☀️ Grasslands: sun, snowy mountains, rolling hills with trees, fluffy clouds, birds (see src/utils/Backdrops.js)
       drawGrasslandsBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    } else if (levelData.theme === "sunset") {
+      // 🏰 Sky Kingdom: sunset sky, setting sun, castles on far islands, a sea of clouds, birds (see src/utils/Backdrops.js)
+      drawSkyKingdomBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
     } else if (levelData.theme === "crystal") {
       // 💎 Crystal Cave: purple cave, glowing crystals on the floor and ceiling, sparkles (see src/utils/Backdrops.js)
       drawCrystalCaveBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
@@ -106,13 +110,24 @@ export default class GameScene extends Phaser.Scene {
     this.platformData = platformData;
 
     // 🌱 On the Grasslands, platforms are grass-topped soil (drawn once into a picture each)
+    // 🏝️ In the Sky Kingdom, the ground is floating island rock and the small platforms are marble slabs
     const grassy = levelData.theme === "grass";
+    const skyKingdom = levelData.theme === "sunset";
 
     platformData.forEach(([x, y, w, h, color], i) => {
       if (grassy) {
         const key = `grass_platform_${i}`;
         const over = bakeGrassPlatform(this, key, w, h, h < 30, i);
         this.add.image(x, y - over, key).setOrigin(0, 0);
+      } else if (skyKingdom) {
+        const key = `sky_platform_${i}`;
+        if (h >= 30) {
+          const over = bakeSkyIslandPlatform(this, key, w, h, i);
+          this.add.image(x, y - over, key).setOrigin(0, 0);
+        } else {
+          bakeMarblePlatform(this, key, w, h, i);
+          this.add.image(x, y, key).setOrigin(0, 0);
+        }
       } else {
         const gfx = this.add.graphics();
         gfx.fillStyle(color);
@@ -150,10 +165,15 @@ export default class GameScene extends Phaser.Scene {
     (levelData.movingPlatforms || []).forEach(([x, y, w, moveX, speed], i) => {
       const h = 20;
       let gfx;
+      let overY = 0;   // how far the picture sticks up above the platform's top
       if (grassy) {
         // 🪵 wooden planks
         bakeWoodPlatform(this, `wood_platform_${i}`, w, h, i);
         gfx = this.add.image(x, y, `wood_platform_${i}`).setOrigin(0, 0);
+      } else if (skyKingdom) {
+        // ☁️ little clouds to ride on
+        overY = bakeCloudPlatform(this, `cloud_platform_${i}`, w, h, i);
+        gfx = this.add.image(x, y - overY, `cloud_platform_${i}`).setOrigin(0, 0);
       } else {
         gfx = this.add.graphics();
         gfx.fillStyle(levelData.platformColor);
@@ -170,7 +190,7 @@ export default class GameScene extends Phaser.Scene {
       body.setVelocityX(speed);
 
       this.movingPlatforms.push({
-        body, gfx, w, h,
+        body, gfx, w, h, overY,
         left: x + w / 2,
         right: x + moveX + w / 2,
         speed, direction: 1
@@ -796,7 +816,7 @@ export default class GameScene extends Phaser.Scene {
       else if (mp.body.x <= mp.left) mp.direction = 1;
       mp.body.setVelocityX(mp.speed * mp.direction);
       mp.gfx.x = mp.body.x - mp.w / 2;
-      mp.gfx.y = mp.body.y - mp.h / 2;
+      mp.gfx.y = mp.body.y - mp.h / 2 - mp.overY;
     });
 
     // 🔄 Sync coins

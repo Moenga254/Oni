@@ -152,7 +152,11 @@ export const levels = [
     id: 2,
     name: "Sky Kingdom",
     subtitle: "Level 3",
-    background: [0xff6600, 0xff8800, 0xffcc00, 0xffee00],
+
+    // 🏰 A kingdom above the clouds at sunset: setting sun, castles on far islands, a sea of clouds,
+    // floating rock islands, marble slabs and clouds to ride on (see src/utils/Backdrops.js)
+    theme: "sunset",
+    background: [0x26285e, 0xc65f7a, 0xff9b4a, 0xffd57e],   // indigo -> rose -> orange -> gold
     groundColor: 0xcc4400,
     platformColor: 0xddaa00,
     worldWidth: 4400,
