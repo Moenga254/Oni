@@ -1,5 +1,6 @@
 import SoundManager from "../utils/SoundManager.js";
 import { DIFFICULTIES, getDifficulty, saveDifficulty } from "../data/Difficulty.js";
+import { makeButton } from "../utils/Button.js";
 
 // 🏯 The title screen. The content is laid out for an 800x450 screen and centred on wider or taller ones;
 // the background always fills the whole screen.
@@ -105,8 +106,8 @@ export default class MenuScene extends Phaser.Scene {
     };
     const startGame = () => go("GameScene");
 
-    this.makeButton(cx - 105, top + 352, 190, 50, "▶  PLAY", 0xe2552b, startGame);
-    this.makeButton(cx + 105, top + 352, 190, 50, "☰  LEVELS", 0x4a3485, () => go("LevelSelectScene"));
+    makeButton(this, cx - 105, top + 352, 190, 50, "▶  PLAY", 0xe2552b, startGame);
+    makeButton(this, cx + 105, top + 352, 190, 50, "☰  LEVELS", 0x4a3485, () => go("LevelSelectScene"));
 
     // Start hint and controls
     const hint = this.add.text(cx, top + 400, "Press SPACE or tap anywhere to start", {
@@ -243,34 +244,6 @@ export default class MenuScene extends Phaser.Scene {
     coin.fillCircle(-5, -5, 4);
     this.tweens.add({ targets: coin, scaleX: 0.12, duration: 520, yoyo: true, repeat: -1, ease: "Sine.InOut", delay });
     this.tweens.add({ targets: coin, y: y - 8, duration: 1300, yoyo: true, repeat: -1, ease: "Sine.InOut", delay });
-  }
-
-  // A rounded, shiny button that grows a little when you point at it
-  makeButton(x, y, w, h, label, color, onClick) {
-    const hoverColor = Phaser.Display.Color.IntegerToColor(color).brighten(12).color;
-    const g = this.add.graphics();
-    const draw = (hover) => {
-      g.clear();
-      g.fillStyle(0x000000, 0.35);
-      g.fillRoundedRect(-w / 2 + 3, -h / 2 + 5, w, h, 14);
-      g.fillStyle(hover ? hoverColor : color, 1);
-      g.fillRoundedRect(-w / 2, -h / 2, w, h, 14);
-      g.fillStyle(0xffffff, 0.16);
-      g.fillRoundedRect(-w / 2 + 4, -h / 2 + 4, w - 8, h / 2 - 4, { tl: 10, tr: 10, bl: 4, br: 4 });
-      g.lineStyle(2, 0xffffff, hover ? 0.6 : 0.3);
-      g.strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
-    };
-    draw(false);
-    const text = this.add.text(0, 0, label, {
-      fontSize: "22px", fontStyle: "bold", color: "#ffffff", stroke: "#000000", strokeThickness: 3
-    }).setOrigin(0.5);
-    const button = this.add.container(x, y, [g, text]);
-
-    const zone = this.add.zone(x, y, w, h).setInteractive({ useHandCursor: true });
-    zone.on("pointerover", () => { draw(true);  this.tweens.add({ targets: button, scale: 1.06, duration: 120 }); });
-    zone.on("pointerout",  () => { draw(false); this.tweens.add({ targets: button, scale: 1, duration: 120 }); });
-    zone.on("pointerdown", onClick);
-    return button;
   }
 
   // A soft round glow, drawn once and reused
