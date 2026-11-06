@@ -532,7 +532,9 @@ function hillHeight(gx, base, amp, seed) {
 
 // A fluffy cumulus cloud: a shaded flat bottom, white puffs on top and a soft highlight.
 // It is drawn a little below the texture's bottom edge, so the bottom comes out flat.
-function makeCloudTexture(scene, key, w, h, rand) {
+// colors: { shadow, body, light, lightSide } (lightSide -1..1 moves the highlight towards the sun)
+const DAY_CLOUD = { shadow: 0xc9d7ea, body: 0xe9f1fa, light: 0xffffff, lightSide: -0.12 };
+function makeCloudTexture(scene, key, w, h, rand, colors = DAY_CLOUD) {
   if (scene.textures.exists(key)) scene.textures.remove(key);
   const g = scene.make.graphics({ x: 0, y: 0, add: false });
   const base = h;
@@ -544,12 +546,12 @@ function makeCloudTexture(scene, key, w, h, rand) {
     const r = h * (0.22 + 0.24 * middle + rand() * 0.08);
     puffs.push({ x: w * (0.14 + t * 0.72) + (rand() - 0.5) * 10, y: base - r * 0.55 - middle * h * 0.12, r });
   }
-  g.fillStyle(0xc9d7ea, 1);                                            // shaded underside
+  g.fillStyle(colors.shadow, 1);                                       // shaded underside
   puffs.forEach(p => g.fillCircle(p.x, p.y + p.r * 0.3, p.r));
-  g.fillStyle(0xe9f1fa, 1);                                            // body
+  g.fillStyle(colors.body, 1);                                         // body
   puffs.forEach(p => g.fillCircle(p.x, p.y, p.r * 0.95));
-  g.fillStyle(0xffffff, 1);                                            // sunlit tops
-  puffs.forEach(p => g.fillCircle(p.x - p.r * 0.12, p.y - p.r * 0.14, p.r * 0.78));
+  g.fillStyle(colors.light, 1);                                        // sunlit tops
+  puffs.forEach(p => g.fillCircle(p.x + p.r * colors.lightSide, p.y - p.r * 0.14, p.r * 0.78));
   g.generateTexture(key, w, base);
   g.destroy();
 }
@@ -781,4 +783,255 @@ export function bakeWoodPlatform(scene, key, w, h, seed) {
   [5, w - 5].forEach(x => { g.fillCircle(x, 5, 1.2); g.fillCircle(x, h - 8, 1.2); });
   g.generateTexture(key, w, h);
   g.destroy();
+}
+
+// ─── Sky Kingdom ─────────────────────────────────────────────────────────────────────────────
+
+// Clouds lit by a low evening sun on the right: purple shadows, peach bodies, golden edges
+const SUNSET_CLOUD = { shadow: 0x8a5a8c, body: 0xf0a07c, light: 0xffd9a0, lightSide: 0.18 };
+
+// A long bank of cloud (the "sea of clouds" below the kingdom), filled solid underneath
+function bakeCloudBank(scene, name, { width, h, top, imageY, scrollX, scrollY, colors, rand }) {
+  const puffs = [];
+  for (let gx = -40; gx < width + 80; gx += 26 + rand() * 30) puffs.push({ gx, r: 26 + rand() * 30, dy: (rand() - 0.5) * 18 });
+  bakeChunks(scene, name, {
+    width, h, imageY, alpha: 1, scrollX, scrollY,
+    draw: (g, left, chunkW) => {
+      const near = puffs.filter(p => p.gx - left > -70 && p.gx - left < chunkW + 70);
+      g.fillStyle(colors.shadow, 1);
+      g.fillRect(0, top + 30, chunkW, h - top - 30);
+      near.forEach(p => g.fillCircle(p.gx - left, top + p.r * 0.9 + p.dy + 10, p.r));
+      g.fillStyle(colors.body, 1);
+      near.forEach(p => g.fillCircle(p.gx - left, top + p.r * 0.9 + p.dy, p.r * 0.92));
+      g.fillStyle(colors.light, 1);
+      near.forEach(p => g.fillCircle(p.gx - left + p.r * 0.2, top + p.r * 0.75 + p.dy, p.r * 0.6));
+    }
+  });
+}
+
+// 🏰 Sky Kingdom backdrop: an evening sky from deep indigo to glowing gold, a big setting sun,
+// thin pink streaks of high cloud, distant floating islands with castles, sunset-lit clouds,
+// a sea of clouds below and birds flying past. Built like the other backdrops (baked once).
+export function drawSkyKingdomBackdrop(scene, { colors, worldWidth, worldHeight }) {
+  const camW = scene.cameras.main.width;
+  const camH = scene.cameras.main.height;
+  const maxScrollX = Math.max(0, worldWidth - camW);
+  const maxScrollY = Math.max(0, worldHeight - camH);
+  const random = makeRandom(20261108);
+  const widthFor = (sx) => camW + 300 + sx * maxScrollX;
+  const bottomBase = (sy) => camH + sy * maxScrollY + 24;
+
+  // 1) Evening sky, fixed to the screen: indigo -> rose -> orange -> gold, in three bands
+  const sky = scene.add.graphics().setScrollFactor(0);
+  const bands = [[colors[0], colors[1], 0, 0.38], [colors[1], colors[2], 0.38, 0.7], [colors[2], colors[3], 0.7, 1.05]];
+  bands.forEach(([a, b, from, to]) => {
+    sky.fillGradientStyle(a, a, b, b, 1);
+    sky.fillRect(-20, camH * from - (from === 0 ? 20 : 0), camW + 40, camH * (to - from) + (from === 0 ? 20 : 1));
+  });
+
+  // 2) The first stars, faint, at the very top
+  const stars = scene.add.graphics().setScrollFactor(0.01, 0);
+  for (let i = 0; i < 30; i++) {
+    stars.fillStyle(0xffffff, 0.15 + random() * 0.35);
+    stars.fillCircle(random() * (camW + 100), random() * camH * 0.22, random() < 0.2 ? 1.3 : 0.8);
+  }
+
+  // 3) The setting sun with a wide warm glow
+  const sunX = camW * 0.72, sunY = camH * 0.6;
+  addGlow(scene, "sunset_glow_wide", sunX, sunY, camW * 1.3, camH * 0.9, 0xff9a4a, 0.45);
+  addGlow(scene, "sunset_glow", sunX, sunY, 300, 300, 0xffd27a, 0.7);
+  const sun = scene.add.graphics().setScrollFactor(0);
+  sun.fillStyle(0xfff3c4, 1);
+  sun.fillCircle(sunX, sunY, 46);
+
+  // 4) Thin streaks of high cloud, pink underneath, drifting very slowly
+  const streaks = scene.add.graphics().setScrollFactor(0.03, 0);
+  for (let i = 0; i < 9; i++) {
+    const x = random() * (camW + 200), y = 40 + random() * camH * 0.35, w = 120 + random() * 220;
+    streaks.fillStyle(0xffb3a7, 0.22 + random() * 0.15);
+    streaks.fillEllipse(x, y, w, 5 + random() * 5);
+    streaks.fillStyle(0xffe1c4, 0.25);
+    streaks.fillEllipse(x + 10, y - 2, w * 0.7, 3);
+  }
+  scene.tweens.add({ targets: streaks, x: 60, duration: 30000, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+
+  // 5) Far-off floating islands, some with castles, in hazy purple
+  {
+    const sx = 0.1, sy = 0.05, width = widthFor(sx), h = 230;
+    const islands = [];
+    for (let gx = 120 + random() * 200; gx < width; gx += 260 + random() * 320) {
+      islands.push({ gx, w: 70 + random() * 130, y: 70 + random() * 100, castle: random() < 0.55, seed: random() });
+    }
+    bakeChunks(scene, "sky_far_islands", {
+      width, h, imageY: camH * 0.12 + sy * maxScrollY * 0.3, alpha: 0.9, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        islands.forEach(is => {
+          const x = is.gx - left;
+          if (x + is.w < -40 || x - 40 > chunkW) return;
+          const top = is.y;
+          // rock underneath, pointing down, and a flat grassy top
+          g.fillStyle(0x6a4a7e, 1);
+          g.fillTriangle(x, top, x + is.w, top, x + is.w * 0.45, top + is.w * 0.6);
+          g.fillTriangle(x + is.w * 0.15, top, x + is.w * 0.7, top, x + is.w * 0.3, top + is.w * 0.8);
+          g.fillStyle(0x7d5a8c, 1);
+          g.fillRect(x - 2, top - 5, is.w + 4, 7);
+          if (is.castle) {
+            // a little castle: walls, towers with pointed roofs and a flag
+            const cx = x + is.w * 0.5, base = top - 4, cw = Math.min(70, is.w * 0.6);
+            g.fillStyle(0x5c4070, 1);
+            g.fillRect(cx - cw / 2, base - 18, cw, 18);
+            for (let bx = cx - cw / 2; bx < cx + cw / 2 - 3; bx += 7) g.fillRect(bx, base - 22, 4, 4);   // battlements
+            [[cx - cw / 2, 30], [cx + cw / 2 - 8, 30], [cx - 5, 44]].forEach(([tx, th]) => {
+              g.fillRect(tx, base - th, 10, th);
+              g.fillTriangle(tx - 2, base - th, tx + 12, base - th, tx + 5, base - th - 14);
+            });
+            g.lineStyle(1, 0x5c4070, 1);
+            g.lineBetween(cx, base - 58, cx, base - 66);
+            g.fillStyle(0xffc46b, 0.9);
+            g.fillTriangle(cx, base - 66, cx + 7, base - 64, cx, base - 62);
+            g.fillStyle(0xffd27a, 0.8);                                    // lit windows
+            g.fillRect(cx - 2, base - 30, 3, 4);
+            g.fillRect(cx - cw / 2 + 3, base - 20, 3, 4);
+          }
+        });
+      }
+    });
+  }
+
+  // 6) Sunset-lit clouds at two depths, drifting slowly
+  for (let i = 0; i < 4; i++) makeCloudTexture(scene, `sun_cloud_small_${i}`, 150 + random() * 60, 50 + random() * 14, random, SUNSET_CLOUD);
+  for (let i = 0; i < 4; i++) makeCloudTexture(scene, `sun_cloud_big_${i}`, 230 + random() * 90, 76 + random() * 20, random, SUNSET_CLOUD);
+  const addClouds = (prefix, sx, minY, maxY, scaleMin, scaleMax, alpha, spacing) => {
+    const width = widthFor(sx);
+    for (let x = random() * spacing; x < width; x += spacing * (0.7 + random() * 0.6)) {
+      const cloud = scene.add.image(x, minY + random() * (maxY - minY), `${prefix}_${Math.floor(random() * 4)}`)
+        .setScale(scaleMin + random() * (scaleMax - scaleMin))
+        .setAlpha(alpha)
+        .setScrollFactor(sx, 0.05);
+      scene.tweens.add({ targets: cloud, x: cloud.x + 40 + random() * 50, duration: 15000 + random() * 10000, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+    }
+  };
+  addClouds("sun_cloud_small", 0.06, 50, 150, 0.6, 0.9, 0.85, 300);
+
+  // 7) The sea of clouds below: a far bank in shadow, then a nearer, brighter bank
+  bakeCloudBank(scene, "sky_cloud_sea_far", {
+    width: widthFor(0.2), h: 170, top: 20, imageY: bottomBase(0.12) - 170 + 10, scrollX: 0.2, scrollY: 0.12, rand: random,
+    colors: { shadow: 0x6a4a7a, body: 0xa86f86, light: 0xd08f8c }
+  });
+  addClouds("sun_cloud_big", 0.28, camH * 0.26, camH * 0.36, 0.7, 0.9, 0.7, 560);
+  bakeCloudBank(scene, "sky_cloud_sea_near", {
+    width: widthFor(0.42), h: 140, top: 10, imageY: bottomBase(0.24) - 140 + 30, scrollX: 0.42, scrollY: 0.24, rand: random,
+    colors: { shadow: 0x7e5486, body: 0xd88e84, light: 0xf0b592 }   // a little softer than the floating clouds
+  });
+
+  // 8) Birds, dark against the sunset
+  for (let i = 0; i < 4; i++) {
+    const bird = scene.add.graphics().setScrollFactor(0);
+    bird.lineStyle(2, 0x3a2340, 0.85);
+    bird.beginPath(); bird.moveTo(-7, -2); bird.lineTo(0, 2); bird.lineTo(7, -2); bird.strokePath();
+    const y = 60 + random() * 110;
+    bird.setPosition(camW + 30, y);
+    scene.tweens.add({ targets: bird, scaleY: 0.3, duration: 240, yoyo: true, repeat: -1 });
+    scene.tweens.add({
+      targets: bird, x: -30, y: y - 25 + random() * 50, duration: 15000 + random() * 8000,
+      repeat: -1, delay: i * 3500 + random() * 3000, repeatDelay: 3000 + random() * 6000
+    });
+  }
+}
+
+// 🏝️ A piece of floating sky island (the Sky Kingdom ground): grass lit gold by the sunset on top,
+// layered rock below with cracks, darker cliff edges and a few hanging vines.
+// Returns how far the grass sticks up above the platform's top.
+export function bakeSkyIslandPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(5000 + seed * 97);
+  const over = 8;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const top = over;
+
+  const rock = [0x9a6448, 0x83503c, 0x6b3f36];
+  const bandH = h / 3;
+  rock.forEach((c, i) => { g.fillStyle(c, 1); g.fillRect(0, top + bandH * i, w, bandH + 1); });
+  g.fillStyle(0x4f2f36, 0.55);                              // shaded cliff edges
+  g.fillRect(0, top, 4, h);
+  g.fillRect(w - 4, top, 4, h);
+  g.lineStyle(1, 0x55323a, 0.8);                            // cracks
+  for (let x = 14 + rand() * 20; x < w - 10; x += 30 + rand() * 40) {
+    const y = top + 9 + rand() * (h - 14);
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + 4 + rand() * 5, y + 3); g.lineTo(x + 8 + rand() * 6, y + 1); g.strokePath();
+  }
+
+  // Grass, lit warm gold on top
+  g.fillStyle(0x6f9a36, 1);
+  g.fillRect(0, top, w, 7);
+  for (let x = 0; x <= w; x += 6) g.fillCircle(x, top + 7, 2 + rand() * 2);
+  g.fillStyle(0xc9d65a, 1);
+  g.fillRect(0, top, w, 2.5);
+  for (let x = 1; x < w - 1; x += 2 + rand() * 3) {
+    g.fillStyle(rand() < 0.5 ? 0x8fb440 : 0xd4d86a, 1);
+    g.fillTriangle(x - 1.2, top + 2, x + 1.2, top + 2, x + (rand() - 0.5) * 3, top + 2 - (3 + rand() * 5));
+  }
+
+  // Vines hanging over the edges
+  g.lineStyle(1.5, 0x5f8a2e, 1);
+  [3, w - 3].forEach(vx => {
+    g.beginPath(); g.moveTo(vx, top + 4);
+    g.lineTo(vx + (rand() - 0.5) * 3, top + 10 + rand() * (h - 12));
+    g.strokePath();
+  });
+
+  g.generateTexture(key, w, over + h);
+  g.destroy();
+  return over;
+}
+
+// 🏛️ A floating marble slab with gold trim (the Sky Kingdom's small platforms)
+export function bakeMarblePlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(3000 + seed * 61);
+  const under = 7;                                         // gold ornaments hanging underneath
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+
+  g.fillStyle(0xb9a68a, 1);                                // underside shadow
+  g.fillRoundedRect(1, 3, w - 2, h - 3, 4);
+  g.fillStyle(0xeee3cf, 1);                                // marble face
+  g.fillRoundedRect(0, 0, w, h - 4, 4);
+  g.lineStyle(1, 0xcdbd9f, 1);                             // stone blocks
+  g.lineBetween(2, h / 2, w - 2, h / 2);
+  for (let x = 14 + rand() * 8; x < w - 6; x += 20 + rand() * 6) g.lineBetween(x, 5, x, h - 5);
+  g.lineStyle(1, 0xd8cab2, 0.8);                           // marble veins
+  for (let i = 0; i < 2; i++) {
+    const x = 6 + rand() * (w - 20);
+    g.beginPath(); g.moveTo(x, 6); g.lineTo(x + 5, 9); g.lineTo(x + 9, 7); g.strokePath();
+  }
+  g.fillStyle(0xe0a82e, 1);                                // gold trim along the top
+  g.fillRect(0, 0, w, 4);
+  g.fillStyle(0xffe08a, 1);
+  g.fillRect(1, 0, w - 2, 1.5);
+  g.fillStyle(0xe0a82e, 1);                                // little gold ornaments underneath
+  for (let x = 10; x < w - 6; x += 18) g.fillTriangle(x - 4, h - 1, x + 4, h - 1, x, h + under - 1);
+
+  g.generateTexture(key, w, h + under);
+  g.destroy();
+}
+
+// ☁️ A small fluffy cloud to stand on (the Sky Kingdom's moving platforms).
+// Returns how far the puffs stick up above the platform's top.
+export function bakeCloudPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(8000 + seed * 41);
+  const over = 8;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const puffs = [];
+  for (let x = 10; x <= w - 10; x += 14) puffs.push({ x: x + (rand() - 0.5) * 4, r: 9 + rand() * 4 });
+  g.fillStyle(SUNSET_CLOUD.shadow, 1);
+  puffs.forEach(p => g.fillCircle(p.x, over + h - p.r * 0.6, p.r));
+  g.fillStyle(0xfbe3d4, 1);
+  g.fillRoundedRect(2, over, w - 4, h * 0.6, 8);
+  puffs.forEach(p => g.fillCircle(p.x, over + 6, p.r * 0.85));
+  g.fillStyle(0xffffff, 1);
+  puffs.forEach(p => g.fillCircle(p.x + p.r * 0.2, over + 3, p.r * 0.5));
+  g.generateTexture(key, w, over + h + 4);
+  g.destroy();
+  return over;
 }
