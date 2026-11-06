@@ -908,7 +908,9 @@ export default class GameScene extends Phaser.Scene {
       score: this.score,
       currentLevel: this.currentLevel,
       timeLeft: this.timeLeft,
-      cause
+      cause,
+      difficulty: this.difficultyKey,
+      progress: this.player.x / this.worldWidth   // how far along the level you got
     });
   }
 
