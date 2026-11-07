@@ -2,6 +2,7 @@ import { levels } from "../data/levels.js";
 import { calculateStars, starRequirements, saveBestStars } from "../data/Stars.js";
 import { DIFFICULTIES } from "../data/Difficulty.js";
 import { drawStarRow } from "../utils/Starrow.js";
+import { makeButton } from "../utils/Button.js";
 
 // 🏁 The screen after a level: a celebration when you reach the flag, or "Game Over" when you run out
 // of lives or time. Laid out for 800x450 and centred on wider or taller screens.
@@ -152,10 +153,10 @@ export default class GameOverScene extends Phaser.Scene {
     const primary = isLastLevel
       ? { label: "☰  ALL LEVELS", color: 0x4a3485, action: () => this.go("LevelSelectScene") }
       : { label: "▶  NEXT LEVEL", color: 0x2e9a4a, action: () => play(nextLevel) };
-    this.makeButton(cx, top + 352, 230, 46, primary.label, primary.color, primary.action, 21);
-    this.makeButton(cx - 150, top + 406, 136, 38, "↺  Replay", 0x3a2e60, () => play(currentLevel), 16);
-    this.makeButton(cx, top + 406, 136, 38, "☰  Levels", 0x3a2e60, () => this.go("LevelSelectScene"), 16);
-    this.makeButton(cx + 150, top + 406, 136, 38, "⌂  Menu", 0x3a2e60, () => this.go("MenuScene"), 16);
+    makeButton(this, cx, top + 352, 230, 46, primary.label, primary.color, primary.action, 21);
+    makeButton(this, cx - 150, top + 406, 136, 38, "↺  Replay", 0x3a2e60, () => play(currentLevel), 16);
+    makeButton(this, cx, top + 406, 136, 38, "☰  Levels", 0x3a2e60, () => this.go("LevelSelectScene"), 16);
+    makeButton(this, cx + 150, top + 406, 136, 38, "⌂  Menu", 0x3a2e60, () => this.go("MenuScene"), 16);
     this.input.keyboard.once("keydown-ENTER", primary.action);
     this.input.keyboard.once("keydown-SPACE", primary.action);
 
@@ -182,11 +183,13 @@ export default class GameOverScene extends Phaser.Scene {
 
     // Why did the run end?
     const cause = this.cause ?? (this.timeLeft <= 0 ? "time" : "fall");
-    const enemyName = { sea: "A fish", forest: "A snake" }[level.theme] || "A slime";
+    const enemyName = { sea: "A fish", forest: "A snake", volcano: "A fire creature" }[level.theme] || "A slime";
     const reasons = {
       time:  ["⏱", "Time's up!"],
       fall:  ["🕳️", "You fell off the edge!"],
-      enemy: ["👾", `${enemyName} got you!`]
+      enemy: ["👾", `${enemyName} got you!`],
+      lava:  ["🔥", "You fell into the lava!"],
+      rock:  ["🪨", "A falling rock got you!"]
     };
     const [icon, reason] = reasons[cause] || reasons.fall;
     this.add.text(cx, top + 128, `${icon}  ${reason}`, {
@@ -228,9 +231,9 @@ export default class GameOverScene extends Phaser.Scene {
 
     // Buttons
     const retry = () => { this.registry.set("currentLevel", this.currentLevel); this.go("GameScene"); };
-    this.makeButton(cx, top + 346, 230, 46, "↺  TRY AGAIN", 0xe2552b, retry, 21);
-    this.makeButton(cx - 80, top + 402, 146, 38, "☰  Levels", 0x3a2e60, () => this.go("LevelSelectScene"), 16);
-    this.makeButton(cx + 80, top + 402, 146, 38, "⌂  Menu", 0x3a2e60, () => this.go("MenuScene"), 16);
+    makeButton(this, cx, top + 346, 230, 46, "↺  TRY AGAIN", 0xe2552b, retry, 21);
+    makeButton(this, cx - 80, top + 402, 146, 38, "☰  Levels", 0x3a2e60, () => this.go("LevelSelectScene"), 16);
+    makeButton(this, cx + 80, top + 402, 146, 38, "⌂  Menu", 0x3a2e60, () => this.go("MenuScene"), 16);
     this.input.keyboard.once("keydown-ENTER", retry);
     this.input.keyboard.once("keydown-SPACE", retry);
   }
@@ -390,33 +393,5 @@ export default class GameOverScene extends Phaser.Scene {
       frequency: 45,
       duration: 2600
     });
-  }
-
-  // A rounded, shiny button that grows a little when you point at it (same style as the start screen)
-  makeButton(x, y, w, h, label, color, onClick, fontSize = 20) {
-    const hoverColor = Phaser.Display.Color.IntegerToColor(color).brighten(12).color;
-    const g = this.add.graphics();
-    const draw = (hover) => {
-      g.clear();
-      g.fillStyle(0x000000, 0.35);
-      g.fillRoundedRect(-w / 2 + 3, -h / 2 + 5, w, h, 14);
-      g.fillStyle(hover ? hoverColor : color, 1);
-      g.fillRoundedRect(-w / 2, -h / 2, w, h, 14);
-      g.fillStyle(0xffffff, 0.16);
-      g.fillRoundedRect(-w / 2 + 4, -h / 2 + 4, w - 8, h / 2 - 4, { tl: 10, tr: 10, bl: 4, br: 4 });
-      g.lineStyle(2, 0xffffff, hover ? 0.6 : 0.3);
-      g.strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
-    };
-    draw(false);
-    const text = this.add.text(0, 0, label, {
-      fontSize: `${fontSize}px`, fontStyle: "bold", color: "#ffffff", stroke: "#000000", strokeThickness: 3
-    }).setOrigin(0.5);
-    const button = this.add.container(x, y, [g, text]);
-
-    const zone = this.add.zone(x, y, w, h).setInteractive({ useHandCursor: true });
-    zone.on("pointerover", () => { draw(true);  this.tweens.add({ targets: button, scale: 1.05, duration: 120 }); });
-    zone.on("pointerout",  () => { draw(false); this.tweens.add({ targets: button, scale: 1, duration: 120 }); });
-    zone.on("pointerdown", onClick);
-    return button;
   }
 }

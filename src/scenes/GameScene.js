@@ -3,8 +3,10 @@ import { levels } from "../data/levels.js";
 import {
   drawIceCaveBackdrop, drawDeepSeaBackdrop, drawNightForestBackdrop, drawCrystalCaveBackdrop,
   drawGrasslandsBackdrop, bakeGrassPlatform, bakeWoodPlatform,
-  drawSkyKingdomBackdrop, bakeSkyIslandPlatform, bakeMarblePlatform, bakeCloudPlatform
+  drawSkyKingdomBackdrop, bakeSkyIslandPlatform, bakeMarblePlatform, bakeCloudPlatform,
+  drawVolcanoBackdrop, bakeBasaltPlatform, bakeObsidianPlatform
 } from "../utils/Backdrops.js";
+import { setupVolcanoHazards } from "../utils/Hazards.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
@@ -62,6 +64,9 @@ export default class GameScene extends Phaser.Scene {
     if (levelData.theme === "grass") {
       // ☀️ Grasslands: sun, snowy mountains, rolling hills with trees, fluffy clouds, birds (see src/utils/Backdrops.js)
       drawGrasslandsBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    } else if (levelData.theme === "volcano") {
+      // 🌋 Magma Falls: smoking volcanoes, falls of magma, red-lit rocks, embers and ash (see src/utils/Backdrops.js)
+      drawVolcanoBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
     } else if (levelData.theme === "sunset") {
       // 🏰 Sky Kingdom: sunset sky, setting sun, castles on far islands, a sea of clouds, birds (see src/utils/Backdrops.js)
       drawSkyKingdomBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
@@ -111,13 +116,19 @@ export default class GameScene extends Phaser.Scene {
 
     // 🌱 On the Grasslands, platforms are grass-topped soil (drawn once into a picture each)
     // 🏝️ In the Sky Kingdom, the ground is floating island rock and the small platforms are marble slabs
+    // 🪨 In Magma Falls, everything is basalt with glowing cracks
     const grassy = levelData.theme === "grass";
     const skyKingdom = levelData.theme === "sunset";
+    const volcanic = levelData.theme === "volcano";
 
     platformData.forEach(([x, y, w, h, color], i) => {
       if (grassy) {
         const key = `grass_platform_${i}`;
         const over = bakeGrassPlatform(this, key, w, h, h < 30, i);
+        this.add.image(x, y - over, key).setOrigin(0, 0);
+      } else if (volcanic) {
+        const key = `basalt_platform_${i}`;
+        const over = bakeBasaltPlatform(this, key, w, h, i, h >= 30);
         this.add.image(x, y - over, key).setOrigin(0, 0);
       } else if (skyKingdom) {
         const key = `sky_platform_${i}`;
@@ -170,6 +181,10 @@ export default class GameScene extends Phaser.Scene {
         // 🪵 wooden planks
         bakeWoodPlatform(this, `wood_platform_${i}`, w, h, i);
         gfx = this.add.image(x, y, `wood_platform_${i}`).setOrigin(0, 0);
+      } else if (volcanic) {
+        // ⬛ obsidian slabs
+        bakeObsidianPlatform(this, `obsidian_platform_${i}`, w, h, i);
+        gfx = this.add.image(x, y, `obsidian_platform_${i}`).setOrigin(0, 0);
       } else if (skyKingdom) {
         // ☁️ little clouds to ride on
         overY = bakeCloudPlatform(this, `cloud_platform_${i}`, w, h, i);
@@ -234,42 +249,43 @@ export default class GameScene extends Phaser.Scene {
     // 👾 Enemies
     this.enemies = [];
 
-    // [x, y, patrolLeft, patrolRight, speed, colour]
+    // [x, y, patrolLeft, patrolRight, speed, colour, kind?]
     const enemyData = levelData.enemies;
 
-    // What the enemies look like depends on the level:
+    // What the enemies look like depends on the level (an enemy can also name its own kind, 7th value):
     //   🐟 fish  (Deep Sea): swim at their own height (no gravity) instead of walking
     //   🐍 snake (Night Owl): long and low, slithering along the ground
+    //   🌋 lava  (Magma Falls): a crawling lump of molten rock
+    //   🔥 demon (Magma Falls): a fire demon that floats at its own height
     //   slime   (every other level)
-    const kind = { sea: "fish", forest: "snake" }[levelData.theme] || "slime";
-    const swimming = kind === "fish";
-    this.enemyKind = kind;
+    const levelKind = { sea: "fish", forest: "snake", volcano: "lava" }[levelData.theme] || "slime";
+    const HITBOX = { fish: [28, 20], snake: [34, 16], lava: [32, 20], demon: [26, 26], slime: [28, 28] };
+    const DRAW = { fish: "drawFish", snake: "drawSnake", lava: "drawLavaCreature", demon: "drawFireDemon", slime: "drawEnemy" };
 
-    enemyData.forEach(([x, y, left, right, speed, color], i) => {
+    enemyData.forEach(([x, y, left, right, speed, color, ownKind], i) => {
+      const kind = HITBOX[ownKind] ? ownKind : levelKind;
+      const floats = kind === "fish" || kind === "demon";
       const enemySpeed = scaleEnemySpeed(speed, this.difficulty.enemySpeed);   // Easy slower, Hard faster
       const gfx = this.add.graphics();
-      if (kind === "fish") this.drawFish(gfx, color);
-      else if (kind === "snake") this.drawSnake(gfx, color);
-      else this.drawEnemy(gfx, color);
+      this[DRAW[kind]](gfx, color);
       gfx.x = x;
       gfx.y = kind === "slime" ? y - 16 : y;
 
       const body = this.physics.add.image(x, y, null);
-      const hitbox = { fish: [28, 20], snake: [34, 16], slime: [28, 28] }[kind];
-      body.setDisplaySize(hitbox[0], hitbox[1]);
+      body.setDisplaySize(HITBOX[kind][0], HITBOX[kind][1]);
       body.setVisible(false);
       body.setCollideWorldBounds(false);
       body.setImmovable(false);
 
-      if (swimming) {
+      if (floats) {
         body.body.setAllowGravity(false);
       } else {
         body.body.setGravityY(200);
         this.physics.add.collider(body, this.platforms);
       }
 
-      // bobPhase: each fish bobs (or snake slithers) a little, out of step with the others
-      const enemy = { body, gfx, left, right, speed: enemySpeed, color, direction: 1, bobPhase: i * 1.7 };
+      // bobPhase: each one bobs (or slithers, or flickers) a little, out of step with the others
+      const enemy = { body, gfx, left, right, speed: enemySpeed, color, kind, direction: 1, bobPhase: i * 1.7 };
       this.enemies.push(enemy);
     });
 
@@ -309,6 +325,9 @@ export default class GameScene extends Phaser.Scene {
 
     this.physics.add.collider(this.coins, this.platforms);
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
+
+    // 🌋 Lava pools, falling rocks and collapsing platforms (see src/utils/Hazards.js)
+    if (volcanic) setupVolcanoHazards(this, levelData, this.difficultyKey);
 
     // 🚩 Finish flag
     this.flag = this.add.graphics();
@@ -691,6 +710,59 @@ export default class GameScene extends Phaser.Scene {
     gfx.fillCircle(8, -2, 2);
   }
 
+  // 🔥 Draw a small fire demon facing right: a flame-shaped body, dark horns and glowing eyes
+  drawFireDemon(gfx, color) {
+    gfx.clear();
+    gfx.fillStyle(color, 0.35);                                  // heat glow
+    gfx.fillCircle(0, 2, 17);
+    gfx.fillStyle(color, 1);                                     // outer flame
+    gfx.fillCircle(0, 5, 11);
+    gfx.fillTriangle(-11, 3, 11, 3, 2, -21);
+    gfx.fillTriangle(-12, 4, -4, -2, -15, -11);
+    gfx.fillTriangle(12, 4, 4, -2, 14, -9);
+    gfx.fillStyle(0xffd060, 1);                                  // hot core
+    gfx.fillCircle(0, 7, 6.5);
+    gfx.fillTriangle(-6, 6, 6, 6, 1, -8);
+    gfx.fillStyle(0x3a0a06, 1);                                  // horns
+    gfx.fillTriangle(-8, -5, -3, -6, -11, -15);
+    gfx.fillTriangle(8, -5, 3, -6, 11, -15);
+    gfx.fillStyle(0x2a0806, 1);                                  // face
+    gfx.fillEllipse(2, 3, 15, 9);
+    gfx.fillStyle(0xfff2a0, 1);                                  // glowing eyes, slanted
+    gfx.fillTriangle(-3, 1, 1, 2, -2, 4);
+    gfx.fillTriangle(4, 2, 8, 1, 6, 4);
+    gfx.lineStyle(1.2, 0xff8a1a, 1);                             // grin
+    gfx.lineBetween(-1, 6, 6, 6);
+  }
+
+  // 🌋 Draw a lava creature facing right: a lump of dark crust over molten rock, with glowing cracks.
+  // Its bottom sits on the bottom of its hitbox (y = +10).
+  drawLavaCreature(gfx, color) {
+    gfx.clear();
+    gfx.fillStyle(color, 0.3);                                   // heat glow
+    gfx.fillEllipse(0, 2, 44, 30);
+    gfx.fillStyle(color, 1);                                     // molten body
+    gfx.fillEllipse(0, 1, 34, 20);
+    gfx.fillRect(-17, 1, 34, 9);
+    gfx.fillStyle(0x2a1410, 1);                                  // crust plates
+    gfx.fillEllipse(-6, -4, 16, 10);
+    gfx.fillEllipse(7, -3, 14, 9);
+    gfx.fillEllipse(-12, 4, 9, 7);
+    gfx.fillEllipse(13, 5, 8, 6);
+    gfx.lineStyle(1.5, 0xffd060, 1);                             // glowing cracks between plates
+    gfx.lineBetween(0, -8, 1, 2);
+    gfx.lineBetween(-8, 1, -15, 3);
+    gfx.fillStyle(color, 1);                                     // drips at the bottom
+    gfx.fillCircle(-10, 10, 2.5);
+    gfx.fillCircle(4, 10, 2);
+    gfx.fillStyle(0xfff2a0, 1);                                  // eyes
+    gfx.fillCircle(6, 1, 3);
+    gfx.fillCircle(13, 1, 2.6);
+    gfx.fillStyle(0x2a0806, 1);
+    gfx.fillCircle(7, 1, 1.4);
+    gfx.fillCircle(14, 1, 1.2);
+  }
+
   // 🐍 Draw a small snake facing right (it is flipped when it slithers left).
   // It is drawn so its belly rests on the bottom of its hitbox (y = +8).
   drawSnake(gfx, color) {
@@ -798,12 +870,19 @@ export default class GameScene extends Phaser.Scene {
       // Only the picture bobs or stretches, never the hitbox
       const wave = Math.sin(this.time.now / 300 + enemy.bobPhase);
       enemy.gfx.x = enemy.body.x;
-      if (this.enemyKind === "fish") {
+      if (enemy.kind === "fish") {
         enemy.gfx.y = enemy.body.y + wave * 3;
         enemy.gfx.setScale(enemy.direction, 1);
-      } else if (this.enemyKind === "snake") {
+      } else if (enemy.kind === "snake") {
         enemy.gfx.y = enemy.body.y;
         enemy.gfx.setScale(enemy.direction * (1 + wave * 0.07), 1 - wave * 0.07);   // stretches and squashes as it slithers
+      } else if (enemy.kind === "demon") {
+        const flicker = Math.sin(this.time.now / 70 + enemy.bobPhase) * 0.06;     // the flames flicker
+        enemy.gfx.y = enemy.body.y + wave * 4;
+        enemy.gfx.setScale(enemy.direction * (1 - flicker * 0.5), 1 + flicker);
+      } else if (enemy.kind === "lava") {
+        enemy.gfx.y = enemy.body.y;
+        enemy.gfx.setScale(enemy.direction * (1 + wave * 0.05), 1 - wave * 0.05);   // oozes as it crawls
       } else {
         enemy.gfx.y = enemy.body.y - 16;
         enemy.gfx.setScale(enemy.direction, 1);
@@ -836,9 +915,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   loseLife(cause = "enemy") {
-    // Invincibility only protects from enemies: falling off the world always costs a life,
-    // otherwise you would keep falling off-screen until the blinking ends
-    if (this.invincible && cause !== "fall") return;
+    // Invincibility only protects from enemies and rocks: falling off the world or into lava always
+    // costs a life, otherwise you would keep falling (or stand in the lava) until the blinking ends
+    if (this.invincible && cause !== "fall" && cause !== "lava") return;
     this.tweens.killTweensOf(this.player);   // stop the old blink, so it can't end the new one early
     SoundManager.play("hit");
     Particles.deathBurst(this, this.player.x, this.player.y);
