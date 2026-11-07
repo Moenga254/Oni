@@ -4,9 +4,10 @@ import {
   drawIceCaveBackdrop, drawDeepSeaBackdrop, drawNightForestBackdrop, drawCrystalCaveBackdrop,
   drawGrasslandsBackdrop, bakeGrassPlatform, bakeWoodPlatform,
   drawSkyKingdomBackdrop, bakeSkyIslandPlatform, bakeMarblePlatform, bakeCloudPlatform,
-  drawVolcanoBackdrop, bakeBasaltPlatform, bakeObsidianPlatform
+  drawVolcanoBackdrop, bakeBasaltPlatform, bakeObsidianPlatform,
+  drawSwampBackdrop, bakeMudPlatform, bakeMossyLogPlatform, bakeRustyPlatform
 } from "../utils/Backdrops.js";
-import { setupVolcanoHazards } from "../utils/Hazards.js";
+import { setupVolcanoHazards, setupSwampHazards } from "../utils/Hazards.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
@@ -64,6 +65,9 @@ export default class GameScene extends Phaser.Scene {
     if (levelData.theme === "grass") {
       // ☀️ Grasslands: sun, snowy mountains, rolling hills with trees, fluffy clouds, birds (see src/utils/Backdrops.js)
       drawGrasslandsBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    } else if (levelData.theme === "swamp") {
+      // ☣️ Toxic Swamp: smog, factories, dead trees with moss, toxic haze, reeds and barrels (see src/utils/Backdrops.js)
+      drawSwampBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
     } else if (levelData.theme === "volcano") {
       // 🌋 Magma Falls: smoking volcanoes, falls of magma, red-lit rocks, embers and ash (see src/utils/Backdrops.js)
       drawVolcanoBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
@@ -120,11 +124,17 @@ export default class GameScene extends Phaser.Scene {
     const grassy = levelData.theme === "grass";
     const skyKingdom = levelData.theme === "sunset";
     const volcanic = levelData.theme === "volcano";
+    // 🟫 In the Toxic Swamp, the ground is mud and the floating platforms are mossy logs
+    const swampy = levelData.theme === "swamp";
 
     platformData.forEach(([x, y, w, h, color], i) => {
       if (grassy) {
         const key = `grass_platform_${i}`;
         const over = bakeGrassPlatform(this, key, w, h, h < 30, i);
+        this.add.image(x, y - over, key).setOrigin(0, 0);
+      } else if (swampy) {
+        const key = `swamp_platform_${i}`;
+        const over = h >= 30 ? bakeMudPlatform(this, key, w, h, i) : bakeMossyLogPlatform(this, key, w, h, i);
         this.add.image(x, y - over, key).setOrigin(0, 0);
       } else if (volcanic) {
         const key = `basalt_platform_${i}`;
@@ -181,6 +191,10 @@ export default class GameScene extends Phaser.Scene {
         // 🪵 wooden planks
         bakeWoodPlatform(this, `wood_platform_${i}`, w, h, i);
         gfx = this.add.image(x, y, `wood_platform_${i}`).setOrigin(0, 0);
+      } else if (swampy) {
+        // 🔩 rusty metal plates
+        bakeRustyPlatform(this, `rusty_platform_${i}`, w, h, i);
+        gfx = this.add.image(x, y, `rusty_platform_${i}`).setOrigin(0, 0);
       } else if (volcanic) {
         // ⬛ obsidian slabs
         bakeObsidianPlatform(this, `obsidian_platform_${i}`, w, h, i);
@@ -257,14 +271,19 @@ export default class GameScene extends Phaser.Scene {
     //   🐍 snake (Night Owl): long and low, slithering along the ground
     //   🌋 lava  (Magma Falls): a crawling lump of molten rock
     //   🔥 demon (Magma Falls): a fire demon that floats at its own height
+    //   🐸 frog  (Toxic Swamp): a mutant frog that hops along the mud
+    //   🦟 bug   (Toxic Swamp): a poisonous insect that flies at its own height
     //   slime   (every other level)
-    const levelKind = { sea: "fish", forest: "snake", volcano: "lava" }[levelData.theme] || "slime";
-    const HITBOX = { fish: [28, 20], snake: [34, 16], lava: [32, 20], demon: [26, 26], slime: [28, 28] };
-    const DRAW = { fish: "drawFish", snake: "drawSnake", lava: "drawLavaCreature", demon: "drawFireDemon", slime: "drawEnemy" };
+    const levelKind = { sea: "fish", forest: "snake", volcano: "lava", swamp: "frog" }[levelData.theme] || "slime";
+    const HITBOX = { fish: [28, 20], snake: [34, 16], lava: [32, 20], demon: [26, 26], frog: [30, 22], bug: [24, 18], slime: [28, 28] };
+    const DRAW = {
+      fish: "drawFish", snake: "drawSnake", lava: "drawLavaCreature", demon: "drawFireDemon",
+      frog: "drawMutantFrog", bug: "drawToxicBug", slime: "drawEnemy"
+    };
 
     enemyData.forEach(([x, y, left, right, speed, color, ownKind], i) => {
       const kind = HITBOX[ownKind] ? ownKind : levelKind;
-      const floats = kind === "fish" || kind === "demon";
+      const floats = kind === "fish" || kind === "demon" || kind === "bug";
       const enemySpeed = scaleEnemySpeed(speed, this.difficulty.enemySpeed);   // Easy slower, Hard faster
       const gfx = this.add.graphics();
       this[DRAW[kind]](gfx, color);
@@ -285,7 +304,7 @@ export default class GameScene extends Phaser.Scene {
       }
 
       // bobPhase: each one bobs (or slithers, or flickers) a little, out of step with the others
-      const enemy = { body, gfx, left, right, speed: enemySpeed, color, kind, direction: 1, bobPhase: i * 1.7 };
+      const enemy = { body, gfx, left, right, speed: enemySpeed, color, kind, direction: 1, bobPhase: i * 1.7, nextHop: 800 + i * 300 };
       this.enemies.push(enemy);
     });
 
@@ -328,6 +347,8 @@ export default class GameScene extends Phaser.Scene {
 
     // 🌋 Lava pools, falling rocks and collapsing platforms (see src/utils/Hazards.js)
     if (volcanic) setupVolcanoHazards(this, levelData, this.difficultyKey);
+    // ☣️ Toxic water, breaking planks and sinking rafts (see src/utils/Hazards.js)
+    if (swampy) setupSwampHazards(this, levelData, this.difficultyKey);
 
     // 🚩 Finish flag
     this.flag = this.add.graphics();
@@ -710,6 +731,71 @@ export default class GameScene extends Phaser.Scene {
     gfx.fillCircle(8, -2, 2);
   }
 
+  // 🐸 Draw a mutant frog facing right: warty green body with purple blotches, one huge bulging eye,
+  // and toxic drool. Its feet sit on the bottom of its hitbox (y = +11).
+  drawMutantFrog(gfx, color) {
+    gfx.clear();
+    gfx.fillStyle(0x3a5a12, 1);                                  // back legs, folded
+    gfx.fillEllipse(-11, 6, 14, 10);
+    gfx.fillEllipse(-14, 10, 12, 3);
+    gfx.fillStyle(color, 1);                                     // body
+    gfx.fillEllipse(0, 2, 30, 18);
+    gfx.fillStyle(0x4a7a1a, 1);                                  // darker back
+    gfx.fillEllipse(-3, -2, 22, 9);
+    gfx.fillStyle(0xe8f5b0, 1);                                  // pale belly
+    gfx.fillEllipse(4, 7, 18, 6);
+    gfx.fillStyle(0x8a4aa8, 0.9);                                // mutant blotches
+    gfx.fillCircle(-7, -1, 2.6);
+    gfx.fillCircle(0, -3, 1.8);
+    gfx.fillStyle(0xc8ff4a, 1);                                  // warts
+    [[-11, 2], [-4, 3], [-9, -4], [2, 0]].forEach(([wx, wy]) => gfx.fillCircle(wx, wy, 1.2));
+    gfx.fillStyle(color, 1);                                     // front leg
+    gfx.fillRect(8, 6, 4, 5);
+    gfx.fillEllipse(11, 11, 8, 3);
+    gfx.fillStyle(color, 1);                                     // eye bumps: one normal, one huge
+    gfx.fillCircle(5, -7, 4.5);
+    gfx.fillCircle(11, -8, 6.5);
+    gfx.fillStyle(0xfff27a, 1);
+    gfx.fillCircle(5, -7.5, 3);
+    gfx.fillCircle(11, -8.5, 5);
+    gfx.fillStyle(0x1a1a0a, 1);                                  // slit pupils
+    gfx.fillRect(4.5, -9.5, 1.4, 4);
+    gfx.fillRect(11.5, -12, 2, 7);
+    gfx.lineStyle(1.2, 0x2a3a0e, 1);                             // mouth
+    gfx.lineBetween(6, 1, 15, -1);
+    gfx.fillStyle(0xb4ff2a, 1);                                  // toxic drool
+    gfx.fillCircle(13, 2, 1.6);
+    gfx.fillRect(12.4, 2, 1.2, 4);
+  }
+
+  // 🦟 Draw a poisonous insect facing right: striped abdomen with a stinger, glowing red eyes and
+  // see-through wings
+  drawToxicBug(gfx, color) {
+    gfx.clear();
+    gfx.fillStyle(0xeaffd0, 0.45);                               // wings
+    gfx.fillEllipse(-4, -9, 16, 9);
+    gfx.fillEllipse(3, -10, 12, 8);
+    gfx.lineStyle(1, 0xeaffd0, 0.7);
+    gfx.strokeEllipse(-4, -9, 16, 9);
+    gfx.fillStyle(0x2a1a0a, 1);                                  // abdomen
+    gfx.fillEllipse(-6, 2, 16, 10);
+    gfx.fillStyle(color, 1);                                     // glowing stripes
+    gfx.fillRect(-10, -2, 2.4, 8);
+    gfx.fillRect(-6, -3, 2.4, 10);
+    gfx.fillRect(-2, -2, 2.4, 8);
+    gfx.fillStyle(0x2a1a0a, 1);
+    gfx.fillTriangle(-14, 1, -14, 4, -19, 3);                   // stinger
+    gfx.fillCircle(4, 0, 4.5);                                   // thorax
+    gfx.fillCircle(9, -1, 3.6);                                  // head
+    gfx.fillStyle(0xff3b3b, 1);                                  // red eyes
+    gfx.fillCircle(10.5, -2, 1.6);
+    gfx.lineStyle(1, 0x2a1a0a, 1);                               // antennae and legs
+    gfx.lineBetween(10, -4, 14, -9);
+    gfx.lineBetween(11, -3, 16, -6);
+    gfx.lineBetween(2, 4, 0, 8);
+    gfx.lineBetween(5, 4, 5, 8);
+  }
+
   // 🔥 Draw a small fire demon facing right: a flame-shaped body, dark horns and glowing eyes
   drawFireDemon(gfx, color) {
     gfx.clear();
@@ -880,6 +966,19 @@ export default class GameScene extends Phaser.Scene {
         const flicker = Math.sin(this.time.now / 70 + enemy.bobPhase) * 0.06;     // the flames flicker
         enemy.gfx.y = enemy.body.y + wave * 4;
         enemy.gfx.setScale(enemy.direction * (1 - flicker * 0.5), 1 + flicker);
+      } else if (enemy.kind === "frog") {
+        // hops every second or two; squats on the ground, stretches in the air
+        const grounded = enemy.body.body.blocked.down || enemy.body.body.touching.down;
+        if (grounded && this.time.now > enemy.nextHop) {
+          enemy.body.setVelocityY(-260);
+          enemy.nextHop = this.time.now + 1300 + Math.random() * 1300;
+        }
+        enemy.gfx.y = enemy.body.y;
+        enemy.gfx.setScale(enemy.direction * (grounded ? 1.06 : 0.92), grounded ? 0.92 : 1.12);
+      } else if (enemy.kind === "bug") {
+        const buzz = Math.sin(this.time.now / 40 + enemy.bobPhase) * 0.12;      // wings beating fast
+        enemy.gfx.y = enemy.body.y + Math.sin(this.time.now / 180 + enemy.bobPhase) * 5;
+        enemy.gfx.setScale(enemy.direction, 1 + buzz * 0.4);
       } else if (enemy.kind === "lava") {
         enemy.gfx.y = enemy.body.y;
         enemy.gfx.setScale(enemy.direction * (1 + wave * 0.05), 1 - wave * 0.05);   // oozes as it crawls
@@ -915,9 +1014,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   loseLife(cause = "enemy") {
-    // Invincibility only protects from enemies and rocks: falling off the world or into lava always
-    // costs a life, otherwise you would keep falling (or stand in the lava) until the blinking ends
-    if (this.invincible && cause !== "fall" && cause !== "lava") return;
+    // Invincibility only protects from enemies and rocks: falling off the world or into lava / toxic water
+    // always costs a life, otherwise you would keep falling (or stand in it) until the blinking ends
+    if (this.invincible && !["fall", "lava", "toxic"].includes(cause)) return;
     this.tweens.killTweensOf(this.player);   // stop the old blink, so it can't end the new one early
     SoundManager.play("hit");
     Particles.deathBurst(this, this.player.x, this.player.y);

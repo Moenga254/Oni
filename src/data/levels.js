@@ -705,5 +705,119 @@ export const levels = [
       [4580, 300, 100, 140, 90],   // a high road over lava lake 3
       [6100, 280, 100, 120, 100],
     ]
+  },
+
+  {
+    id: 7,
+    name: "Toxic Swamp",
+    subtitle: "Level 8",
+
+    // ☣️ A polluted swamp in dark green, lime and brown: dead trees with hanging moss, factories leaking
+    // green smoke, toxic barrels, reeds and glowing spores (see src/utils/Backdrops.js).
+    // Its hazards (toxic water, breaking planks, sinking rafts) are in src/utils/Hazards.js.
+    theme: "swamp",
+    background: [0x0b140a, 0x1c2a12, 0x3a4a1a, 0x7a8a2a],   // murky dark green -> sickly lime haze
+    groundColor: 0x4a3420,     // mud
+    platformColor: 0x5a4026,   // logs
+
+    worldWidth: 6200,
+    playerStart: [80, 490],
+    flagX: 6100,
+    timeLimit: 125,
+
+    // 🟢 Two checkpoints, about a third and two thirds of the way, on mud with nothing dangerous nearby
+    checkpoints: [1870, 4150],
+
+    platforms: [
+      // Mud banks: every gap between these is toxic water (see toxicPools)
+      [0,    570, 460, 30],
+      [590,  570, 330, 30],
+      [1240, 570, 340, 30],
+      [1710, 570, 320, 30],   // checkpoint 1
+      [2350, 570, 380, 30],
+      [2860, 570, 320, 30],
+      [3500, 570, 330, 30],
+      [3960, 570, 380, 30],   // checkpoint 2
+      [4660, 570, 320, 30],
+      [5110, 570, 330, 30],
+      [5760, 570, 440, 30],   // finish
+
+      // Mossy logs
+      [280,  450, 100, 20],
+      [480,  360, 110, 20],
+      [700,  450, 100, 20],
+      [1300, 450, 100, 20],
+      [1480, 360, 110, 20],
+      [1800, 450, 100, 20],
+      [2420, 450, 100, 20],
+      [2600, 360, 110, 20],
+      [2930, 450, 100, 20],
+      [3560, 450, 100, 20],
+      [3740, 360, 110, 20],
+      [4040, 450, 100, 20],
+      [4720, 450, 100, 20],
+      [4900, 360, 110, 20],
+      [5180, 450, 100, 20],
+      [5300, 360, 110, 20],
+      [5850, 440, 100, 20],
+    ],
+
+    // ☣️ Toxic lime water [x, width]: touching it costs a life. Each fills a gap between mud banks.
+    // The four wide "bogs" are too far to jump: cross them on the raft or plank in the middle.
+    toxicPools: [
+      [460, 130], [920, 320], [1580, 130], [2030, 320], [2730, 130],
+      [3180, 320], [3830, 130], [4340, 320], [4980, 130], [5440, 320],
+    ],
+
+    // 🛶 Sinking rafts [x, y, width]: they slowly sink while you stand on them (and take you into the
+    // water if you stay), then float back up when you step off.
+    sinkingPlatforms: [
+      [1030, 525, 100],   // across bog 1
+      [3290, 525, 100],   // across bog 3
+      [5550, 525, 100],   // across bog 5
+    ],
+
+    // 🪵 Breaking planks [x, y, width]: they crack when you stand on them and break after
+    // 3 s (2 s on Hard), then come back a few seconds later.
+    breakingPlatforms: [
+      [2140, 500, 100],   // across bog 2
+      [4450, 500, 100],   // across bog 4
+      [3060, 360, 100],   // bonus coin, up high
+      [5650, 380, 100],   // bonus coin, above the last raft
+    ],
+
+    coins: [
+      [330, 420],  [535, 330],  [750, 420],  [1080, 495], [1350, 420],
+      [1535, 330], [1850, 420], [2190, 470], [2470, 420], [2655, 330],
+      [2980, 420], [3110, 330], [3340, 495], [3610, 420], [3795, 330],
+      [4090, 420], [4500, 470], [4770, 420], [4955, 330], [5230, 420],
+      [5355, 330], [5600, 495], [5700, 350], [5900, 410],
+    ],
+
+    // [x, y, patrolLeft, patrolRight, speed, colour, kind]
+    //   "frog" = a mutant frog that hops along the mud (it drops onto the ground below it)
+    //   "bug"  = a poisonous insect that flies at its own height
+    enemies: [
+      [330,  540, 220,  440,  70, 0x7fbf2a, "frog"],
+      [780,  540, 680,  900,  75, 0x8acc1a, "frog"],
+      [1420, 540, 1320, 1560, 80, 0x7fbf2a, "frog"],
+      [2560, 540, 2440, 2710, 85, 0x8acc1a, "frog"],
+      [3020, 540, 2940, 3160, 85, 0x7fbf2a, "frog"],
+      [3680, 540, 3580, 3810, 90, 0x8acc1a, "frog"],
+      [4830, 540, 4740, 4960, 90, 0x7fbf2a, "frog"],
+      [5290, 540, 5190, 5420, 95, 0x8acc1a, "frog"],
+      // (checkpoint banks 1710-2030 and 3960-4340, and the finish bank, have no enemies)
+
+      [700,  440, 600,  900,  70, 0xc8ff3a, "bug"],
+      [2600, 440, 2370, 2720, 75, 0xb4ff2a, "bug"],
+      [3700, 450, 3510, 3820, 80, 0xc8ff3a, "bug"],
+      [5300, 450, 5120, 5430, 85, 0xb4ff2a, "bug"],
+    ],
+
+    movingPlatforms: [
+      [1100, 300, 100, 120, 90],
+      [3300, 290, 100, 120, 100],
+      [4500, 300, 100, 120, 90],
+    ]
   }
 ];

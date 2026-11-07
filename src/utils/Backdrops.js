@@ -1300,3 +1300,337 @@ export function bakeObsidianPlatform(scene, key, w, h, seed) {
   g.generateTexture(key, w, h);
   g.destroy();
 }
+
+// ─── Toxic Swamp ─────────────────────────────────────────────────────────────────────────────
+
+// A bare, dead tree: a trunk with crooked branches, optionally with moss hanging from them
+function deadTree(g, x, baseY, height, color, rand, moss) {
+  const trunkW = 5 + height * 0.04;
+  g.fillStyle(color, 1);
+  g.fillTriangle(x - trunkW, baseY, x + trunkW, baseY, x + (rand() - 0.5) * 8, baseY - height);
+  g.lineStyle(Math.max(1.5, trunkW * 0.5), color, 1);
+  const tips = [];
+  for (let b = 0; b < 4; b++) {
+    const by = baseY - height * (0.35 + b * 0.15);
+    const side = b % 2 ? 1 : -1;
+    const len = height * (0.25 - b * 0.03) * (0.7 + rand() * 0.6);
+    const ex = x + side * len, ey = by - len * (0.3 + rand() * 0.5);
+    g.beginPath(); g.moveTo(x, by); g.lineTo((x + ex) / 2, ey + len * 0.15); g.lineTo(ex, ey); g.strokePath();
+    tips.push({ x: ex, y: ey });
+  }
+  if (moss) {
+    g.lineStyle(1.2, moss, 0.9);
+    tips.forEach(t => {
+      for (let m = 0; m < 3; m++) {
+        const mx = t.x - m * 4 * Math.sign(t.x - x || 1);
+        g.lineBetween(mx, t.y + 2, mx + (rand() - 0.5) * 3, t.y + 10 + rand() * 18);
+      }
+    });
+  }
+}
+
+// ☣️ Toxic Swamp backdrop: a murky green sky with a sickly sun, factories pouring green smoke, two
+// layers of dead trees (the nearer ones dripping with moss), toxic haze drifting low, reeds, leaking
+// waste barrels and glowing spores. Built like the other backdrops: the scenery is baked once.
+export function drawSwampBackdrop(scene, { colors, worldWidth, worldHeight }) {
+  const camW = scene.cameras.main.width;
+  const camH = scene.cameras.main.height;
+  const maxScrollX = Math.max(0, worldWidth - camW);
+  const maxScrollY = Math.max(0, worldHeight - camH);
+  const random = makeRandom(20261110);
+  const widthFor = (sx) => camW + 300 + sx * maxScrollX;
+  const bottomBase = (sy) => camH + sy * maxScrollY + 24;
+
+  // 1) Murky sky, fixed to the screen, in three bands
+  const sky = scene.add.graphics().setScrollFactor(0);
+  [[colors[0], colors[1], 0, 0.45], [colors[1], colors[2], 0.45, 0.8], [colors[2], colors[3], 0.8, 1.05]].forEach(([a, b, from, to]) => {
+    sky.fillGradientStyle(a, a, b, b, 1);
+    sky.fillRect(-20, camH * from - (from === 0 ? 20 : 0), camW + 40, camH * (to - from) + (from === 0 ? 20 : 1));
+  });
+
+  // 2) A sickly sun seen through the smog
+  addGlow(scene, "swamp_sun_glow", camW * 0.25, camH * 0.22, 360, 300, 0xc8e85a, 0.3);
+  const sun = scene.add.graphics().setScrollFactor(0);
+  sun.fillStyle(0xe0f08a, 0.55);
+  sun.fillCircle(camW * 0.25, camH * 0.22, 30);
+
+  // 3) Factories on the horizon: blocks with smokestacks and pipes, a few windows lit green
+  const sx1 = 0.07, sy1 = 0.05, w1 = widthFor(sx1), h1 = 200;
+  const factories = [];
+  for (let gx = 200 + random() * 300; gx < w1; gx += 700 + random() * 500) {
+    const stacks = [];
+    const bw = 120 + random() * 90;
+    for (let s = 0; s < 2 + Math.floor(random() * 2); s++) stacks.push({ dx: 15 + random() * (bw - 30), h: 80 + random() * 70 });
+    factories.push({ gx, bw, bh: 50 + random() * 40, stacks });
+  }
+  const imageY1 = bottomBase(sy1) - h1;
+  bakeChunks(scene, "swamp_factories", {
+    width: w1, h: h1, imageY: imageY1, alpha: 1, scrollX: sx1, scrollY: sy1,
+    draw: (g, left, chunkW) => {
+      factories.forEach(f => {
+        const x = f.gx - left;
+        if (x + f.bw < -20 || x - 20 > chunkW) return;
+        g.fillStyle(0x1a2412, 1);
+        g.fillRect(x, h1 - f.bh, f.bw, f.bh);
+        for (let r = 0; r < f.bw; r += 30) g.fillTriangle(x + r, h1 - f.bh, x + r + 30, h1 - f.bh, x + r + 30, h1 - f.bh - 14);   // saw-tooth roof
+        f.stacks.forEach(s => {
+          g.fillRect(x + s.dx - 5, h1 - f.bh - s.h, 10, s.h);
+          g.fillStyle(0x6a7a2a, 1); g.fillRect(x + s.dx - 6, h1 - f.bh - s.h + 8, 12, 3);   // warning stripe
+          g.fillStyle(0x1a2412, 1);
+        });
+        g.fillStyle(0xb4ff2a, 0.7);                                         // lit windows
+        for (let wx = x + 10; wx < x + f.bw - 10; wx += 18) if ((wx * 7) % 3 < 2) g.fillRect(wx, h1 - f.bh * 0.55, 6, 5);
+        g.fillStyle(0x1a2412, 1);
+        g.fillRect(x + f.bw, h1 - 18, 40, 6);                                // a pipe leaking into the swamp
+        g.fillStyle(0xa6e22e, 0.9);
+        g.fillRect(x + f.bw + 36, h1 - 12, 3, 12);
+      });
+    }
+  });
+  // Green smoke rising from every stack
+  ensureSoftTexture(scene, "smogpuff", 0x5a6a2a);
+  factories.forEach((f, i) => f.stacks.forEach((s, k) => {
+    const sx = f.gx + s.dx, sy = imageY1 + h1 - f.bh - s.h;
+    const puff = scene.add.image(sx, sy, "smogpuff").setScrollFactor(sx1, sy1);
+    const loop = () => {
+      puff.setPosition(sx, sy).setDisplaySize(30, 24).setAlpha(0.6);
+      scene.tweens.add({
+        targets: puff, y: sy - 110 - random() * 50, x: sx + 40 + random() * 40,
+        displayWidth: 140, displayHeight: 90, alpha: 0, duration: 5600 + random() * 1800, onComplete: loop
+      });
+    };
+    scene.time.delayedCall(i * 700 + k * 1300, loop);
+  }));
+
+  // 4) Far dead trees
+  {
+    const sx = 0.16, sy = 0.1, width = widthFor(sx), h = 260;
+    const trees = [];
+    for (let gx = random() * 80; gx < width; gx += 60 + random() * 110) trees.push({ gx, height: 110 + random() * 120, seed: random() });
+    bakeChunks(scene, "swamp_far_trees", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        trees.forEach(t => {
+          const x = t.gx - left;
+          if (x < -80 || x > chunkW + 80) return;
+          deadTree(g, x, h, t.height, 0x26341a, makeRandom(Math.floor(t.seed * 1e6)), null);
+        });
+        g.fillStyle(0x26341a, 1);
+        g.fillRect(0, h - 12, chunkW, 12);
+      }
+    });
+  }
+
+  // 5) Toxic haze drifting low over the water
+  ensureSoftTexture(scene, "toxic_haze", 0xa6e22e);
+  for (let i = 0; i < 7; i++) {
+    const haze = scene.add.image((i + 0.5) * camW / 6, camH * (0.62 + random() * 0.12), "toxic_haze")
+      .setDisplaySize(300 + random() * 200, 70 + random() * 40).setAlpha(0.12 + random() * 0.08)
+      .setScrollFactor(0).setBlendMode("ADD");
+    scene.tweens.add({ targets: haze, x: haze.x + 60 + random() * 50, duration: 9000 + random() * 6000, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+  }
+
+  // 6) Nearer dead trees, darker, with moss hanging from the branches
+  {
+    const sx = 0.3, sy = 0.18, width = widthFor(sx), h = 320;
+    const trees = [];
+    for (let gx = 40 + random() * 120; gx < width; gx += 160 + random() * 220) trees.push({ gx, height: 170 + random() * 120, seed: random() });
+    bakeChunks(scene, "swamp_near_trees", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        trees.forEach(t => {
+          const x = t.gx - left;
+          if (x < -120 || x > chunkW + 120) return;
+          deadTree(g, x, h, t.height, 0x141c0e, makeRandom(Math.floor(t.seed * 1e6)), 0x4a6a1e);
+        });
+      }
+    });
+  }
+
+  // 7) Reeds and cattails, with leaking toxic barrels here and there
+  {
+    const sx = 0.45, sy = 0.26, width = widthFor(sx), h = 120;
+    const reeds = [];
+    for (let gx = 0; gx < width; gx += 6 + random() * 10) reeds.push({ gx, height: 30 + random() * 70, lean: (random() - 0.5) * 10, head: random() < 0.3 });
+    const barrels = [];
+    for (let gx = 200 + random() * 300; gx < width; gx += 500 + random() * 500) barrels.push({ gx, tilt: random() < 0.5 });
+    bakeChunks(scene, "swamp_reeds", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        reeds.forEach(r => {
+          const x = r.gx - left;
+          if (x < -10 || x > chunkW + 10) return;
+          g.lineStyle(2, 0x3a3014, 1);
+          g.lineBetween(x, h, x + r.lean, h - r.height);
+          if (r.head) {
+            g.fillStyle(0x4a2e14, 1);
+            g.fillRoundedRect(x + r.lean - 2.5, h - r.height + 4, 5, 14, 2.5);
+          }
+        });
+        barrels.forEach(b => {
+          const x = b.gx - left;
+          if (x < -40 || x > chunkW + 40) return;
+          const by = h - 26;
+          g.fillStyle(0x5a3a1e, 1);                                         // rusty barrel
+          g.fillRoundedRect(x - 12, by, 24, 26, 3);
+          g.fillStyle(0xa6e22e, 1);                                         // hazard band
+          g.fillRect(x - 12, by + 9, 24, 6);
+          g.fillStyle(0x2a1a0c, 1);
+          g.fillCircle(x, by + 12, 2.2);
+          g.fillStyle(0xb4ff2a, 0.9);                                       // ooze spilling out
+          g.fillEllipse(x + 16, h - 2, 26, 5);
+          g.fillRect(x + 9, by + 4, 3, 18);
+        });
+        g.fillStyle(0x1c240e, 1);
+        g.fillRect(0, h - 6, chunkW, 6);
+      }
+    });
+  }
+
+  // 8) Glowing spores drifting up
+  if (!scene.textures.exists("spore")) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xb4ff2a, 0.3); g.fillCircle(5, 5, 5);
+    g.fillStyle(0xeaffa0, 1);   g.fillCircle(5, 5, 1.6);
+    g.generateTexture("spore", 10, 10);
+    g.destroy();
+  }
+  scene.add.particles(0, 0, "spore", {
+    x: { min: 0, max: camW }, y: { min: camH * 0.3, max: camH },
+    lifespan: 6000, speedY: { min: -20, max: -6 }, speedX: { min: -10, max: 10 },
+    scale: { min: 0.5, max: 1.1 }, alpha: { values: [0, 0.9, 0.3, 0.8, 0] },
+    frequency: 260, advance: 5000
+  }).setScrollFactor(0);
+}
+
+// 🟫 A mud bank (Toxic Swamp ground): brown mud with darker clumps and roots, a mossy top with tufts,
+// and a few glowing toxic mushrooms. Returns how far the moss sticks up above the platform's top.
+export function bakeMudPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(1500 + seed * 83);
+  const over = 8;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const top = over;
+
+  [[0x5a3e24, 0], [0x4a3420, h / 3], [0x3a2818, (h * 2) / 3]].forEach(([c, y]) => { g.fillStyle(c, 1); g.fillRect(0, top + y, w, h / 3 + 1); });
+  for (let i = 0; i < w / 14; i++) {                                    // clumps
+    g.fillStyle(rand() < 0.5 ? 0x2e2014 : 0x6a4a2c, 0.8);
+    g.fillEllipse(4 + rand() * (w - 8), top + 8 + rand() * (h - 10), 4 + rand() * 6, 2 + rand() * 3);
+  }
+  g.lineStyle(1.2, 0x2a1c10, 0.9);                                       // roots
+  for (let x = 10 + rand() * 20; x < w - 10; x += 30 + rand() * 40) {
+    g.beginPath(); g.moveTo(x, top + 6); g.lineTo(x + (rand() - 0.5) * 8, top + 14); g.lineTo(x + (rand() - 0.5) * 10, top + h - 4); g.strokePath();
+  }
+  g.fillStyle(0x2f4a16, 1);                                              // moss cap
+  g.fillRect(0, top, w, 6);
+  for (let x = 0; x <= w; x += 6) g.fillCircle(x, top + 6, 2 + rand() * 2);
+  g.fillStyle(0x5a7a22, 1);
+  g.fillRect(0, top, w, 2);
+  for (let x = 1; x < w - 1; x += 3 + rand() * 4) {                      // tufts
+    g.fillStyle(rand() < 0.5 ? 0x4a6a1e : 0x6a8a2a, 1);
+    g.fillTriangle(x - 1.2, top + 2, x + 1.2, top + 2, x + (rand() - 0.5) * 3, top + 2 - (2 + rand() * 5));
+  }
+  for (let x = 20 + rand() * 40; x < w - 10; x += 60 + rand() * 90) {    // glowing toxic mushrooms
+    g.fillStyle(0xd8d0b0, 1); g.fillRect(x - 1, top - 4, 2, 5);
+    g.fillStyle(0xa6e22e, 1); g.fillEllipse(x, top - 5, 8, 4);
+    g.fillStyle(0xeaffa0, 1); g.fillCircle(x - 1.5, top - 6, 0.9);
+  }
+  g.generateTexture(key, w, over + h);
+  g.destroy();
+  return over;
+}
+
+// 🪵 A mossy log (the Toxic Swamp's floating platforms)
+export function bakeMossyLogPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(1700 + seed * 59);
+  const over = 4;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const top = over;
+  g.fillStyle(0x4a3420, 1);
+  g.fillRoundedRect(0, top, w, h, h / 2);
+  g.fillStyle(0x6a4a2c, 1);
+  g.fillRoundedRect(2, top + 2, w - 4, h * 0.45, h / 3);
+  g.lineStyle(1, 0x2e2014, 0.9);                                         // bark lines
+  for (let i = 0; i < 3; i++) {
+    const y = top + 5 + i * (h - 8) / 3;
+    g.lineBetween(6 + rand() * 10, y, w - 6 - rand() * 10, y + (rand() - 0.5) * 2);
+  }
+  g.fillStyle(0x8a6a44, 1);                                              // cut end rings
+  g.fillEllipse(4, top + h / 2, 7, h - 2);
+  g.lineStyle(1, 0x4a3420, 1);
+  g.strokeEllipse(4, top + h / 2, 4, h * 0.5);
+  g.fillStyle(0x3a5a18, 1);                                              // moss on top
+  for (let x = 8; x < w - 6; x += 5 + rand() * 6) g.fillEllipse(x, top + 1, 7 + rand() * 6, 4);
+  g.fillStyle(0x6a8a2a, 1);
+  for (let x = 10; x < w - 8; x += 9 + rand() * 9) g.fillCircle(x, top, 1.4);
+  g.generateTexture(key, w, over + h);
+  g.destroy();
+  return over;
+}
+
+// 🔩 A rusty metal plate with rivets (the Toxic Swamp's moving platforms)
+export function bakeRustyPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(1900 + seed * 47);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x3a3428, 1);
+  g.fillRoundedRect(0, 0, w, h, 3);
+  g.fillStyle(0x5a5040, 1);
+  g.fillRect(2, 2, w - 4, 4);
+  for (let i = 0; i < 6; i++) {                                           // rust patches
+    g.fillStyle(rand() < 0.5 ? 0x7a4a22 : 0x8a5a2a, 0.8);
+    g.fillEllipse(6 + rand() * (w - 12), 6 + rand() * (h - 10), 8 + rand() * 12, 3 + rand() * 4);
+  }
+  g.fillStyle(0xa6e22e, 0.8);                                             // toxic drip off the edge
+  g.fillRect(w - 14, h - 2, 3, 4);
+  g.fillStyle(0x1e1a14, 1);                                               // rivets
+  for (let x = 6; x < w - 4; x += 16) { g.fillCircle(x, 4, 1.4); g.fillCircle(x, h - 4, 1.4); }
+  g.generateTexture(key, w, h + 2);
+  g.destroy();
+}
+
+// 🪵 A rotten plank (the Toxic Swamp's breaking platforms): pale, split wood with green mould
+export function bakeRottenPlankPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(2100 + seed * 31);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x6a5236, 1);
+  g.fillRect(0, 0, w, h - 3);
+  g.fillStyle(0x8a6c48, 1);
+  g.fillRect(0, 0, w, 4);
+  g.lineStyle(1, 0x4a3822, 1);                                            // grain and splits
+  for (let i = 0; i < 3; i++) { const y = 6 + i * 4; g.lineBetween(3, y, w - 3 - rand() * 20, y + (rand() - 0.5) * 2); }
+  g.fillStyle(0x4a3822, 1);                                               // ragged broken ends
+  g.fillTriangle(0, h - 3, 0, 4, 5, h - 6);
+  g.fillTriangle(w, 2, w, h - 3, w - 6, h / 2);
+  for (let i = 0; i < 4; i++) {                                           // mould
+    g.fillStyle(0x6a9a22, 0.75);
+    g.fillEllipse(8 + rand() * (w - 16), 3 + rand() * (h - 8), 8 + rand() * 10, 3 + rand() * 3);
+  }
+  g.fillStyle(0x3a2a18, 1);                                               // splinters hanging under it
+  for (let x = 6; x < w - 4; x += 12 + rand() * 6) g.fillTriangle(x, h - 3, x + 5, h - 3, x + 2, h + 3);
+  g.generateTexture(key, w, h + 4);
+  g.destroy();
+}
+
+// 🛶 A small raft of lashed logs (the Toxic Swamp's sinking platforms), stained green at the waterline
+export function bakeRaftPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(2300 + seed * 43);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const logs = 2;
+  for (let i = 0; i < logs; i++) {
+    const y = i * (h / logs);
+    g.fillStyle(i ? 0x5a4026 : 0x6a4a2c, 1);
+    g.fillRoundedRect(0, y, w, h / logs + 1, h / (logs * 2));
+    g.fillStyle(0x8a6a44, 0.7);
+    g.fillRect(4, y + 1.5, w - 8, 1.5);
+  }
+  g.fillStyle(0x6a9a22, 0.8);                                             // green stain at the waterline
+  g.fillRect(0, h - 3, w, 3);
+  g.lineStyle(2, 0x3a2a14, 1);                                            // rope lashings
+  [10, w / 2, w - 10].forEach(x => g.lineBetween(x, 0, x + (rand() - 0.5) * 2, h));
+  g.generateTexture(key, w, h);
+  g.destroy();
+}
