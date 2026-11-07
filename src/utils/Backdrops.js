@@ -1035,3 +1035,268 @@ export function bakeCloudPlatform(scene, key, w, h, seed) {
   g.destroy();
   return over;
 }
+
+// ─── Magma Falls ─────────────────────────────────────────────────────────────────────────────
+
+// A glowing line of lava: a wide orange stroke with a hot yellow core
+function lavaLine(g, pts, width) {
+  g.lineStyle(width, 0xff4a0a, 1);
+  g.strokePoints(pts, false);
+  g.lineStyle(Math.max(1, width * 0.4), 0xffc23a, 1);
+  g.strokePoints(pts, false);
+}
+
+// 🌋 Magma Falls backdrop: a black sky glowing red and orange near the ground, smoking volcanoes with
+// lava pouring down their sides, dark cliffs with falls of magma, jagged rocks, rising embers and falling ash.
+// Built like the other backdrops: the landscape is baked once; only smoke, glows and particles move.
+export function drawVolcanoBackdrop(scene, { colors, worldWidth, worldHeight }) {
+  const camW = scene.cameras.main.width;
+  const camH = scene.cameras.main.height;
+  const maxScrollX = Math.max(0, worldWidth - camW);
+  const maxScrollY = Math.max(0, worldHeight - camH);
+  const random = makeRandom(20261109);
+  const widthFor = (sx) => camW + 300 + sx * maxScrollX;
+  const bottomBase = (sy) => camH + sy * maxScrollY + 24;
+
+  // 1) Sky, fixed to the screen: black -> deep red -> orange, in three bands
+  const sky = scene.add.graphics().setScrollFactor(0);
+  [[colors[0], colors[1], 0, 0.45], [colors[1], colors[2], 0.45, 0.8], [colors[2], colors[3], 0.8, 1.05]].forEach(([a, b, from, to]) => {
+    sky.fillGradientStyle(a, a, b, b, 1);
+    sky.fillRect(-20, camH * from - (from === 0 ? 20 : 0), camW + 40, camH * (to - from) + (from === 0 ? 20 : 1));
+  });
+  addGlow(scene, "magma_horizon", camW / 2, camH * 0.95, camW * 1.5, camH * 0.7, 0xff4a00, 0.4);
+
+  // 2) Far volcanoes: dark cones with glowing craters and rivers of lava running down
+  const sx1 = 0.08, sy1 = 0.05, w1 = widthFor(sx1), h1 = 260;
+  const volcanoes = [];
+  for (let gx = 160 + random() * 200; gx < w1; gx += 420 + random() * 380) {
+    volcanoes.push({ gx, base: 260 + random() * 160, height: 150 + random() * 90, crater: 40 + random() * 30, seed: random() });
+  }
+  bakeChunks(scene, "volcano_far", {
+    width: w1, h: h1, imageY: bottomBase(sy1) - h1, alpha: 1, scrollX: sx1, scrollY: sy1,
+    draw: (g, left, chunkW) => {
+      volcanoes.forEach(v => {
+        const x = v.gx - left;
+        if (x + v.base < -20 || x - v.base > chunkW + 20) return;
+        const top = h1 - v.height;
+        g.fillStyle(0x2a0d0a, 1);
+        g.fillPoints([{ x: x - v.base / 2, y: h1 }, { x: x - v.crater / 2, y: top }, { x: x + v.crater / 2, y: top }, { x: x + v.base / 2, y: h1 }], true);
+        g.fillStyle(0x1c0807, 1);                                          // shaded side
+        g.fillPoints([{ x, y: top }, { x: x + v.crater / 2, y: top }, { x: x + v.base / 2, y: h1 }, { x: x + v.base * 0.12, y: h1 }], true);
+        g.fillStyle(0xff6a1a, 1);                                          // glowing crater
+        g.fillEllipse(x, top + 1, v.crater * 0.9, 7);
+        g.fillStyle(0xffd060, 1);
+        g.fillEllipse(x, top + 1, v.crater * 0.5, 3);
+        // two rivers of lava winding down the slope
+        [-1, 1].forEach((side, k) => {
+          const pts = [];
+          let px = x + side * v.crater * 0.25, py = top + 2;
+          const steps = 7;
+          for (let s = 0; s <= steps; s++) {
+            pts.push({ x: px, y: py });
+            px += side * (v.base * 0.35 / steps) + Math.sin((s + k) * 1.7 + v.seed * 9) * 5;
+            py += v.height / steps;
+          }
+          lavaLine(g, pts, 3.2 - k * 0.6);
+        });
+      });
+    }
+  });
+
+  // Smoke rising from each crater (soft dark puffs that grow and fade as they go up)
+  ensureSoftTexture(scene, "smokepuff", 0x3a2a28);
+  const imageY1 = bottomBase(sy1) - h1;
+  volcanoes.forEach((v, i) => {
+    for (let k = 0; k < 3; k++) {
+      const puff = scene.add.image(v.gx, imageY1 + h1 - v.height - 10, "smokepuff").setScrollFactor(sx1, sy1);
+      const startY = puff.y;
+      const loop = () => {
+        puff.setPosition(v.gx + (random() - 0.5) * 10, startY).setDisplaySize(50, 40).setAlpha(0.55);
+        scene.tweens.add({
+          targets: puff, y: startY - 140 - random() * 60, x: puff.x + 30 + random() * 30,
+          displayWidth: 170, displayHeight: 120, alpha: 0, duration: 5200 + random() * 1800,
+          onComplete: loop
+        });
+      };
+      scene.time.delayedCall(k * 1800 + i * 500, loop);
+    }
+  });
+
+  // 3) Dark cliffs with falls of magma pouring down them
+  const sx2 = 0.2, sy2 = 0.12, w2 = widthFor(sx2), h2 = 300;
+  const cliffs = [];
+  for (let gx = 80 + random() * 160; gx < w2; gx += 340 + random() * 300) {
+    cliffs.push({ gx, w: 110 + random() * 80, height: 170 + random() * 110, falls: 1 + Math.floor(random() * 2) });
+  }
+  const imageY2 = bottomBase(sy2) - h2;
+  bakeChunks(scene, "volcano_cliffs", {
+    width: w2, h: h2, imageY: imageY2, alpha: 1, scrollX: sx2, scrollY: sy2,
+    draw: (g, left, chunkW) => {
+      cliffs.forEach(c => {
+        const x = c.gx - left;
+        if (x + c.w < -20 || x - 20 > chunkW) return;
+        const top = h2 - c.height;
+        g.fillStyle(0x140605, 1);
+        g.fillPoints([
+          { x: x - 10, y: h2 }, { x: x, y: top + 20 }, { x: x + c.w * 0.3, y: top }, { x: x + c.w * 0.7, y: top + 8 },
+          { x: x + c.w, y: top + 26 }, { x: x + c.w + 12, y: h2 }
+        ], true);
+        for (let f = 0; f < c.falls; f++) {                               // the magma falls
+          const fx = x + c.w * (0.32 + f * 0.36);
+          const fTop = top + 6 + f * 4;
+          g.fillStyle(0xff4a0a, 1);
+          g.fillRect(fx - 6, fTop, 12, h2 - fTop);
+          g.fillStyle(0xff8a1a, 1);
+          g.fillRect(fx - 3.5, fTop, 7, h2 - fTop);
+          g.fillStyle(0xffd060, 1);
+          g.fillRect(fx - 1.2, fTop, 2.4, h2 - fTop);
+          g.fillStyle(0xff6a1a, 1);                                       // lip where it pours over
+          g.fillEllipse(fx, fTop, 18, 6);
+        }
+      });
+    }
+  });
+  // A pulsing glow on every fall, so the magma looks hot and alive
+  cliffs.forEach(c => {
+    for (let f = 0; f < c.falls; f++) {
+      const fx = c.gx + c.w * (0.32 + f * 0.36);
+      const glow = scene.add.image(fx, imageY2 + h2 - c.height * 0.45, "magma_horizon")
+        .setDisplaySize(70, c.height * 1.1).setAlpha(0.35).setScrollFactor(sx2, sy2).setBlendMode("ADD");
+      scene.tweens.add({ targets: glow, alpha: 0.6, duration: 700 + random() * 600, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+    }
+  });
+
+  // 4) Near jagged rocks, black with a red rim of light from the lava below
+  {
+    const sx = 0.36, sy = 0.22, width = widthFor(sx), h = 170;
+    const spikes = planSpikes(width, { minH: 50, maxH: 150, minW: 50, maxW: 130 }, random);
+    bakeChunks(scene, "volcano_near_rocks", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        spikes.forEach(sp => {
+          const x0 = sp.x - left;
+          if (x0 + sp.w < -2 || x0 > chunkW + 2) return;
+          const tipX = x0 + sp.w / 2 + sp.lean, tipY = h - sp.h;
+          g.fillStyle(0x0c0403, 1);
+          g.fillTriangle(x0, h, x0 + sp.w, h, tipX, tipY);
+          g.lineStyle(1.5, 0xff4a0a, 0.5);                                 // red rim light
+          g.lineBetween(x0, h, tipX, tipY);
+        });
+        g.fillStyle(0x0c0403, 1);
+        g.fillRect(0, h - 8, chunkW, 8);
+      }
+    });
+  }
+
+  // 5) Embers rising and ash falling
+  if (!scene.textures.exists("magma_ember")) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xff7a1a, 0.35); g.fillCircle(5, 5, 5);
+    g.fillStyle(0xffd060, 1);    g.fillCircle(5, 5, 1.8);
+    g.generateTexture("magma_ember", 10, 10);
+    g.clear(); g.fillStyle(0x7a6a66, 0.9); g.fillCircle(2, 2, 1.6);
+    g.generateTexture("magma_ash", 4, 4);
+    g.destroy();
+  }
+  scene.add.particles(0, 0, "magma_ember", {
+    x: { min: 0, max: camW }, y: camH + 10, lifespan: 6000,
+    speedY: { min: -70, max: -30 }, speedX: { min: -15, max: 15 },
+    scale: { min: 0.5, max: 1.2 }, alpha: { values: [0, 1, 0.5, 0.9, 0] },
+    frequency: 120, advance: 5000
+  }).setScrollFactor(0);
+  scene.add.particles(0, 0, "magma_ash", {
+    x: { min: 0, max: camW }, y: -10, lifespan: 9000,
+    speedY: { min: 18, max: 40 }, speedX: { min: -12, max: 6 },
+    scale: { min: 0.6, max: 1.3 }, alpha: { start: 0.7, end: 0 },
+    frequency: 160, advance: 8000
+  }).setScrollFactor(0);
+}
+
+// 🪨 A basalt platform: dark columns of rock, a slightly lighter top edge and glowing cracks of lava.
+// Ground pieces also glow hot along the bottom (they sit next to lava). Returns how far it sticks up.
+export function bakeBasaltPlatform(scene, key, w, h, seed, ground) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(4000 + seed * 89);
+  const over = 3;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const top = over;
+
+  g.fillStyle(0x2b2420, 1);
+  g.fillRect(0, top, w, h);
+  g.lineStyle(1, 0x1a1512, 1);                                   // basalt columns
+  for (let x = 6 + rand() * 8; x < w - 4; x += 9 + rand() * 9) g.lineBetween(x, top + 4, x + (rand() - 0.5) * 3, top + h);
+  if (ground) {                                                  // hot glow near the bottom
+    g.fillStyle(0x6a1a08, 0.8);
+    g.fillRect(0, top + h - 8, w, 8);
+    g.fillStyle(0xa8300a, 0.6);
+    g.fillRect(0, top + h - 3, w, 3);
+  }
+  g.fillStyle(0x4a3c34, 1);                                      // top edge
+  g.fillRect(0, top, w, 4);
+  g.fillStyle(0x6a564a, 1);
+  g.fillRect(0, top, w, 1.5);
+  for (let x = 0; x < w; x += 7) {                               // rough, rocky top
+    g.fillStyle(0x4a3c34, 1);
+    g.fillTriangle(x, top + 1, x + 7, top + 1, x + 3 + rand() * 2, top - 1 - rand() * 2);
+  }
+  // glowing cracks
+  for (let x = 12 + rand() * 20; x < w - 10; x += 28 + rand() * 40) {
+    const pts = [{ x, y: top + 3 }];
+    let px = x, py = top + 3;
+    for (let s = 0; s < 3; s++) { px += (rand() - 0.5) * 10; py += 3 + rand() * (h / 4); pts.push({ x: px, y: Math.min(py, top + h - 2) }); }
+    g.lineStyle(2.4, 0xff4a0a, 0.9);
+    g.strokePoints(pts, false);
+    g.lineStyle(1, 0xffc23a, 1);
+    g.strokePoints(pts, false);
+  }
+  // sides a little darker, so each piece reads as a solid block
+  g.fillStyle(0x000000, 0.25);
+  g.fillRect(0, top, 3, h);
+  g.fillRect(w - 3, top, 3, h);
+
+  g.generateTexture(key, w, over + h);
+  g.destroy();
+  return over;
+}
+
+// ⚠️ A collapsing platform: paler, already-fractured rock with glowing seams, so it reads as unsafe
+export function bakeCrumblePlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(6000 + seed * 37);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x6a4632, 1);
+  g.fillRoundedRect(0, 0, w, h, 3);
+  g.fillStyle(0x8a5e42, 1);
+  g.fillRect(0, 0, w, 4);
+  g.fillStyle(0xa87452, 1);
+  g.fillRect(0, 0, w, 1.5);
+  g.fillStyle(0x4a2e20, 1);                                      // chipped underside
+  for (let x = 4; x < w - 4; x += 10 + rand() * 6) g.fillTriangle(x, h - 1, x + 8, h - 1, x + 4, h + 4);
+  g.lineStyle(1.5, 0xff8a1a, 0.9);                               // seams between the blocks
+  for (let x = 18 + rand() * 6; x < w - 10; x += 22 + rand() * 8) {
+    g.beginPath(); g.moveTo(x, 2); g.lineTo(x + (rand() - 0.5) * 6, h / 2); g.lineTo(x + (rand() - 0.5) * 6, h - 1); g.strokePath();
+  }
+  g.generateTexture(key, w, h + 5);
+  g.destroy();
+}
+
+// ⬛ An obsidian slab with a vein of lava (the Magma Falls moving platforms)
+export function bakeObsidianPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(2000 + seed * 71);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x120c10, 1);
+  g.fillRoundedRect(0, 0, w, h, 4);
+  g.fillStyle(0x3a2c36, 1);                                      // glassy shine along the top
+  g.fillRect(3, 1, w - 6, 3);
+  g.fillStyle(0x5a4656, 0.6);
+  g.fillTriangle(8, 4, 26, 4, 14, h - 6);
+  const pts = [];
+  for (let x = 6; x <= w - 6; x += 12) pts.push({ x, y: h * 0.6 + (rand() - 0.5) * 5 });
+  g.lineStyle(2.4, 0xff4a0a, 0.9);
+  g.strokePoints(pts, false);
+  g.lineStyle(1, 0xffc23a, 1);
+  g.strokePoints(pts, false);
+  g.generateTexture(key, w, h);
+  g.destroy();
+}

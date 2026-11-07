@@ -577,5 +577,110 @@ export const levels = [
       [5200, 290, 100, 120, 120],
       [5900, 300, 100, 100, 100],
     ]
+  },
+
+  {
+    id: 6,
+    name: "Magma Falls",
+    subtitle: "Level 7",
+
+    // 🌋 A dangerous volcanic landscape in orange, red and black: erupting volcanoes, falls of magma,
+    // smoke and embers (see src/utils/Backdrops.js). Hazards and their rules are in src/utils/Hazards.js.
+    theme: "volcano",
+    background: [0x0d0303, 0x3a0a06, 0xa82a0a, 0xff7a2a],   // black sky -> deep red -> orange glow of lava
+    groundColor: 0x2b2420,     // basalt
+    platformColor: 0x3a2e28,
+
+    worldWidth: 5200,
+    playerStart: [80, 490],
+    flagX: 5100,
+    timeLimit: 105,
+
+    // 🟢 Two checkpoints, each on a stretch of rock with no enemies, lava or falling rocks
+    checkpoints: [1860, 3470],
+
+    platforms: [
+      // Rock floor: every gap between these is a lava pool (see lavaPools)
+      [0,    570, 480, 30],
+      [600,  570, 320, 30],
+      [1050, 570, 330, 30],
+      [1680, 570, 380, 30],   // checkpoint 1
+      [2190, 570, 310, 30],
+      [2630, 570, 330, 30],
+      [3280, 570, 400, 30],   // checkpoint 2
+      [3810, 570, 310, 30],
+      [4250, 570, 300, 30],
+      [4870, 570, 330, 30],   // finish
+
+      // Floating basalt ledges
+      [300,  450, 100, 20],
+      [520,  360, 110, 20],
+      [760,  450, 100, 20],
+      [980,  360, 100, 20],
+      [1180, 450, 100, 20],
+      [1760, 440, 100, 20],
+      [1960, 350, 110, 20],
+      [2280, 450, 100, 20],
+      [2480, 360, 110, 20],
+      [2720, 450, 100, 20],
+      [3380, 450, 100, 20],
+      [3580, 350, 110, 20],
+      [3900, 450, 100, 20],
+      [4100, 360, 110, 20],
+      [4330, 450, 100, 20],
+      [4950, 440, 100, 20],
+    ],
+
+    // 🔥 Lava pools [x, width]: touching the lava costs a life. Each fills a gap in the rock floor.
+    // The three wide "lakes" are too far to jump: cross them on the collapsing platform in the middle.
+    lavaPools: [
+      [480, 120], [920, 130], [1380, 300], [2060, 130], [2500, 130],
+      [2960, 320], [3680, 130], [4120, 130], [4550, 320],
+    ],
+
+    // 🪨 Collapsing platforms [x, y, width]: they crack when you stand on them, then fall
+    // (3 s on Easy, 2.5 s on Normal, 2 s on Hard) and come back a few seconds later.
+    crumblingPlatforms: [
+      [1480, 500, 100],   // across lava lake 1
+      [3070, 500, 100],   // across lava lake 2
+      [4660, 500, 100],   // across lava lake 3
+      [2850, 360, 100],   // bonus coin, up high
+      [4420, 350, 100],   // bonus coin, up high
+    ],
+
+    // ☄️ Falling rocks: x positions where a rock drops (with a warning first) while you are nearby.
+    // Only five, and never near a checkpoint, so the level stays fair.
+    fallingRocks: [1150, 2300, 2780, 3880, 4320],
+
+    coins: [
+      [350, 420],  [575, 330],  [810, 420],  [1030, 330], [1230, 420],
+      [1530, 470], [1810, 410], [2015, 320], [2330, 420], [2535, 330],
+      [2900, 330], [3120, 470], [3430, 420], [3635, 320], [3950, 420],
+      [4155, 330], [4470, 320], [4710, 470], [5000, 410],
+    ],
+
+    // [x, y, patrolLeft, patrolRight, speed, colour, kind]
+    //   "lava"  = a lava creature that crawls along the rock (it drops onto the ground below it)
+    //   "demon" = a fire demon that floats at its own height
+    enemies: [
+      [300,  540, 180,  460,  80,  0xff6a00, "lava"],
+      [800,  540, 690,  900,  90,  0xff4500, "lava"],
+      [1250, 540, 1130, 1360, 95,  0xff6a00, "lava"],
+      [2350, 540, 2270, 2480, 100, 0xff4500, "lava"],
+      [2850, 540, 2710, 2940, 100, 0xff6a00, "lava"],
+      [4000, 540, 3890, 4100, 105, 0xff4500, "lava"],
+      [4450, 540, 4330, 4530, 105, 0xff6a00, "lava"],
+
+      [700,  450, 610,  900,  65, 0xff7a1a, "demon"],
+      [1250, 450, 1060, 1370, 70, 0xffa21a, "demon"],
+      [2400, 460, 2210, 2490, 70, 0xff7a1a, "demon"],
+      [3950, 460, 3820, 4110, 75, 0xffa21a, "demon"],
+    ],
+
+    movingPlatforms: [
+      [2000, 280, 100, 120, 90],
+      [3700, 290, 100, 120, 100],
+      [4580, 300, 100, 140, 90],   // a high road over lava lake 3
+    ]
   }
 ];
