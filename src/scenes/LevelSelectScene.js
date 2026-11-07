@@ -24,6 +24,7 @@ const THEMES = {
   sea:     { accent: 0x4fc3f7, sky: [0x0d6aa0, 0x03264f] },
   forest:  { accent: 0xffd23f, sky: [0x1a2240, 0x070b16] },
   volcano: { accent: 0xff5a1a, sky: [0x1a0404, 0x8a220a] },
+  swamp:   { accent: 0xa6e22e, sky: [0x14200e, 0x4a5a1a] },
 };
 
 // Grasslands and Sky Kingdom have no theme in levels.js; give them one here for their pictures
@@ -520,5 +521,30 @@ function drawLevelPicture(g, theme, x, y, w, h, sky, index) {
     g.fillStyle(0x1c1512, 1); g.fillRect(x, bottom - 12, 70, 12); g.fillRect(x + 130, bottom - 12, w - 130, 12);
     g.fillStyle(0xffd060, 0.9);
     for (let i = 0; i < 10; i++) g.fillCircle(x + 10 + rand() * (w - 20), y + 14 + rand() * (h - 30), 0.9 + rand() * 0.8);
+  }
+
+  if (theme === "swamp") {
+    // a factory leaking smoke, dead trees with moss, toxic water, a barrel and glowing spores
+    g.fillStyle(0xe0f08a, 0.5); g.fillCircle(x + 46, y + 26, 11);
+    g.fillStyle(0x1a2412, 1);
+    g.fillRect(x + w - 80, bottom - 40, 56, 30); g.fillRect(x + w - 66, bottom - 66, 7, 30); g.fillRect(x + w - 46, bottom - 58, 7, 22);
+    g.fillStyle(0x5a6a2a, 0.6); g.fillCircle(x + w - 60, y + 18, 8); g.fillCircle(x + w - 50, y + 12, 6);
+    g.fillStyle(0xb4ff2a, 0.8); g.fillRect(x + w - 72, bottom - 30, 4, 4); g.fillRect(x + w - 58, bottom - 30, 4, 4);
+    g.lineStyle(3, 0x141c0e, 1);
+    [[x + 30, 58], [x + 92, 46]].forEach(([tx, th]) => {
+      g.lineBetween(tx, bottom - 6, tx + 2, bottom - th);
+      g.lineBetween(tx + 1, bottom - th * 0.6, tx - 12, bottom - th * 0.85);
+      g.lineBetween(tx + 1, bottom - th * 0.75, tx + 13, bottom - th * 0.95);
+    });
+    g.lineStyle(1, 0x4a6a1e, 1);
+    [x + 18, x + 21, x + 104, x + 107].forEach(mx => g.lineBetween(mx, bottom - 40, mx, bottom - 26));
+    g.fillStyle(0x5a9a14, 1); g.fillRect(x, bottom - 9, w, 9);              // toxic water
+    g.fillStyle(0xd8ff4a, 1); g.fillRect(x, bottom - 9, w, 2);
+    g.fillStyle(0x3a2818, 1); g.fillRect(x + 50, bottom - 12, 70, 12);      // mud bank
+    g.fillStyle(0x2f4a16, 1); g.fillRect(x + 50, bottom - 12, 70, 3);
+    g.fillStyle(0x5a3a1e, 1); g.fillRoundedRect(x + 128, bottom - 24, 14, 16, 2);   // barrel
+    g.fillStyle(0xa6e22e, 1); g.fillRect(x + 128, bottom - 19, 14, 4);
+    g.fillStyle(0xd8ff6a, 0.9);
+    for (let i = 0; i < 10; i++) g.fillCircle(x + 10 + rand() * (w - 20), y + 30 + rand() * (h - 44), 0.9 + rand() * 0.7);
   }
 }
