@@ -1,8 +1,8 @@
-import { bakeCrumblePlatform, bakeRottenPlankPlatform, bakeRaftPlatform } from "./Backdrops.js";
+import { bakeCrumblePlatform, bakeRottenPlankPlatform, bakeRaftPlatform, bakeCrackedSandstone } from "./Backdrops.js";
 
-// 🌋☣️ Hazards for Magma Falls and Toxic Swamp: pools you must not touch, falling rocks, platforms that
-// collapse and platforms that sink. Everything runs on the scene's own clock (scene.time / tweens / the
-// scene's update), so it all stops while the game is paused.
+// 🌋☣️🏜️ Hazards for Magma Falls, Toxic Swamp and Lost Sands: pools you must not touch, falling rocks,
+// platforms that collapse, platforms that sink, and quicksand. Everything runs on the scene's own clock
+// (scene.time / tweens / the scene's update), so it all stops while the game is paused.
 
 // How long things take on each difficulty (milliseconds), per level
 const TIMING = {
@@ -17,6 +17,12 @@ const TIMING = {
     easy:   { crumble: 3000, sinkSpeed: 26 },
     normal: { crumble: 3000, sinkSpeed: 32 },
     hard:   { crumble: 2000, sinkSpeed: 40 },
+  },
+  //                     block falls after              quicksand pulls you down this fast (px/s)
+  desert: {
+    easy:   { crumble: 2000, quicksandSpeed: 16 },
+    normal: { crumble: 2000, quicksandSpeed: 22 },
+    hard:   { crumble: 1000, quicksandSpeed: 28 },
   },
 };
 const PLATFORM_RETURN_MS = 3000;   // a collapsed platform comes back after this long
@@ -37,8 +43,9 @@ const POOLS = {
 
 // What each kind of collapsing platform looks like
 const CRUMBLE_LOOKS = {
-  volcano: { bake: bakeCrumblePlatform,     crackGlow: 0xff6a1a, crack: 0x140805, bits: [0x6a4632, 0x5a3a2a] },
-  swamp:   { bake: bakeRottenPlankPlatform, crackGlow: 0xa6e22e, crack: 0x2a1a0c, bits: [0x7a5a38, 0x5a4026] },
+  volcano: { name: "volcano", bake: bakeCrumblePlatform,     crackGlow: 0xff6a1a, crack: 0x140805, bits: [0x6a4632, 0x5a3a2a] },
+  swamp:   { name: "swamp",   bake: bakeRottenPlankPlatform, crackGlow: 0xa6e22e, crack: 0x2a1a0c, bits: [0x7a5a38, 0x5a4026] },
+  desert:  { name: "desert",  bake: bakeCrackedSandstone,    crackGlow: 0xf0c06a, crack: 0x6a3e1c, bits: [0xe8c08a, 0xc8944e] },
 };
 
 export function setupVolcanoHazards(scene, levelData, difficultyKey) {
@@ -55,6 +62,13 @@ export function setupSwampHazards(scene, levelData, difficultyKey) {
   addPools(scene, levelData.toxicPools || [], POOLS.toxic);
   addCrumblingPlatforms(scene, levelData.breakingPlatforms || [], timing, CRUMBLE_LOOKS.swamp);
   addSinkingPlatforms(scene, levelData.sinkingPlatforms || [], timing);
+}
+
+export function setupDesertHazards(scene, levelData, difficultyKey) {
+  const timing = TIMING.desert[difficultyKey] || TIMING.desert.normal;
+  makeTextures(scene);
+  addQuicksand(scene, levelData.quicksand || [], timing);
+  addCrumblingPlatforms(scene, levelData.collapsingBlocks || [], timing, CRUMBLE_LOOKS.desert);
 }
 
 function makeGlowTexture(scene, key, rgb) {
@@ -158,7 +172,7 @@ function splash(scene, x, y, texture) {
 function addCrumblingPlatforms(scene, list, timing, look) {
   const h = 20;
   list.forEach(([x, y, w], i) => {
-    const key = `crumble_platform_${look === CRUMBLE_LOOKS.swamp ? "swamp" : "volcano"}_${i}`;
+    const key = `crumble_platform_${look.name}_${i}`;
     look.bake(scene, key, w, h, i);
     const image = scene.add.image(x, y, key).setOrigin(0, 0);
     const cracks = scene.add.graphics({ x, y });
@@ -307,6 +321,94 @@ function ripple(scene, x, y) {
   scene.tweens.add({ targets: ring, scaleX: 3.5, scaleY: 2, alpha: 0, duration: 650, onComplete: () => ring.destroy() });
   const bubble = scene.add.image(x, y + 4, "toxic_bubble").setScale(0.6);
   scene.tweens.add({ targets: bubble, y: y - 14, alpha: 0, scale: 1.1, duration: 500, onComplete: () => bubble.destroy() });
+}
+
+// ─── Quicksand ───────────────────────────────────────────────────────────────────────────────
+// A patch of quicksand between two stretches of solid sand. You can walk on it, but slowly (and you
+// can only make small jumps), and while you stand in it, it pulls you down. Sink too deep and it
+// swallows you. Step out and it settles back. The sand is drawn in front of the player, so you
+// really disappear into it.
+const QUICKSAND_TOP = 572;
+const QUICKSAND_DEPTH_LIMIT = 44;   // pulled this far down = swallowed
+const QUICKSAND_SETTLE_SPEED = 40;  // px/s when it settles back after you get out
+
+function addQuicksand(scene, patches, timing) {
+  const patchesState = patches.map(([x, w], i) => {
+    const key = `quicksand_${i}`;
+    if (scene.textures.exists(key)) scene.textures.remove(key);
+    const rand = Phaser.Math.RND;
+    const h = 34;
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x8e5e2c, 1); g.fillRect(0, 0, w, h);
+    g.fillStyle(0xb07a3c, 1); g.fillRect(0, 0, w, h * 0.55);
+    g.fillStyle(0xd09a52, 1); g.fillRect(0, 0, w, 4);
+    g.lineStyle(1.2, 0x8a5a2a, 0.8);                                     // swirls in the wet sand
+    for (let k = 0; k < w / 40; k++) {
+      const cx = 14 + rand.between(0, w - 28), cy = 10 + rand.between(0, 10);
+      g.beginPath(); g.arc(cx, cy, rand.between(5, 10), 0, Math.PI * 1.4); g.strokePath();
+    }
+    g.generateTexture(key, w, h);
+    g.destroy();
+    scene.add.image(x, QUICKSAND_TOP - 2, key).setOrigin(0, 0).setDepth(5);   // in front of the player
+
+    // slowly turning swirls on the surface, so it reads as "this sand moves"
+    for (let k = 0; k < Math.max(2, Math.floor(w / 90)); k++) {
+      const swirl = scene.add.ellipse(x + (k + 0.5) * w / Math.max(2, Math.floor(w / 90)), QUICKSAND_TOP + 6, 34, 6)
+        .setStrokeStyle(1.4, 0x7a4a22, 0.8).setDepth(6);
+      scene.tweens.add({ targets: swirl, scaleX: 0.3, scaleY: 0.4, alpha: 0.2, duration: 1400 + k * 200, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+    }
+
+    const body = scene.physics.add.image(x + w / 2, QUICKSAND_TOP + 8, null).setDisplaySize(w, 16).setVisible(false);
+    body.setImmovable(true);
+    body.body.setAllowGravity(false);
+
+    const q = { body, x, w, restY: QUICKSAND_TOP + 8, lastStood: -Infinity, nextPuff: 0 };
+    scene.physics.add.collider(scene.player, body, () => {
+      const pb = scene.player.body;
+      if (pb.touching.down && pb.bottom <= body.body.top + 6) {
+        q.lastStood = scene.time.now;
+        scene.inQuicksandUntil = scene.time.now + 120;   // GameScene slows you down and shortens your jumps
+      }
+    });
+    return q;
+  });
+
+  const update = (time) => {
+    patchesState.forEach(q => {
+      const standing = time - q.lastStood < 120;
+      if (standing) {
+        q.body.setVelocityY(timing.quicksandSpeed);
+        if (time > q.nextPuff) {                                            // sand puffs around your feet
+          q.nextPuff = time + 220;
+          sandPuff(scene, scene.player.x, QUICKSAND_TOP);
+        }
+        if (q.body.y - q.restY >= QUICKSAND_DEPTH_LIMIT && !scene.gameOver && !scene.gameWon) {
+          q.lastStood = -Infinity;
+          q.body.setVelocityY(0);
+          q.body.y = q.restY;
+          scene.loseLife("quicksand");
+        }
+      } else if (q.body.y > q.restY + 0.5) {
+        q.body.setVelocityY(-QUICKSAND_SETTLE_SPEED);
+      } else {
+        q.body.setVelocityY(0);
+        q.body.y = q.restY;
+      }
+      q.body.x = q.x + q.w / 2;
+    });
+  };
+  scene.events.on("update", update);
+  scene.events.once("shutdown", () => scene.events.off("update", update));
+}
+
+function sandPuff(scene, x, y) {
+  for (let i = 0; i < 3; i++) {
+    const grain = scene.add.circle(x + (Math.random() - 0.5) * 24, y, 1.5 + Math.random() * 1.5, 0xd09a52).setDepth(7);
+    scene.tweens.add({
+      targets: grain, y: y - 8 - Math.random() * 10, x: grain.x + (Math.random() - 0.5) * 16, alpha: 0,
+      duration: 380, ease: "Quad.Out", onComplete: () => grain.destroy()
+    });
+  }
 }
 
 // ─── Falling rocks ───────────────────────────────────────────────────────────────────────────

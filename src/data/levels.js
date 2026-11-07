@@ -819,5 +819,114 @@ export const levels = [
       [3300, 290, 100, 120, 100],
       [4500, 300, 100, 120, 90],
     ]
+  },
+
+  {
+    id: 8,
+    name: "Lost Sands",
+    subtitle: "Level 9",
+
+    // 🏜️ A massive desert with ancient ruins, in orange, gold and brown: a blazing sun, pyramids on the
+    // horizon, broken columns, arches and half-buried statues, rolling dunes, blowing sand and vultures
+    // (see src/utils/Backdrops.js). Its hazards (quicksand, collapsing blocks) are in src/utils/Hazards.js.
+    theme: "desert",
+    background: [0xc8622a, 0xe8933a, 0xf6c467, 0xffe3a6],   // burnt orange -> amber -> gold -> pale gold
+    groundColor: 0xc8873e,     // sandstone
+    platformColor: 0xd9a35a,
+
+    worldWidth: 6600,
+    playerStart: [80, 490],
+    flagX: 6500,
+    timeLimit: 130,
+
+    // 🟢 Two checkpoints, about a third and two thirds of the way, on solid sand with no enemies
+    checkpoints: [2040, 4370],
+
+    platforms: [
+      // Solid sand: the gaps between these are either quicksand (see quicksand) or open pits
+      [0,    570, 500, 30],
+      [740,  570, 320, 30],
+      [1190, 570, 340, 30],
+      [1850, 570, 380, 30],   // checkpoint 1
+      [2490, 570, 330, 30],
+      [2950, 570, 320, 30],
+      [3590, 570, 340, 30],
+      [4180, 570, 380, 30],   // checkpoint 2
+      [4690, 570, 320, 30],
+      [5330, 570, 330, 30],
+      [5920, 570, 680, 30],   // finish
+
+      // Sandstone ruin blocks
+      [300,  450, 100, 20],
+      [520,  360, 110, 20],
+      [800,  450, 100, 20],
+      [1000, 360, 110, 20],
+      [1260, 450, 100, 20],
+      [1440, 360, 110, 20],
+      [1930, 450, 100, 20],
+      [2120, 360, 110, 20],
+      [2560, 450, 100, 20],
+      [2740, 360, 110, 20],
+      [3020, 450, 100, 20],
+      [3200, 360, 110, 20],
+      [3660, 450, 100, 20],
+      [3840, 360, 110, 20],
+      [4260, 450, 100, 20],
+      [4760, 450, 100, 20],
+      [4940, 360, 110, 20],
+      [5400, 450, 100, 20],
+      [5580, 360, 110, 20],
+      [6000, 450, 100, 20],
+      [6200, 360, 110, 20],
+    ],
+
+    // ⏳ Quicksand [x, width]: you can walk on it, but slowly, and it pulls you down while you stand in it.
+    // Jump to get out! Each patch is too wide to jump over in one go.
+    quicksand: [
+      [500, 240], [2230, 260], [3930, 250], [5660, 260],
+    ],
+
+    // 🧱 Collapsing sandstone blocks [x, y, width]: they crack when you stand on them and fall after
+    // 2 s (1 s on Hard), then come back a few seconds later. Three bridge the wide open pits.
+    collapsingBlocks: [
+      [1640, 500, 100],   // across pit 2
+      [3380, 500, 100],   // across pit 4
+      [5120, 500, 100],   // across pit 6
+      [2300, 380, 100],   // above quicksand 2 (a quick way across)
+      [4040, 380, 100],   // above quicksand 3
+      [5760, 380, 100],   // above quicksand 4
+    ],
+
+    coins: [
+      [350, 420],  [575, 330],  [850, 420],  [1055, 330], [1310, 420],
+      [1495, 330], [1690, 470], [1980, 420], [2175, 330], [2350, 350],
+      [2610, 420], [2795, 330], [3070, 420], [3255, 330], [3430, 470],
+      [3710, 420], [3895, 330], [4090, 350], [4310, 420], [4810, 420],
+      [4995, 330], [5170, 470], [5450, 420], [5635, 330], [5810, 350],
+      [6050, 420], [6255, 330],
+    ],
+
+    // [x, y, patrolLeft, patrolRight, speed, colour, kind]
+    //   "scorpion" = a scorpion that scuttles along the sand
+    //   "sand"     = a sand creature that keeps burrowing under the sand (harmless while hidden)
+    //                and bursting back out (dangerous)
+    enemies: [
+      [340,  540, 220,  480,  70, 0xb8642a, "scorpion"],
+      [920,  540, 820,  1040, 60, 0xd9a35a, "sand"],
+      [1380, 540, 1270, 1510, 80, 0x9a4e20, "scorpion"],
+      [2680, 540, 2570, 2800, 65, 0xd9a35a, "sand"],
+      [3120, 540, 3030, 3250, 85, 0xb8642a, "scorpion"],
+      [3780, 540, 3670, 3910, 70, 0xd9a35a, "sand"],
+      [4860, 540, 4770, 4990, 90, 0x9a4e20, "scorpion"],
+      [5500, 540, 5410, 5640, 75, 0xd9a35a, "sand"],
+      // (checkpoint stretches 1850-2230 and 4180-4560, and the finish, have no enemies)
+    ],
+
+    // Flying carpets
+    movingPlatforms: [
+      [1100, 300, 100, 120, 90],
+      [3300, 290, 100, 120, 100],
+      [5100, 300, 100, 120, 90],
+    ]
   }
 ];

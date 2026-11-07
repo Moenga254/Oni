@@ -25,6 +25,7 @@ const THEMES = {
   forest:  { accent: 0xffd23f, sky: [0x1a2240, 0x070b16] },
   volcano: { accent: 0xff5a1a, sky: [0x1a0404, 0x8a220a] },
   swamp:   { accent: 0xa6e22e, sky: [0x14200e, 0x4a5a1a] },
+  desert:  { accent: 0xf0b840, sky: [0xd9772b, 0xffe0a0] },
 };
 
 // Grasslands and Sky Kingdom have no theme in levels.js; give them one here for their pictures
@@ -546,5 +547,21 @@ function drawLevelPicture(g, theme, x, y, w, h, sky, index) {
     g.fillStyle(0xa6e22e, 1); g.fillRect(x + 128, bottom - 19, 14, 4);
     g.fillStyle(0xd8ff6a, 0.9);
     for (let i = 0; i < 10; i++) g.fillCircle(x + 10 + rand() * (w - 20), y + 30 + rand() * (h - 44), 0.9 + rand() * 0.7);
+  }
+
+  if (theme === "desert") {
+    // a blazing sun, a pyramid, a broken column and an arch half buried in golden dunes
+    g.fillStyle(0xfff0b0, 0.45); g.fillCircle(x + w - 50, y + 28, 22);
+    g.fillStyle(0xfffbe8, 1);    g.fillCircle(x + w - 50, y + 28, 13);
+    g.fillStyle(0xd08a48, 1); g.fillTriangle(x + 110, bottom - 22, x + 190, bottom - 22, x + 150, bottom - 66);   // pyramid
+    g.fillStyle(0xb06e36, 1); g.fillTriangle(x + 150, bottom - 66, x + 190, bottom - 22, x + 156, bottom - 22);
+    g.fillStyle(0xb87a40, 1);
+    g.fillRect(x + 36, bottom - 62, 12, 50); g.fillRect(x + 32, bottom - 66, 20, 6);                              // column
+    g.fillRect(x + 66, bottom - 48, 10, 40); g.fillTriangle(x + 66, bottom - 48, x + 76, bottom - 48, x + 73, bottom - 56);   // broken column
+    g.fillStyle(0x95602e, 1); g.fillRect(x + 43, bottom - 62, 5, 50);
+    hills(g, x, w, bottom, bottom - 20, 5, 26, 1.2, 0xe2a85c);
+    hills(g, x, w, bottom, bottom - 9, 3, 18, 3, 0xc8843e);
+    g.fillStyle(0x3a2414, 0.85);                                                // a vulture
+    g.fillTriangle(x + 92, y + 30, x + 102, y + 26, x + 98, y + 32); g.fillTriangle(x + 102, y + 26, x + 112, y + 30, x + 104, y + 32);
   }
 }

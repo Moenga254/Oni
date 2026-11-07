@@ -1634,3 +1634,301 @@ export function bakeRaftPlatform(scene, key, w, h, seed) {
   g.generateTexture(key, w, h);
   g.destroy();
 }
+
+// ─── Lost Sands ──────────────────────────────────────────────────────────────────────────────
+
+// Ancient ruin pieces, drawn standing on baseY: a column (whole or broken), an arch, an obelisk,
+// a temple front with steps, or a half-buried statue head
+function ruinPiece(g, kind, x, baseY, s, light, dark, rand) {
+  g.fillStyle(light, 1);
+  if (kind === "column" || kind === "broken") {
+    const h = kind === "column" ? 120 * s : (50 + rand() * 50) * s, w = 16 * s;
+    g.fillRect(x - w / 2, baseY - h, w, h);
+    g.fillStyle(dark, 1);
+    g.fillRect(x + w / 6, baseY - h, w / 3, h);                          // shaded side
+    for (let f = -w / 3; f < w / 2; f += w / 3) g.fillRect(x + f, baseY - h, 1, h);   // fluting
+    g.fillStyle(light, 1);
+    g.fillRect(x - w * 0.8, baseY - 8 * s, w * 1.6, 8 * s);              // base
+    if (kind === "column") g.fillRect(x - w * 0.8, baseY - h - 7 * s, w * 1.6, 7 * s);   // capital
+    else g.fillTriangle(x - w / 2, baseY - h, x + w / 2, baseY - h, x + w / 4, baseY - h - 9 * s);   // broken top
+  } else if (kind === "arch") {
+    const w = 80 * s, h = 110 * s, t = 16 * s;
+    g.fillRect(x - w / 2, baseY - h, t, h);
+    g.fillRect(x + w / 2 - t, baseY - h, t, h);
+    g.fillRect(x - w / 2 - 4 * s, baseY - h - 14 * s, w + 8 * s, 16 * s);
+    g.fillStyle(dark, 1);
+    g.fillRect(x + w / 2 - t * 0.4, baseY - h, t * 0.4, h);
+    g.fillRect(x - w / 2 - 4 * s, baseY - h + 1, w + 8 * s, 3 * s);
+  } else if (kind === "obelisk") {
+    const w = 18 * s, h = 140 * s;
+    g.fillPoints([{ x: x - w / 2, y: baseY }, { x: x - w / 3, y: baseY - h }, { x: x + w / 3, y: baseY - h }, { x: x + w / 2, y: baseY }], true);
+    g.fillTriangle(x - w / 3, baseY - h, x + w / 3, baseY - h, x, baseY - h - 14 * s);
+    g.fillStyle(dark, 1);
+    g.fillPoints([{ x, y: baseY }, { x, y: baseY - h - 14 * s }, { x: x + w / 3, y: baseY - h }, { x: x + w / 2, y: baseY }], true);
+    g.fillStyle(0x7a4a26, 1);
+    for (let k = 0; k < 4; k++) g.fillRect(x - 3 * s, baseY - h * (0.3 + k * 0.15), 5 * s, 3 * s);   // glyphs
+  } else if (kind === "temple") {
+    const w = 150 * s, h = 80 * s;
+    for (let st = 0; st < 3; st++) g.fillRect(x - w / 2 - (3 - st) * 8 * s, baseY - (st + 1) * 6 * s, w + (3 - st) * 16 * s, 6 * s);   // steps
+    const colTop = baseY - 18 * s - h;
+    for (let c = 0; c < 5; c++) { g.fillStyle(light, 1); g.fillRect(x - w / 2 + 8 * s + c * (w - 26 * s) / 4, colTop, 10 * s, h); g.fillStyle(dark, 1); g.fillRect(x - w / 2 + 14 * s + c * (w - 26 * s) / 4, colTop, 4 * s, h); }
+    g.fillStyle(light, 1);
+    g.fillRect(x - w / 2 - 6 * s, colTop - 12 * s, w + 12 * s, 12 * s);
+    g.fillTriangle(x - w / 2 - 6 * s, colTop - 12 * s, x + w / 2 + 6 * s, colTop - 12 * s, x, colTop - 40 * s);
+    g.fillStyle(dark, 1);
+    g.fillTriangle(x - w / 3, colTop - 14 * s, x + w / 3, colTop - 14 * s, x, colTop - 32 * s);
+  } else {                                                                 // half-buried statue head
+    const r = 30 * s;
+    g.fillCircle(x, baseY - r * 0.4, r);
+    g.fillRect(x - r * 1.15, baseY - r * 1.2, r * 2.3, r * 0.5);           // headdress band
+    g.fillTriangle(x - r * 1.15, baseY - r * 0.7, x - r * 1.5, baseY + 4, x - r * 0.7, baseY);
+    g.fillTriangle(x + r * 1.15, baseY - r * 0.7, x + r * 1.5, baseY + 4, x + r * 0.7, baseY);
+    g.fillStyle(dark, 1);
+    g.fillRect(x - r * 0.45, baseY - r * 0.55, r * 0.3, r * 0.12);         // closed eyes
+    g.fillRect(x + r * 0.15, baseY - r * 0.55, r * 0.3, r * 0.12);
+    g.fillRect(x - r * 0.08, baseY - r * 0.5, r * 0.16, r * 0.4);          // nose
+    g.fillStyle(light, 1);
+  }
+}
+
+// 🏜️ Lost Sands backdrop: a burning orange-to-gold sky with a blazing sun, pyramids on the horizon,
+// rolling dunes, ancient ruins (temples, arches, columns, obelisks, statue heads) half buried in sand,
+// vultures circling, and sand blowing on the wind. Built like the other backdrops: baked once.
+export function drawDesertBackdrop(scene, { colors, worldWidth, worldHeight }) {
+  const camW = scene.cameras.main.width;
+  const camH = scene.cameras.main.height;
+  const maxScrollX = Math.max(0, worldWidth - camW);
+  const maxScrollY = Math.max(0, worldHeight - camH);
+  const random = makeRandom(20261111);
+  const widthFor = (sx) => camW + 300 + sx * maxScrollX;
+  const bottomBase = (sy) => camH + sy * maxScrollY + 24;
+
+  // 1) Sky, fixed to the screen: burnt orange -> amber -> gold -> pale gold at the horizon
+  const sky = scene.add.graphics().setScrollFactor(0);
+  [[colors[0], colors[1], 0, 0.4], [colors[1], colors[2], 0.4, 0.75], [colors[2], colors[3], 0.75, 1.05]].forEach(([a, b, from, to]) => {
+    sky.fillGradientStyle(a, a, b, b, 1);
+    sky.fillRect(-20, camH * from - (from === 0 ? 20 : 0), camW + 40, camH * (to - from) + (from === 0 ? 20 : 1));
+  });
+
+  // 2) A blazing sun with a wide heat glow
+  addGlow(scene, "desert_heat", camW * 0.7, camH * 0.2, camW, camH * 0.8, 0xfff0b0, 0.4);
+  addGlow(scene, "desert_sun", camW * 0.7, camH * 0.2, 200, 200, 0xffffff, 0.6);
+  const sun = scene.add.graphics().setScrollFactor(0);
+  sun.fillStyle(0xfffbe8, 1);
+  sun.fillCircle(camW * 0.7, camH * 0.2, 34);
+
+  // 3) Far dunes with pyramids standing on them
+  const sx1 = 0.06, sy1 = 0.04, w1 = widthFor(sx1), h1 = 220;
+  const pyramids = [];
+  for (let gx = 150 + random() * 300; gx < w1; gx += 500 + random() * 600) pyramids.push({ gx, size: 70 + random() * 70 });
+  const duneH = (gx, base, amp, seed) => base + Math.sin(gx / 260 + seed) * amp + Math.sin(gx / 97 + seed * 2) * amp * 0.35;
+  bakeChunks(scene, "desert_far", {
+    width: w1, h: h1, imageY: bottomBase(sy1) - h1, alpha: 1, scrollX: sx1, scrollY: sy1,
+    draw: (g, left, chunkW) => {
+      pyramids.forEach(p => {
+        const x = p.gx - left;
+        if (x + p.size < -10 || x - p.size > chunkW + 10) return;
+        const base = h1 - duneH(p.gx, 60, 14, 0.7) + 10;
+        g.fillStyle(0xd08a48, 1);
+        g.fillTriangle(x - p.size, base, x + p.size, base, x, base - p.size * 0.9);
+        g.fillStyle(0xb06e36, 1);                                           // shaded face
+        g.fillTriangle(x, base - p.size * 0.9, x + p.size, base, x + p.size * 0.15, base);
+        g.lineStyle(1, 0xb87a40, 0.6);                                      // stone courses
+        for (let k = 1; k < 6; k++) { const yy = base - p.size * 0.9 * k / 6; const half = p.size * (1 - k / 6); g.lineBetween(x - half, yy, x, yy); }
+      });
+      g.fillStyle(0xe2a85c, 1);
+      const pts = [{ x: -4, y: h1 }];
+      for (let lx = -4; lx <= chunkW + 4; lx += 8) pts.push({ x: lx, y: h1 - duneH(left + lx, 60, 14, 0.7) });
+      pts.push({ x: chunkW + 4, y: h1 });
+      g.fillPoints(pts, true);
+    }
+  });
+
+  // 4) Blowing haze of sand in the distance
+  ensureSoftTexture(scene, "sand_haze", 0xffe0a0);
+  for (let i = 0; i < 6; i++) {
+    const haze = scene.add.image((i + 0.5) * camW / 5, camH * (0.55 + random() * 0.1), "sand_haze")
+      .setDisplaySize(340 + random() * 200, 60 + random() * 30).setAlpha(0.18 + random() * 0.1).setScrollFactor(0);
+    scene.tweens.add({ targets: haze, x: haze.x + 90 + random() * 60, duration: 8000 + random() * 5000, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+  }
+
+  // 5) Ruins half buried in a middle row of dunes
+  {
+    const sx = 0.22, sy = 0.12, width = widthFor(sx), h = 260;
+    const kinds = ["temple", "column", "broken", "arch", "obelisk", "head", "broken", "column"];
+    const ruins = [];
+    for (let gx = 120 + random() * 200; gx < width; gx += 170 + random() * 220) {
+      ruins.push({ gx, kind: kinds[Math.floor(random() * kinds.length)], s: 0.7 + random() * 0.4, seed: random() });
+    }
+    bakeChunks(scene, "desert_ruins", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        ruins.forEach(r => {
+          const x = r.gx - left;
+          if (x < -140 || x > chunkW + 140) return;
+          ruinPiece(g, r.kind, x, h - duneH(r.gx, 46, 12, 2.2) + 14, r.s, 0xb87a40, 0x95602e, makeRandom(Math.floor(r.seed * 1e6)));
+        });
+        g.fillStyle(0xd69a52, 1);                                           // sand drifted over their feet
+        const pts = [{ x: -4, y: h }];
+        for (let lx = -4; lx <= chunkW + 4; lx += 8) pts.push({ x: lx, y: h - duneH(left + lx, 46, 12, 2.2) });
+        pts.push({ x: chunkW + 4, y: h });
+        g.fillPoints(pts, true);
+      }
+    });
+  }
+
+  // 6) Near dunes, rich gold with wind ripples
+  {
+    const sx = 0.4, sy = 0.24, width = widthFor(sx), h = 110;
+    bakeChunks(scene, "desert_near_dunes", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        g.fillStyle(0xc8843e, 1);
+        const pts = [{ x: -4, y: h }];
+        for (let lx = -4; lx <= chunkW + 4; lx += 8) pts.push({ x: lx, y: h - duneH(left + lx, 40, 16, 4.4) });
+        pts.push({ x: chunkW + 4, y: h });
+        g.fillPoints(pts, true);
+        g.lineStyle(1.2, 0xa86a30, 0.6);                                    // ripples
+        for (let lx = 0; lx < chunkW; lx += 26) {
+          const top = h - duneH(left + lx, 40, 16, 4.4);
+          for (let k = 1; k < 4; k++) g.lineBetween(lx, top + k * 9, lx + 16, top + k * 9 + 2);
+        }
+      }
+    });
+  }
+
+  // 7) Vultures circling high up
+  for (let i = 0; i < 2; i++) {
+    const v = scene.add.graphics().setScrollFactor(0.05, 0);
+    v.lineStyle(2.4, 0x3a2414, 0.85);
+    v.beginPath(); v.moveTo(-11, -1); v.lineTo(-4, -4); v.lineTo(0, 1); v.lineTo(4, -4); v.lineTo(11, -1); v.strokePath();
+    const cx = camW * (0.3 + i * 0.35), cy = 80 + i * 30, r = 40 + i * 15;
+    const state = { a: random() * Math.PI * 2 };
+    scene.tweens.add({
+      targets: state, a: state.a + Math.PI * 2, duration: 9000 + i * 2500, repeat: -1,
+      onUpdate: () => v.setPosition(cx + Math.cos(state.a) * r, cy + Math.sin(state.a) * r * 0.35)
+    });
+  }
+
+  // 8) Sand blowing past on the wind
+  if (!scene.textures.exists("sand_grain")) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xfff0c0, 0.9); g.fillEllipse(3, 1.5, 6, 2);
+    g.generateTexture("sand_grain", 6, 3);
+    g.destroy();
+  }
+  scene.add.particles(0, 0, "sand_grain", {
+    x: -10, y: { min: camH * 0.35, max: camH },
+    lifespan: 4000, speedX: { min: 160, max: 280 }, speedY: { min: -12, max: 12 },
+    scale: { min: 0.6, max: 1.4 }, alpha: { start: 0.7, end: 0 },
+    frequency: 70, advance: 3000
+  }).setScrollFactor(0);
+}
+
+// 🟨 Solid desert ground: golden sand with wind ripples on top, layered sandstone below.
+// Returns how far the sand sticks up above the platform's top.
+export function bakeDesertGround(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(3300 + seed * 67);
+  const over = 4;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const top = over;
+  [[0xc8873e, 0], [0xae7034, h / 3], [0x8e5a2a, (h * 2) / 3]].forEach(([c, y]) => { g.fillStyle(c, 1); g.fillRect(0, top + y, w, h / 3 + 1); });
+  g.lineStyle(1, 0x7a4a22, 0.6);                                          // sandstone blocks
+  for (let row = 0; row < 2; row++) {
+    const y = top + 10 + row * 9;
+    g.lineBetween(0, y, w, y);
+    for (let x = (row ? 14 : 0) + rand() * 10; x < w; x += 28 + rand() * 10) g.lineBetween(x, y, x, y + 9);
+  }
+  g.fillStyle(0xf0c06a, 1);                                               // sand on top
+  g.fillRect(0, top, w, 6);
+  for (let x = 0; x <= w; x += 10) g.fillEllipse(x + rand() * 4, top + 6, 14, 4 + rand() * 2);
+  g.fillStyle(0xffe2a0, 1);
+  g.fillRect(0, top, w, 1.5);
+  for (let x = 4; x < w; x += 7 + rand() * 6) {                          // little mounds and ripples
+    g.fillStyle(0xf6cc7a, 1);
+    g.fillEllipse(x, top - 0.5, 6 + rand() * 6, 2.5);
+  }
+  for (let i = 0; i < w / 25; i++) {                                      // pebbles
+    g.fillStyle(rand() < 0.5 ? 0x9a6a3a : 0xd8a868, 1);
+    g.fillCircle(4 + rand() * (w - 8), top + 2 + rand() * 3, 0.8 + rand());
+  }
+  g.generateTexture(key, w, over + h);
+  g.destroy();
+  return over;
+}
+
+// 🧱 A sandstone ruin block with carved symbols and chipped corners (Lost Sands floating platforms)
+export function bakeRuinBlock(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(3500 + seed * 29);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x9a6232, 1);
+  g.fillRect(0, 2, w, h);
+  g.fillStyle(0xd9a35a, 1);
+  g.fillRect(0, 0, w, h - 2);
+  g.fillStyle(0xf0c47a, 1);
+  g.fillRect(0, 0, w, 3);
+  g.lineStyle(1, 0xa86e36, 1);                                            // block joints
+  for (let x = 24 + rand() * 8; x < w - 8; x += 26 + rand() * 8) g.lineBetween(x, 3, x, h - 2);
+  g.fillStyle(0x8a5428, 1);                                               // carved symbols
+  for (let x = 8; x < w - 8; x += 13 + rand() * 6) {
+    const k = Math.floor(rand() * 4);
+    if (k === 0) { g.fillRect(x, 7, 2, 7); g.fillRect(x - 2, 9, 6, 2); }
+    else if (k === 1) { g.fillCircle(x + 1, 10, 2.6); g.fillStyle(0xd9a35a, 1); g.fillCircle(x + 1, 10, 1.2); g.fillStyle(0x8a5428, 1); }
+    else if (k === 2) { g.fillTriangle(x - 2, 14, x + 4, 14, x + 1, 7); }
+    else { g.fillRect(x - 2, 8, 6, 1.6); g.fillRect(x - 2, 12, 6, 1.6); }
+  }
+  g.fillStyle(0x9a6232, 1);
+  g.fillTriangle(w, 0, w - 6, 0, w, 6);
+  g.fillTriangle(0, h, 0, h - 5, 5, h);
+  g.generateTexture(key, w, h + 2);
+  g.destroy();
+}
+
+// ⚠️ A cracked sandstone block (Lost Sands collapsing platforms): paler, split, with sand trickling out
+export function bakeCrackedSandstone(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(3700 + seed * 23);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0xe8c08a, 1);
+  g.fillRect(0, 0, w, h - 2);
+  g.fillStyle(0xfadaa6, 1);
+  g.fillRect(0, 0, w, 3);
+  g.lineStyle(1.5, 0x8a5a2e, 1);                                          // fractures
+  for (let x = 14 + rand() * 10; x < w - 8; x += 22 + rand() * 10) {
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (rand() - 0.5) * 8, h / 2); g.lineTo(x + (rand() - 0.5) * 8, h - 2); g.strokePath();
+  }
+  g.fillStyle(0xb8844a, 1);                                               // crumbling underside
+  for (let x = 3; x < w - 3; x += 9 + rand() * 6) g.fillTriangle(x, h - 2, x + 7, h - 2, x + 3, h + 3);
+  g.fillStyle(0xf0c06a, 1);                                               // sand trickling out
+  g.fillRect(w * 0.3, h - 1, 1.5, 4);
+  g.fillRect(w * 0.7, h - 1, 1.5, 3);
+  g.generateTexture(key, w, h + 4);
+  g.destroy();
+}
+
+// 🧞 A flying carpet (Lost Sands moving platforms): deep red with a gold border, a diamond pattern
+// and tassels at each end
+export function bakeCarpetPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const pad = 6;                                                           // room for the tassels
+  const ch = h * 0.55;                                                     // the carpet is thin
+  g.fillStyle(0x7a1a14, 1);
+  g.fillRoundedRect(pad, 2, w - pad * 2, ch, 3);
+  g.fillStyle(0xa8261a, 1);
+  g.fillRect(pad + 3, 4, w - pad * 2 - 6, ch - 4);
+  g.lineStyle(1.5, 0xf0b840, 1);                                          // gold border
+  g.strokeRect(pad + 3, 4, w - pad * 2 - 6, ch - 4);
+  g.fillStyle(0xf0b840, 1);                                               // diamond pattern
+  for (let x = pad + 14; x < w - pad - 10; x += 14) g.fillPoints([{ x, y: 2 + ch / 2 - 3 }, { x: x + 3, y: 2 + ch / 2 }, { x, y: 2 + ch / 2 + 3 }, { x: x - 3, y: 2 + ch / 2 }], true);
+  g.lineStyle(1.2, 0xf0b840, 1);                                          // tassels
+  for (let k = 0; k < 3; k++) {
+    const y = 4 + k * (ch - 6) / 2;
+    g.lineBetween(pad, y, 1, y + 1);
+    g.lineBetween(w - pad, y, w - 1, y + 1);
+  }
+  g.generateTexture(key, w, h);
+  g.destroy();
+}
