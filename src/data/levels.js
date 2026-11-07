@@ -591,26 +591,31 @@ export const levels = [
     groundColor: 0x2b2420,     // basalt
     platformColor: 0x3a2e28,
 
-    worldWidth: 5200,
+    worldWidth: 7300,
     playerStart: [80, 490],
-    flagX: 5100,
-    timeLimit: 105,
+    flagX: 7200,
+    timeLimit: 145,
 
-    // 🟢 Two checkpoints, each on a stretch of rock with no enemies, lava or falling rocks
-    checkpoints: [1860, 3470],
+    // 🟢 Two checkpoints, about a third and two thirds of the way, each on a stretch of rock
+    // with no enemies, lava or falling rocks nearby
+    checkpoints: [2400, 5030],
 
     platforms: [
       // Rock floor: every gap between these is a lava pool (see lavaPools)
       [0,    570, 480, 30],
       [600,  570, 320, 30],
       [1050, 570, 330, 30],
-      [1680, 570, 380, 30],   // checkpoint 1
-      [2190, 570, 310, 30],
+      [1680, 570, 380, 30],
+      [2190, 570, 310, 30],   // checkpoint 1
       [2630, 570, 330, 30],
-      [3280, 570, 400, 30],   // checkpoint 2
+      [3280, 570, 400, 30],
       [3810, 570, 310, 30],
       [4250, 570, 300, 30],
-      [4870, 570, 330, 30],   // finish
+      [4870, 570, 330, 30],   // checkpoint 2
+      [5330, 570, 320, 30],
+      [5970, 570, 400, 30],
+      [6500, 570, 300, 30],
+      [6930, 570, 370, 30],   // finish
 
       // Floating basalt ledges
       [300,  450, 100, 20],
@@ -629,13 +634,21 @@ export const levels = [
       [4100, 360, 110, 20],
       [4330, 450, 100, 20],
       [4950, 440, 100, 20],
+      [5420, 450, 100, 20],
+      [5600, 360, 110, 20],
+      [6050, 450, 100, 20],
+      [6250, 350, 110, 20],
+      [6560, 450, 100, 20],
+      [6760, 360, 110, 20],
+      [7000, 440, 100, 20],
     ],
 
     // 🔥 Lava pools [x, width]: touching the lava costs a life. Each fills a gap in the rock floor.
-    // The three wide "lakes" are too far to jump: cross them on the collapsing platform in the middle.
+    // The four wide "lakes" are too far to jump: cross them on the collapsing platform in the middle.
     lavaPools: [
       [480, 120], [920, 130], [1380, 300], [2060, 130], [2500, 130],
-      [2960, 320], [3680, 130], [4120, 130], [4550, 320],
+      [2960, 320], [3680, 130], [4120, 130], [4550, 320], [5200, 130],
+      [5650, 320], [6370, 130], [6800, 130],
     ],
 
     // 🪨 Collapsing platforms [x, y, width]: they crack when you stand on them, then fall
@@ -644,19 +657,22 @@ export const levels = [
       [1480, 500, 100],   // across lava lake 1
       [3070, 500, 100],   // across lava lake 2
       [4660, 500, 100],   // across lava lake 3
+      [5760, 500, 100],   // across lava lake 4
       [2850, 360, 100],   // bonus coin, up high
       [4420, 350, 100],   // bonus coin, up high
     ],
 
     // ☄️ Falling rocks: x positions where a rock drops (with a warning first) while you are nearby.
-    // Only five, and never near a checkpoint, so the level stays fair.
-    fallingRocks: [1150, 2300, 2780, 3880, 4320],
+    // About one every 1000px (the same as before the level was made longer), and none near a checkpoint.
+    fallingRocks: [1150, 1900, 2780, 3500, 4320, 5450, 6150],
 
     coins: [
       [350, 420],  [575, 330],  [810, 420],  [1030, 330], [1230, 420],
       [1530, 470], [1810, 410], [2015, 320], [2330, 420], [2535, 330],
       [2900, 330], [3120, 470], [3430, 420], [3635, 320], [3950, 420],
-      [4155, 330], [4470, 320], [4710, 470], [5000, 410],
+      [4155, 330], [4470, 320], [4710, 470], [5000, 410], [5470, 420],
+      [5655, 330], [5810, 470], [6100, 420], [6305, 320], [6610, 420],
+      [6815, 330], [7050, 410],
     ],
 
     // [x, y, patrolLeft, patrolRight, speed, colour, kind]
@@ -666,21 +682,28 @@ export const levels = [
       [300,  540, 180,  460,  80,  0xff6a00, "lava"],
       [800,  540, 690,  900,  90,  0xff4500, "lava"],
       [1250, 540, 1130, 1360, 95,  0xff6a00, "lava"],
-      [2350, 540, 2270, 2480, 100, 0xff4500, "lava"],
+      [1880, 540, 1760, 2040, 95,  0xff4500, "lava"],
       [2850, 540, 2710, 2940, 100, 0xff6a00, "lava"],
+      [3480, 540, 3360, 3660, 100, 0xff4500, "lava"],
       [4000, 540, 3890, 4100, 105, 0xff4500, "lava"],
       [4450, 540, 4330, 4530, 105, 0xff6a00, "lava"],
+      [5500, 540, 5410, 5630, 110, 0xff4500, "lava"],
+      [6200, 540, 6050, 6350, 110, 0xff6a00, "lava"],
+      [6650, 540, 6580, 6780, 110, 0xff4500, "lava"],
+      // (checkpoint stretches 2190-2500 and 4870-5200, and the finish stretch, have no enemies)
 
       [700,  450, 610,  900,  65, 0xff7a1a, "demon"],
       [1250, 450, 1060, 1370, 70, 0xffa21a, "demon"],
-      [2400, 460, 2210, 2490, 70, 0xff7a1a, "demon"],
+      [1900, 460, 1700, 2050, 70, 0xff7a1a, "demon"],
       [3950, 460, 3820, 4110, 75, 0xffa21a, "demon"],
+      [6650, 450, 6510, 6790, 80, 0xff7a1a, "demon"],
     ],
 
     movingPlatforms: [
       [2000, 280, 100, 120, 90],
       [3700, 290, 100, 120, 100],
       [4580, 300, 100, 140, 90],   // a high road over lava lake 3
+      [6100, 280, 100, 120, 100],
     ]
   }
 ];
