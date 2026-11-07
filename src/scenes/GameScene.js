@@ -5,9 +5,10 @@ import {
   drawGrasslandsBackdrop, bakeGrassPlatform, bakeWoodPlatform,
   drawSkyKingdomBackdrop, bakeSkyIslandPlatform, bakeMarblePlatform, bakeCloudPlatform,
   drawVolcanoBackdrop, bakeBasaltPlatform, bakeObsidianPlatform,
-  drawSwampBackdrop, bakeMudPlatform, bakeMossyLogPlatform, bakeRustyPlatform
+  drawSwampBackdrop, bakeMudPlatform, bakeMossyLogPlatform, bakeRustyPlatform,
+  drawDesertBackdrop, bakeDesertGround, bakeRuinBlock, bakeCarpetPlatform
 } from "../utils/Backdrops.js";
-import { setupVolcanoHazards, setupSwampHazards } from "../utils/Hazards.js";
+import { setupVolcanoHazards, setupSwampHazards, setupDesertHazards } from "../utils/Hazards.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
@@ -65,6 +66,9 @@ export default class GameScene extends Phaser.Scene {
     if (levelData.theme === "grass") {
       // ☀️ Grasslands: sun, snowy mountains, rolling hills with trees, fluffy clouds, birds (see src/utils/Backdrops.js)
       drawGrasslandsBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    } else if (levelData.theme === "desert") {
+      // 🏜️ Lost Sands: blazing sun, pyramids, ruins in the dunes, vultures, blowing sand (see src/utils/Backdrops.js)
+      drawDesertBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
     } else if (levelData.theme === "swamp") {
       // ☣️ Toxic Swamp: smog, factories, dead trees with moss, toxic haze, reeds and barrels (see src/utils/Backdrops.js)
       drawSwampBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
@@ -126,12 +130,23 @@ export default class GameScene extends Phaser.Scene {
     const volcanic = levelData.theme === "volcano";
     // 🟫 In the Toxic Swamp, the ground is mud and the floating platforms are mossy logs
     const swampy = levelData.theme === "swamp";
+    // 🟨 In the Lost Sands, the ground is sand over sandstone and the floating platforms are ruin blocks
+    const desert = levelData.theme === "desert";
 
     platformData.forEach(([x, y, w, h, color], i) => {
       if (grassy) {
         const key = `grass_platform_${i}`;
         const over = bakeGrassPlatform(this, key, w, h, h < 30, i);
         this.add.image(x, y - over, key).setOrigin(0, 0);
+      } else if (desert) {
+        const key = `desert_platform_${i}`;
+        if (h >= 30) {
+          const over = bakeDesertGround(this, key, w, h, i);
+          this.add.image(x, y - over, key).setOrigin(0, 0);
+        } else {
+          bakeRuinBlock(this, key, w, h, i);
+          this.add.image(x, y, key).setOrigin(0, 0);
+        }
       } else if (swampy) {
         const key = `swamp_platform_${i}`;
         const over = h >= 30 ? bakeMudPlatform(this, key, w, h, i) : bakeMossyLogPlatform(this, key, w, h, i);
@@ -165,18 +180,20 @@ export default class GameScene extends Phaser.Scene {
       platform.setVisible(false);
     });
 
-    // 🕳️ On the Grasslands the hills behind would make gaps in the ground look like grass,
-    // so each gap gets a dark pit, making it obvious there's nothing to stand on
-    if (grassy) {
+    // 🕳️ On the Grasslands and in the Lost Sands the hills / dunes behind would make gaps in the ground
+    // look like solid ground, so each gap gets a dark pit, making it obvious there's nothing to stand on
+    // (gaps filled with quicksand are drawn by the quicksand itself)
+    if (grassy || desert) {
       const ground = platformData.filter(([, , , h]) => h >= 30).sort((a, b) => a[0] - b[0]);
+      const quicksand = levelData.quicksand || [];
       const pits = this.add.graphics();
       for (let i = 0; i < ground.length - 1; i++) {
         const [gx, gy, gw] = ground[i];
         const gapX = gx + gw, gapW = ground[i + 1][0] - gapX;
-        if (gapW <= 0) continue;
-        pits.fillStyle(0x2b1a0e, 1);
+        if (gapW <= 0 || quicksand.some(([qx]) => qx === gapX)) continue;
+        pits.fillStyle(desert ? 0x4a2a12 : 0x2b1a0e, 1);
         pits.fillRect(gapX, gy + 8, gapW, WORLD_HEIGHT - gy);
-        pits.fillStyle(0x120a05, 1);
+        pits.fillStyle(desert ? 0x24140a : 0x120a05, 1);
         pits.fillRect(gapX + 4, gy + 14, gapW - 8, WORLD_HEIGHT - gy);
       }
     }
@@ -191,6 +208,10 @@ export default class GameScene extends Phaser.Scene {
         // 🪵 wooden planks
         bakeWoodPlatform(this, `wood_platform_${i}`, w, h, i);
         gfx = this.add.image(x, y, `wood_platform_${i}`).setOrigin(0, 0);
+      } else if (desert) {
+        // 🧞 flying carpets
+        bakeCarpetPlatform(this, `carpet_platform_${i}`, w, h, i);
+        gfx = this.add.image(x, y, `carpet_platform_${i}`).setOrigin(0, 0);
       } else if (swampy) {
         // 🔩 rusty metal plates
         bakeRustyPlatform(this, `rusty_platform_${i}`, w, h, i);
@@ -273,12 +294,17 @@ export default class GameScene extends Phaser.Scene {
     //   🔥 demon (Magma Falls): a fire demon that floats at its own height
     //   🐸 frog  (Toxic Swamp): a mutant frog that hops along the mud
     //   🦟 bug   (Toxic Swamp): a poisonous insect that flies at its own height
+    //   🦂 scorpion (Lost Sands): scuttles along the sand
+    //   🏜️ sand  (Lost Sands): burrows under the sand (harmless) and bursts out again (dangerous)
     //   slime   (every other level)
-    const levelKind = { sea: "fish", forest: "snake", volcano: "lava", swamp: "frog" }[levelData.theme] || "slime";
-    const HITBOX = { fish: [28, 20], snake: [34, 16], lava: [32, 20], demon: [26, 26], frog: [30, 22], bug: [24, 18], slime: [28, 28] };
+    const levelKind = { sea: "fish", forest: "snake", volcano: "lava", swamp: "frog", desert: "scorpion" }[levelData.theme] || "slime";
+    const HITBOX = {
+      fish: [28, 20], snake: [34, 16], lava: [32, 20], demon: [26, 26], frog: [30, 22], bug: [24, 18],
+      scorpion: [34, 18], sand: [28, 26], slime: [28, 28]
+    };
     const DRAW = {
       fish: "drawFish", snake: "drawSnake", lava: "drawLavaCreature", demon: "drawFireDemon",
-      frog: "drawMutantFrog", bug: "drawToxicBug", slime: "drawEnemy"
+      frog: "drawMutantFrog", bug: "drawToxicBug", scorpion: "drawScorpion", sand: "drawSandCreature", slime: "drawEnemy"
     };
 
     enemyData.forEach(([x, y, left, right, speed, color, ownKind], i) => {
@@ -305,6 +331,11 @@ export default class GameScene extends Phaser.Scene {
 
       // bobPhase: each one bobs (or slithers, or flickers) a little, out of step with the others
       const enemy = { body, gfx, left, right, speed: enemySpeed, color, kind, direction: 1, bobPhase: i * 1.7, nextHop: 800 + i * 300 };
+      if (kind === "sand") {                     // sand creatures start out of the sand, on a staggered timer
+        enemy.burrowed = false;
+        enemy.nextSwitch = 1500 + i * 400;
+      }
+      body.enemyRef = enemy;                     // so hitEnemy can tell which enemy you touched
       this.enemies.push(enemy);
     });
 
@@ -349,6 +380,8 @@ export default class GameScene extends Phaser.Scene {
     if (volcanic) setupVolcanoHazards(this, levelData, this.difficultyKey);
     // ☣️ Toxic water, breaking planks and sinking rafts (see src/utils/Hazards.js)
     if (swampy) setupSwampHazards(this, levelData, this.difficultyKey);
+    // ⏳ Quicksand and collapsing sandstone blocks (see src/utils/Hazards.js)
+    if (desert) setupDesertHazards(this, levelData, this.difficultyKey);
 
     // 🚩 Finish flag
     this.flag = this.add.graphics();
@@ -731,6 +764,90 @@ export default class GameScene extends Phaser.Scene {
     gfx.fillCircle(8, -2, 2);
   }
 
+  // 🦂 Draw a scorpion facing right: segmented body, pincers held forward, legs, and a tail curled up
+  // over its back with a dark stinger. Its feet sit on the bottom of its hitbox (y = +9).
+  drawScorpion(gfx, color) {
+    gfx.clear();
+    const dark = Phaser.Display.Color.IntegerToColor(color).darken(25).color;
+    gfx.lineStyle(1.5, dark, 1);                                 // legs
+    for (let k = 0; k < 4; k++) {
+      const lx = -8 + k * 5;
+      gfx.lineBetween(lx, 2, lx - 4, 9);
+      gfx.lineBetween(lx + 1, 2, lx + 4, 9);
+    }
+    gfx.fillStyle(color, 1);                                     // body segments
+    gfx.fillEllipse(-2, 2, 26, 11);
+    gfx.fillStyle(dark, 1);
+    [-9, -4, 1, 6].forEach(sx => gfx.fillRect(sx, -2, 1.2, 8));
+    gfx.fillStyle(color, 1);                                     // head
+    gfx.fillEllipse(11, 3, 10, 8);
+    gfx.lineStyle(2.4, color, 1);                                // arms and pincers
+    gfx.lineBetween(13, 2, 19, -2);
+    gfx.lineBetween(13, 5, 19, 7);
+    gfx.fillStyle(dark, 1);
+    gfx.fillTriangle(18, -5, 23, -3, 18, 0);
+    gfx.fillTriangle(18, 4, 23, 7, 18, 9);
+    gfx.fillStyle(color, 1);                                     // tail curling up and forward
+    [[-14, 0, 4], [-17, -5, 3.8], [-17, -11, 3.6], [-13, -16, 3.4], [-7, -18, 3.2]].forEach(([tx, ty, r]) => gfx.fillCircle(tx, ty, r));
+    gfx.fillStyle(0x2a1408, 1);                                  // stinger
+    gfx.fillTriangle(-4, -20, -2, -14, 1, -18);
+    gfx.fillStyle(0xfff2c0, 0.9);
+    gfx.fillCircle(-2, -17, 0.9);
+    gfx.fillStyle(0x1a0a04, 1);                                  // eyes
+    gfx.fillCircle(13, 1, 1.2);
+  }
+
+  // 🏜️ Draw a sand creature facing right. Out of the sand: a lumpy body of sand and stones with glowing
+  // amber eyes and little arms. Burrowed: just a moving mound with its eyes peeking out (harmless).
+  // Its bottom sits on the bottom of its hitbox (y = +13).
+  drawSandCreature(gfx, color, burrowed = false) {
+    gfx.clear();
+    const dark = Phaser.Display.Color.IntegerToColor(color).darken(20).color;
+    if (burrowed) {
+      gfx.fillStyle(dark, 1);
+      gfx.fillEllipse(0, 11, 32, 8);
+      gfx.fillStyle(color, 1);
+      gfx.fillEllipse(0, 9, 26, 7);
+      gfx.fillStyle(0xffb030, 0.8);
+      gfx.fillCircle(3, 7, 1.4);
+      gfx.fillCircle(8, 7, 1.4);
+      return;
+    }
+    gfx.fillStyle(dark, 1);                                      // base spreading into the ground
+    gfx.fillEllipse(0, 11, 30, 6);
+    gfx.fillStyle(color, 1);                                     // lumpy body
+    gfx.fillCircle(0, 4, 11);
+    gfx.fillCircle(-2, -6, 8);
+    gfx.fillCircle(3, -11, 5.5);
+    gfx.fillStyle(dark, 1);                                      // shaded side and stones
+    gfx.fillEllipse(-6, 6, 7, 10);
+    gfx.fillStyle(0x8a6a4a, 1);
+    gfx.fillCircle(-4, 0, 2);
+    gfx.fillCircle(5, 8, 1.6);
+    gfx.fillStyle(color, 1);                                     // arms
+    gfx.fillEllipse(-11, 2, 6, 10);
+    gfx.fillEllipse(12, 0, 6, 10);
+    gfx.fillStyle(0x3a1e0a, 1);                                  // eye sockets
+    gfx.fillEllipse(2, -6, 6, 4);
+    gfx.fillEllipse(8, -6, 5, 4);
+    gfx.fillStyle(0xffb030, 1);                                  // glowing eyes
+    gfx.fillCircle(2.5, -6, 1.6);
+    gfx.fillCircle(8, -6, 1.4);
+    gfx.fillStyle(0x3a1e0a, 1);                                  // mouth
+    gfx.fillEllipse(5, 0, 6, 2.5);
+  }
+
+  // A burst of sand when a sand creature dives in or bursts out
+  sandBurst(x, y) {
+    for (let i = 0; i < 8; i++) {
+      const grain = this.add.circle(x + (Math.random() - 0.5) * 16, y, 1.5 + Math.random() * 2, i % 2 ? 0xe8b870 : 0xc8944e);
+      this.tweens.add({
+        targets: grain, x: grain.x + (Math.random() - 0.5) * 40, y: y - 10 - Math.random() * 22, alpha: 0,
+        duration: 420, ease: "Quad.Out", onComplete: () => grain.destroy()
+      });
+    }
+  }
+
   // 🐸 Draw a mutant frog facing right: warty green body with purple blotches, one huge bulging eye,
   // and toxic drool. Its feet sit on the bottom of its hitbox (y = +11).
   drawMutantFrog(gfx, color) {
@@ -903,12 +1020,16 @@ export default class GameScene extends Phaser.Scene {
     const goLeft  = this.cursors.left.isDown  || this.mobileLeft;
     const goRight = this.cursors.right.isDown || this.mobileRight;
 
+    // ⏳ Standing in quicksand (Lost Sands): you wade slowly and can only make small jumps
+    const inQuicksand = this.time.now < (this.inQuicksandUntil || 0);
+    const runSpeed = inQuicksand ? 90 : 220;
+
     if (goLeft) {
-      this.player.setVelocityX(-220);
+      this.player.setVelocityX(-runSpeed);
       this.player.anims.play("walk", true);
       this.player.setFlipX(false);
     } else if (goRight) {
-      this.player.setVelocityX(220);
+      this.player.setVelocityX(runSpeed);
       this.player.anims.play("walk", true);
       this.player.setFlipX(true);
     } else {
@@ -925,7 +1046,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.player.body.touching.down) this._lastGroundedAt = now;
 
     if (now - this._jumpPressedAt <= 130 && now - this._lastGroundedAt <= 100) {
-      this.player.setVelocityY(-600); // higher to clear platforms with strong gravity
+      this.player.setVelocityY(inQuicksand ? -420 : -600); // higher to clear platforms with strong gravity (a small hop out of quicksand)
       SoundManager.play("jump");
       this._jumpPressedAt  = -Infinity;   // this press is used up
       this._lastGroundedAt = -Infinity;   // so no second jump in mid-air
@@ -975,6 +1096,20 @@ export default class GameScene extends Phaser.Scene {
         }
         enemy.gfx.y = enemy.body.y;
         enemy.gfx.setScale(enemy.direction * (grounded ? 1.06 : 0.92), grounded ? 0.92 : 1.12);
+      } else if (enemy.kind === "scorpion") {
+        enemy.gfx.y = enemy.body.y;
+        enemy.gfx.setScale(enemy.direction, 1 + Math.sin(this.time.now / 120 + enemy.bobPhase) * 0.04);   // tail twitches
+      } else if (enemy.kind === "sand") {
+        // burrows under the sand for a while (harmless, moves faster), then bursts out (dangerous)
+        if (this.time.now > enemy.nextSwitch) {
+          enemy.burrowed = !enemy.burrowed;
+          enemy.nextSwitch = this.time.now + (enemy.burrowed ? 1500 : 2200) + Math.random() * 600;
+          this.drawSandCreature(enemy.gfx, enemy.color, enemy.burrowed);
+          this.sandBurst(enemy.body.x, enemy.body.y + 12);
+        }
+        enemy.body.setVelocityX(enemy.speed * enemy.direction * (enemy.burrowed ? 1.4 : 1));
+        enemy.gfx.y = enemy.body.y;
+        enemy.gfx.setScale(enemy.direction, enemy.burrowed ? 1 : 1 + wave * 0.05);
       } else if (enemy.kind === "bug") {
         const buzz = Math.sin(this.time.now / 40 + enemy.bobPhase) * 0.12;      // wings beating fast
         enemy.gfx.y = enemy.body.y + Math.sin(this.time.now / 180 + enemy.bobPhase) * 5;
@@ -1010,13 +1145,14 @@ export default class GameScene extends Phaser.Scene {
 
   hitEnemy(player, enemyBody) {
     if (this.invincible) return;
+    if (enemyBody.enemyRef && enemyBody.enemyRef.burrowed) return;   // a sand creature under the sand can't hurt you
     this.loseLife("enemy");
   }
 
   loseLife(cause = "enemy") {
     // Invincibility only protects from enemies and rocks: falling off the world or into lava / toxic water
     // always costs a life, otherwise you would keep falling (or stand in it) until the blinking ends
-    if (this.invincible && !["fall", "lava", "toxic"].includes(cause)) return;
+    if (this.invincible && !["fall", "lava", "toxic", "quicksand"].includes(cause)) return;
     this.tweens.killTweensOf(this.player);   // stop the old blink, so it can't end the new one early
     SoundManager.play("hit");
     Particles.deathBurst(this, this.player.x, this.player.y);
