@@ -834,27 +834,31 @@ export const levels = [
     groundColor: 0xc8873e,     // sandstone
     platformColor: 0xd9a35a,
 
-    worldWidth: 6600,
+    worldWidth: 8600,
     playerStart: [80, 490],
-    flagX: 6500,
-    timeLimit: 130,
+    flagX: 8500,
+    timeLimit: 170,
 
     // 🟢 Two checkpoints, about a third and two thirds of the way, on solid sand with no enemies
-    checkpoints: [2040, 4370],
+    checkpoints: [2650, 5500],
 
     platforms: [
       // Solid sand: the gaps between these are either quicksand (see quicksand) or open pits
       [0,    570, 500, 30],
       [740,  570, 320, 30],
       [1190, 570, 340, 30],
-      [1850, 570, 380, 30],   // checkpoint 1
-      [2490, 570, 330, 30],
+      [1850, 570, 380, 30],
+      [2490, 570, 330, 30],   // checkpoint 1
       [2950, 570, 320, 30],
       [3590, 570, 340, 30],
-      [4180, 570, 380, 30],   // checkpoint 2
+      [4180, 570, 380, 30],
       [4690, 570, 320, 30],
-      [5330, 570, 330, 30],
-      [5920, 570, 680, 30],   // finish
+      [5330, 570, 330, 30],   // checkpoint 2
+      [5920, 570, 380, 30],
+      [6430, 570, 330, 30],
+      [7080, 570, 340, 30],
+      [7680, 570, 320, 30],
+      [8130, 570, 470, 30],   // finish
 
       // Sandstone ruin blocks
       [300,  450, 100, 20],
@@ -878,23 +882,32 @@ export const levels = [
       [5580, 360, 110, 20],
       [6000, 450, 100, 20],
       [6200, 360, 110, 20],
+      [6500, 450, 100, 20],
+      [6680, 360, 110, 20],
+      [7150, 450, 100, 20],
+      [7330, 360, 110, 20],
+      [7750, 450, 100, 20],
+      [7920, 360, 110, 20],
+      [8220, 440, 100, 20],
     ],
 
     // ⏳ Quicksand [x, width]: you can walk on it, but slowly, and it pulls you down while you stand in it.
     // Jump to get out! Each patch is too wide to jump over in one go.
     quicksand: [
-      [500, 240], [2230, 260], [3930, 250], [5660, 260],
+      [500, 240], [2230, 260], [3930, 250], [5660, 260], [7420, 260],
     ],
 
     // 🧱 Collapsing sandstone blocks [x, y, width]: they crack when you stand on them and fall after
-    // 2 s (1 s on Hard), then come back a few seconds later. Three bridge the wide open pits.
+    // 2 s (1 s on Hard), then come back a few seconds later. Four bridge the wide open pits.
     collapsingBlocks: [
       [1640, 500, 100],   // across pit 2
       [3380, 500, 100],   // across pit 4
       [5120, 500, 100],   // across pit 6
+      [6870, 500, 100],   // across pit 8
       [2300, 380, 100],   // above quicksand 2 (a quick way across)
       [4040, 380, 100],   // above quicksand 3
       [5760, 380, 100],   // above quicksand 4
+      [7500, 380, 100],   // above quicksand 5
     ],
 
     coins: [
@@ -903,7 +916,9 @@ export const levels = [
       [2610, 420], [2795, 330], [3070, 420], [3255, 330], [3430, 470],
       [3710, 420], [3895, 330], [4090, 350], [4310, 420], [4810, 420],
       [4995, 330], [5170, 470], [5450, 420], [5635, 330], [5810, 350],
-      [6050, 420], [6255, 330],
+      [6050, 420], [6255, 330], [6550, 420], [6735, 330], [6920, 470],
+      [7200, 420], [7385, 330], [7550, 350], [7800, 420], [7975, 330],
+      [8270, 410],
     ],
 
     // [x, y, patrolLeft, patrolRight, speed, colour, kind]
@@ -914,12 +929,41 @@ export const levels = [
       [340,  540, 220,  480,  70, 0xb8642a, "scorpion"],
       [920,  540, 820,  1040, 60, 0xd9a35a, "sand"],
       [1380, 540, 1270, 1510, 80, 0x9a4e20, "scorpion"],
-      [2680, 540, 2570, 2800, 65, 0xd9a35a, "sand"],
+      [1440, 540, 1350, 1510, 62, 0xd9a35a, "sand"],
+      [2060, 540, 1930, 2210, 85, 0xb8642a, "scorpion"],
+      [2140, 540, 2040, 2210, 65, 0xd9a35a, "sand"],
       [3120, 540, 3030, 3250, 85, 0xb8642a, "scorpion"],
+      [3180, 540, 3090, 3250, 68, 0xd9a35a, "sand"],
       [3780, 540, 3670, 3910, 70, 0xd9a35a, "sand"],
+      [3840, 540, 3720, 3910, 90, 0x9a4e20, "scorpion"],
+      [4400, 540, 4260, 4540, 90, 0xb8642a, "scorpion"],
+      [4480, 540, 4360, 4540, 70, 0xd9a35a, "sand"],
       [4860, 540, 4770, 4990, 90, 0x9a4e20, "scorpion"],
-      [5500, 540, 5410, 5640, 75, 0xd9a35a, "sand"],
-      // (checkpoint stretches 1850-2230 and 4180-4560, and the finish, have no enemies)
+      [6100, 540, 6000, 6280, 95, 0xb8642a, "scorpion"],
+      [6200, 540, 6090, 6280, 75, 0xd9a35a, "sand"],
+      [6600, 540, 6510, 6740, 95, 0x9a4e20, "scorpion"],
+      [7250, 540, 7160, 7400, 78, 0xd9a35a, "sand"],
+      [7340, 540, 7240, 7400, 100, 0xb8642a, "scorpion"],
+      [7850, 540, 7760, 7980, 100, 0x9a4e20, "scorpion"],
+      [7930, 540, 7840, 7980, 80, 0xd9a35a, "sand"],
+      // (checkpoint stretches 2490-2820 and 5330-5660, and the finish, have no enemies)
+
+      // ── Sand monsters up on the ruin blocks. The last value is the easiest mode they appear on,
+      //    so Easy has 3 of them, Normal 7 and Hard 12.
+      [1495, 330, 1462, 1528, 45, 0xc98a42, "sand", "easy"],
+      [4995, 330, 4962, 5028, 45, 0xc98a42, "sand", "easy"],
+      [7385, 330, 7352, 7418, 50, 0xc98a42, "sand", "easy"],
+
+      [1055, 330, 1022, 1088, 50, 0xc98a42, "sand", "normal"],
+      [3255, 330, 3222, 3288, 50, 0xc98a42, "sand", "normal"],
+      [6255, 330, 6222, 6288, 55, 0xc98a42, "sand", "normal"],
+      [7975, 330, 7942, 8008, 55, 0xc98a42, "sand", "normal"],
+
+      [850,  420, 822,  878,  55, 0xc98a42, "sand", "hard"],
+      [2175, 330, 2142, 2208, 55, 0xc98a42, "sand", "hard"],
+      [3710, 420, 3682, 3738, 60, 0xc98a42, "sand", "hard"],
+      [4310, 420, 4282, 4338, 60, 0xc98a42, "sand", "hard"],
+      [6735, 330, 6702, 6768, 60, 0xc98a42, "sand", "hard"],
     ],
 
     // Flying carpets
@@ -927,6 +971,7 @@ export const levels = [
       [1100, 300, 100, 120, 90],
       [3300, 290, 100, 120, 100],
       [5100, 300, 100, 120, 90],
+      [6900, 290, 100, 120, 100],
     ]
   }
 ];

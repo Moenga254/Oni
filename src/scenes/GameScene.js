@@ -284,8 +284,10 @@ export default class GameScene extends Phaser.Scene {
     // 👾 Enemies
     this.enemies = [];
 
-    // [x, y, patrolLeft, patrolRight, speed, colour, kind?]
-    const enemyData = levelData.enemies;
+    // [x, y, patrolLeft, patrolRight, speed, colour, kind?, easiestMode?]
+    // easiestMode: the enemy only appears on that difficulty and harder ones (none = every difficulty)
+    const MODE_RANK = { easy: 0, normal: 1, hard: 2 };
+    const enemyData = levelData.enemies.filter(e => !e[7] || MODE_RANK[this.difficultyKey] >= MODE_RANK[e[7]]);
 
     // What the enemies look like depends on the level (an enemy can also name its own kind, 7th value):
     //   🐟 fish  (Deep Sea): swim at their own height (no gravity) instead of walking
