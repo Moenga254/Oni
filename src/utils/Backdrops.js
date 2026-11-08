@@ -1691,6 +1691,22 @@ function ruinPiece(g, kind, x, baseY, s, light, dark, rand) {
   }
 }
 
+// A dark bird seen from the front. flap: +1 = wings raised, -1 = wings lowered, 0 = held out flat.
+function drawFlyingBird(g, s, flap) {
+  g.clear();
+  g.fillStyle(0x3a2414, 0.95);
+  [-1, 1].forEach(side => {
+    const elbowY = (-2 - flap * 4) * s, tipY = (-1 - flap * 11) * s;
+    g.fillPoints([
+      { x: side * 1.5 * s, y: -1.5 * s }, { x: side * 10 * s, y: elbowY }, { x: side * 21 * s, y: tipY },
+      { x: side * 15 * s, y: tipY + 3 * s }, { x: side * 10 * s, y: elbowY + 4 * s }, { x: side * 1.5 * s, y: 3 * s }
+    ], true);
+  });
+  g.fillEllipse(0, 1 * s, 5.5 * s, 11 * s);                               // body
+  g.fillStyle(0x8a5a44, 1);
+  g.fillCircle(0, -5 * s, 2 * s);                                          // bare head
+}
+
 // 🏜️ Lost Sands backdrop: a burning orange-to-gold sky with a blazing sun, pyramids on the horizon,
 // rolling dunes, ancient ruins (temples, arches, columns, obelisks, statue heads) half buried in sand,
 // vultures circling, and sand blowing on the wind. Built like the other backdrops: baked once.
@@ -1797,18 +1813,40 @@ export function drawDesertBackdrop(scene, { colors, worldWidth, worldHeight }) {
     });
   }
 
-  // 7) Vultures circling high up
-  for (let i = 0; i < 2; i++) {
-    const v = scene.add.graphics().setScrollFactor(0.05, 0);
-    v.lineStyle(2.4, 0x3a2414, 0.85);
-    v.beginPath(); v.moveTo(-11, -1); v.lineTo(-4, -4); v.lineTo(0, 1); v.lineTo(4, -4); v.lineTo(11, -1); v.strokePath();
-    const cx = camW * (0.3 + i * 0.35), cy = 80 + i * 30, r = 40 + i * 15;
+  // 7) Birds with flapping wings, fixed to the screen so they stay in the sky however far you walk.
+  //    Vultures circle and mostly soar, with bursts of slow wingbeats; small birds cross in a V, flapping fast.
+  const flyers = [];
+  for (let i = 0; i < 3; i++) {
+    const g = scene.add.graphics().setScrollFactor(0);
+    const cx = camW * (0.22 + i * 0.3), cy = 62 + i * 26, r = 42 + i * 14;
     const state = { a: random() * Math.PI * 2 };
+    flyers.push({ g, size: 1.1 - i * 0.15, soars: true, phase: random() * 6 });
     scene.tweens.add({
       targets: state, a: state.a + Math.PI * 2, duration: 9000 + i * 2500, repeat: -1,
-      onUpdate: () => v.setPosition(cx + Math.cos(state.a) * r, cy + Math.sin(state.a) * r * 0.35)
+      onUpdate: () => g.setPosition(cx + Math.cos(state.a) * r, cy + Math.sin(state.a) * r * 0.35)
     });
   }
+  const flock = [[0, 0], [-24, -11], [-24, 11], [-48, -22], [-48, 22]].map(([dx, dy]) => {
+    const g = scene.add.graphics().setScrollFactor(0);
+    flyers.push({ g, size: 0.42, soars: false, phase: random() * 6 });
+    return { g, dx, dy };
+  });
+  const flockPos = { x: -90, y: 150 };
+  const placeFlock = () => flock.forEach(b => b.g.setPosition(flockPos.x + b.dx, flockPos.y + b.dy));
+  placeFlock();
+  scene.tweens.add({
+    targets: flockPos, x: camW + 120, y: 110, duration: 15000, repeat: -1, repeatDelay: 4000, delay: 2500,
+    onUpdate: placeFlock
+  });
+
+  const flap = (time) => flyers.forEach(f => {
+    const beat = Math.sin(time / (f.soars ? 170 : 70) + f.phase);
+    const burst = f.soars ? Math.max(0, Math.sin(time / 1800 + f.phase)) : 1;   // vultures only flap now and then
+    drawFlyingBird(f.g, f.size, (f.soars ? 0.2 : 0) + beat * burst * (f.soars ? 0.8 : 1));
+  });
+  flap(0);
+  scene.events.on("update", flap);
+  scene.events.once("shutdown", () => scene.events.off("update", flap));
 
   // 8) Sand blowing past on the wind
   if (!scene.textures.exists("sand_grain")) {
