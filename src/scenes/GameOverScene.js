@@ -152,7 +152,7 @@ export default class GameOverScene extends Phaser.Scene {
     const play = (level) => { this.registry.set("currentLevel", level); this.go("GameScene"); };
     const primary = isLastLevel
       ? { label: "☰  ALL LEVELS", color: 0x4a3485, action: () => this.go("LevelSelectScene") }
-      : { label: "▶  NEXT LEVEL", color: 0x2e9a4a, action: () => play(nextLevel) };
+      : { label: "▶  NEXT LEVEL", color: 0x2e9a4a, action: () => { this.registry.set("currentLevel", nextLevel); this.go("LoadingScene"); } };
     makeButton(this, cx, top + 352, 230, 46, primary.label, primary.color, primary.action, 21);
     makeButton(this, cx - 150, top + 406, 136, 38, "↺  Replay", 0x3a2e60, () => play(currentLevel), 16);
     makeButton(this, cx, top + 406, 136, 38, "☰  Levels", 0x3a2e60, () => this.go("LevelSelectScene"), 16);

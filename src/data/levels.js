@@ -3,6 +3,7 @@ export const levels = [
     id: 0,
     name: "Grasslands",
     subtitle: "Level 1",
+    loadingText: "Collect all coins & avoid the slimes",
 
     // ☀️ Sunny meadow: snowy mountains, rolling hills with trees, fluffy clouds, grassy platforms (see src/utils/Backdrops.js)
     theme: "grass",
@@ -67,6 +68,7 @@ export const levels = [
     id: 1,
     name: "Crystal Cave",
     subtitle: "Level 2",
+    loadingText: "Collect all coins & avoid the cave slimes",
 
     // 💎 A deep purple cave full of glowing crystals, with sparkles in the air (see src/utils/Backdrops.js)
     theme: "crystal",
@@ -152,6 +154,7 @@ export const levels = [
     id: 2,
     name: "Sky Kingdom",
     subtitle: "Level 3",
+    loadingText: "Collect all coins & mind the gaps in the sky",
 
     // 🏰 A kingdom above the clouds at sunset: setting sun, castles on far islands, a sea of clouds,
     // floating rock islands, marble slabs and clouds to ride on (see src/utils/Backdrops.js)
@@ -261,6 +264,7 @@ export const levels = [
     id: 3,
   name: "Ice Cave",
   subtitle: "Level 4",
+  loadingText: "Collect all coins & avoid the ice slimes",
 
   // Frozen blue atmosphere
   theme: "ice",
@@ -369,6 +373,7 @@ export const levels = [
     id: 4,
     name: "Deep Sea",
     subtitle: "Level 5",
+    loadingText: "Collect all coins & avoid the fish",
 
     // 🌊 Underwater: light from the surface fading into dark blue, rising bubbles (see src/utils/Backdrops.js).
     // Enemies here are fish: they SWIM at their own height instead of walking on the ground.
@@ -470,6 +475,7 @@ export const levels = [
     id: 5,
     name: "Night Owl",
     subtitle: "Level 6",
+    loadingText: "Collect all coins & avoid the snakes",
 
     // 🦉 A forest at night: dark pine silhouettes, a moon, fog drifting along the top, fireflies
     // and owls blinking in the trees (see src/utils/Backdrops.js). Enemies here are snakes.
@@ -583,6 +589,7 @@ export const levels = [
     id: 6,
     name: "Magma Falls",
     subtitle: "Level 7",
+    loadingText: "Collect all coins & avoid the lava and fire demons",
 
     // 🌋 A dangerous volcanic landscape in orange, red and black: erupting volcanoes, falls of magma,
     // smoke and embers (see src/utils/Backdrops.js). Hazards and their rules are in src/utils/Hazards.js.
@@ -711,6 +718,7 @@ export const levels = [
     id: 7,
     name: "Toxic Swamp",
     subtitle: "Level 8",
+    loadingText: "Collect all coins & avoid the toxic water and mutant frogs",
 
     // ☣️ A polluted swamp in dark green, lime and brown: dead trees with hanging moss, factories leaking
     // green smoke, toxic barrels, reeds and glowing spores (see src/utils/Backdrops.js).
@@ -825,6 +833,7 @@ export const levels = [
     id: 8,
     name: "Lost Sands",
     subtitle: "Level 9",
+    loadingText: "Collect all coins & avoid the quicksand and scorpions",
 
     // 🏜️ A massive desert with ancient ruins, in orange, gold and brown: a blazing sun, pyramids on the
     // horizon, broken columns, arches and half-buried statues, rolling dunes, blowing sand and vultures

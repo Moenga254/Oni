@@ -16,7 +16,7 @@ const LIST_H = 350;        // ...this tall
 const TITLE_FONT = "Georgia, 'Times New Roman', serif";
 
 // 🎨 Each level's look on its card: accent colour (border, badge, PLAY) and its picture's sky colours
-const THEMES = {
+export const THEMES = {
   grass:   { accent: 0x6fd36a, sky: [0x6ec3ef, 0xcdeefd] },
   crystal: { accent: 0xb07cff, sky: [0x2a0f4f, 0x0c0420] },
   sunset:  { accent: 0xffa53d, sky: [0xff6a1a, 0xffd34d] },
@@ -352,7 +352,7 @@ export default class LevelSelectScene extends Phaser.Scene {
         return;
       }
       this.registry.set("currentLevel", index);
-      this.go("GameScene");
+      this.go("LoadingScene");
     });
 
     return card;
