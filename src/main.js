@@ -4,6 +4,7 @@ import GameScene    from "./scenes/GameScene.js";
 import GameOverScene from "./scenes/GameOverScene.js";
 import PauseScene   from "./scenes/PauseScene.js";
 import LevelSelectScene from "./scenes/LevelSelectScene.js";
+import LoadingScene from "./scenes/LoadingScene.js";
 
 const config = {
   type: Phaser.AUTO,
@@ -32,7 +33,7 @@ const config = {
     },
   },
 
-  scene: [MenuScene, GameScene, GameOverScene, PauseScene, LevelSelectScene],
+  scene: [MenuScene, GameScene, GameOverScene, PauseScene, LevelSelectScene, LoadingScene],
 };
 
 const game = new Phaser.Game(config);

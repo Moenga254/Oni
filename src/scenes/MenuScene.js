@@ -104,7 +104,7 @@ export default class MenuScene extends Phaser.Scene {
       this.cameras.main.fadeOut(250, 0, 0, 0);
       this.cameras.main.once("camerafadeoutcomplete", () => this.scene.start(sceneKey));
     };
-    const startGame = () => go("GameScene");
+    const startGame = () => go("LoadingScene");   // the loading screen opens the level
 
     makeButton(this, cx - 105, top + 352, 190, 50, "▶  PLAY", 0xe2552b, startGame);
     makeButton(this, cx + 105, top + 352, 190, 50, "☰  LEVELS", 0x4a3485, () => go("LevelSelectScene"));
