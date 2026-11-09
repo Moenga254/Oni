@@ -20,6 +20,34 @@ export const RISE_GRAVITY   = 800;    // total 1100
 export const FALL_GRAVITY   = 1570;   // total 1870  (1.7x heavier). Raise for a snappier drop, lower for floatier.
 export const MAX_FALL_SPEED = 900;    // top falling speed, so a long drop can never skip through a thin platform
 
+// 📱 Returns a copy of the level moved to the right, with extra ground added at the start, so the player
+// begins in the middle of the screen (clear of the touch buttons in the bottom corners).
+function withRoomAtStart(level, screenWidth) {
+  const extra = Math.max(0, Math.ceil(screenWidth / 2 - level.playerStart[0]));
+  const moveX = ([x, ...rest]) => [x + extra, ...rest];
+
+  const moved = {
+    ...level,
+    worldWidth: level.worldWidth + extra,
+    flagX: level.flagX + extra,
+    playerStart: moveX(level.playerStart),
+    platforms: level.platforms.map(moveX),
+    coins: level.coins.map(moveX),
+    movingPlatforms: (level.movingPlatforms || []).map(moveX),
+    // enemies also have their patrol range: [x, y, patrolLeft, patrolRight, ...]
+    enemies: level.enemies.map(([x, y, left, right, ...rest]) => [x + extra, y, left + extra, right + extra, ...rest]),
+    checkpoints: (level.checkpoints || []).map(x => x + extra),
+    fallingRocks: (level.fallingRocks || []).map(x => x + extra),
+  };
+  ["lavaPools", "toxicPools", "quicksand", "crumblingPlatforms", "breakingPlatforms", "sinkingPlatforms", "collapsingBlocks"]
+    .forEach(key => { if (level[key]) moved[key] = level[key].map(moveX); });
+
+  // Stretch the first piece of ground back to the left edge, so there's solid ground behind the player
+  const first = moved.platforms.find(([x, , , h]) => x === extra && h >= 30);
+  if (first) { first[0] = 0; first[2] += extra; }
+  return moved;
+}
+
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super("GameScene");
@@ -37,7 +65,7 @@ export default class GameScene extends Phaser.Scene {
     // 👇 Load current level data
     const levelIndex = this.registry.get("currentLevel") || 0;
     this.currentLevel = levelIndex;
-    const levelData = levels[levelIndex];
+    const levelData = withRoomAtStart(levels[levelIndex], this.cameras.main.width);
 
     // Use levelData for everything
     const WORLD_WIDTH = levelData.worldWidth;
@@ -249,7 +277,10 @@ export default class GameScene extends Phaser.Scene {
 
     // 🧍 Player
     this.player = this.physics.add.sprite(this.playerStart[0], this.playerStart[1], "player");
-    this.player.setCollideWorldBounds(false);
+    // A solid wall at the far left only: you can't walk off the start of the level,
+    // but you can still fall down a pit or walk off the right after the flag
+    this.physics.world.setBoundsCollision(true, false, false, false);
+    this.player.setCollideWorldBounds(true);
     this.player.setBounce(0);
     this.player.body.setGravityY(RISE_GRAVITY);
     this.player.body.maxVelocity.y = MAX_FALL_SPEED;
@@ -399,7 +430,7 @@ export default class GameScene extends Phaser.Scene {
     this.flag.y = flagGroundY - 60;
 
     this.flagZone = this.physics.add.staticImage(flagX + 3, flagGroundY - 30, null);
-    this.flagZone.setDisplaySize(40, 60);
+    this.flagZone.setDisplaySize(8, 60);   // about as wide as the pole, so you have to really touch it
     this.flagZone.refreshBody();
     this.flagZone.setVisible(false);
 
@@ -1011,7 +1042,14 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update() {
-    if (this.gameOver || this.gameWon) return;
+    if (this.gameOver) return;
+
+    // 🚩 Past the flag: the player walks off by themselves while the world carries on
+    if (this.gameWon) {
+      this.walkOffScreen();
+      this.moveWorld();
+      return;
+    }
 
     if (this.player.y > this.worldHeight + 50) {  // below world bottom
       this.loseLife("fall");
@@ -1064,6 +1102,13 @@ export default class GameScene extends Phaser.Scene {
     }
     this.wasInAir = !onGround;
 
+    this.moveWorld();
+
+    this.updateProgressBar();
+  }
+
+  // Everything that keeps moving whether or not the player is in control
+  moveWorld() {
     // 👾 Move enemies
     this.enemies.forEach(enemy => {
       if (!enemy.body.active) return;
@@ -1141,8 +1186,25 @@ export default class GameScene extends Phaser.Scene {
         gfx.y = coin.y;
       }
     });
+  }
 
-    this.updateProgressBar();
+  // 🚩 After touching the flag: keep walking right until fully off the screen, then finish the level
+  walkOffScreen() {
+    const body = this.player.body;
+    this.player.setVelocityX(220);
+    this.player.anims.play("walk", true);
+    this.player.setFlipX(true);
+    body.setGravityY(body.velocity.y > 0 && !body.touching.down ? FALL_GRAVITY : RISE_GRAVITY);
+
+    const cam = this.cameras.main;
+    if (this.player.x - this.player.displayWidth / 2 > cam.scrollX + cam.width) this.finishLevel();
+  }
+
+  finishLevel() {
+    if (!this.finishData) return;
+    const data = this.finishData;
+    this.finishData = null;                  // only ever finish once
+    this.scene.start("GameOverScene", data);
   }
 
   hitEnemy(player, enemyBody) {
@@ -1152,6 +1214,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   loseLife(cause = "enemy") {
+    if (this.gameWon) return;                // the level is already won
     // Invincibility only protects from enemies and rocks: falling off the world or into lava / toxic water
     // always costs a life, otherwise you would keep falling (or stand in it) until the blinking ends
     if (this.invincible && !["fall", "lava", "toxic", "quicksand"].includes(cause)) return;
@@ -1250,16 +1313,15 @@ export default class GameScene extends Phaser.Scene {
   difficulty: this.difficultyKey
 };
 
-    this.player.setVelocityX(0);
-    this.player.setVelocityY(0);
-    this.time.delayedCall(1200, () => {
-      this.scene.start("GameOverScene", {
-        won: true,
-        score: this.score,
-        currentLevel: this.currentLevel,
-        timeBonus,
-        ...finishStats
-      });
-    });
+    // The camera stays where it is, and walkOffScreen() (from update) takes the player out of the picture
+    this.cameras.main.stopFollow();
+    this.finishData = {
+      won: true,
+      score: this.score,
+      currentLevel: this.currentLevel,
+      timeBonus,
+      ...finishStats
+    };
+    this.time.delayedCall(8000, () => this.finishLevel());   // just in case something ever blocks the way
   }
 }
