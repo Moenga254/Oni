@@ -5,6 +5,7 @@ import GameOverScene from "./scenes/GameOverScene.js";
 import PauseScene   from "./scenes/PauseScene.js";
 import LevelSelectScene from "./scenes/LevelSelectScene.js";
 import LoadingScene from "./scenes/LoadingScene.js";
+import { setupPWA } from "./pwa.js";
 
 const config = {
   type: Phaser.AUTO,
@@ -41,5 +42,8 @@ const game = new Phaser.Game(config);
 window.addEventListener("resize", () => {
   game.scale.refresh();
 });
+
+// 📲 Installable app + offline support (see src/pwa.js)
+setupPWA(game);
 
 export default game;
