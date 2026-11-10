@@ -161,6 +161,8 @@ export default class GameScene extends Phaser.Scene {
     // 🟨 In the Lost Sands, the ground is sand over sandstone and the floating platforms are ruin blocks
     const desert = levelData.theme === "desert";
 
+    this.plainPlatforms = [];   // the ones drawn as shapes, which moveWorld() hides while off screen
+
     platformData.forEach(([x, y, w, h, color], i) => {
       if (grassy) {
         const key = `grass_platform_${i}`;
@@ -200,6 +202,7 @@ export default class GameScene extends Phaser.Scene {
         gfx.fillRect(0, 0, w, 4);
         gfx.x = x;
         gfx.y = y;
+        this.plainPlatforms.push({ gfx, x, w });
       }
 
       const platform = this.platforms.create(x + w / 2, y + h / 2, null);
@@ -1109,6 +1112,14 @@ export default class GameScene extends Phaser.Scene {
 
   // Everything that keeps moving whether or not the player is in control
   moveWorld() {
+    // ⚡ Shapes are rebuilt every frame even when nobody can see them, which is what made the busy levels
+    // lag. So anything outside the camera is hidden; hiding only skips the drawing, it still moves and collides.
+    const cam = this.cameras.main;
+    const viewLeft = cam.scrollX - 80, viewRight = cam.scrollX + cam.width + 80;
+    const onScreen = (x, width = 0) => x + width > viewLeft && x < viewRight;
+
+    this.plainPlatforms.forEach(p => p.gfx.setVisible(onScreen(p.x, p.w)));
+
     // 👾 Move enemies
     this.enemies.forEach(enemy => {
       if (!enemy.body.active) return;
@@ -1124,6 +1135,7 @@ export default class GameScene extends Phaser.Scene {
       // Only the picture bobs or stretches, never the hitbox
       const wave = Math.sin(this.time.now / 300 + enemy.bobPhase);
       enemy.gfx.x = enemy.body.x;
+      enemy.gfx.setVisible(onScreen(enemy.body.x));
       if (enemy.kind === "fish") {
         enemy.gfx.y = enemy.body.y + wave * 3;
         enemy.gfx.setScale(enemy.direction, 1);
@@ -1177,6 +1189,7 @@ export default class GameScene extends Phaser.Scene {
       mp.body.setVelocityX(mp.speed * mp.direction);
       mp.gfx.x = mp.body.x - mp.w / 2;
       mp.gfx.y = mp.body.y - mp.h / 2 - mp.overY;
+      mp.gfx.setVisible(onScreen(mp.gfx.x, mp.w));
     });
 
     // 🔄 Sync coins
@@ -1184,6 +1197,7 @@ export default class GameScene extends Phaser.Scene {
       if (coin.active) {
         gfx.x = coin.x;
         gfx.y = coin.y;
+        gfx.setVisible(onScreen(coin.x));
       }
     });
   }
