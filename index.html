@@ -8,10 +8,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#87ceeb" />
+  <meta name="theme-color" content="#000000" />
 
   <title>Oni</title>
-  <link rel="manifest" href="/assets/manifest.json" />
+  <!-- The app manifest link is added here by vite-plugin-pwa when the game is built (see vite.config.js) -->
+  <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 
   <style>
     *, *::before, *::after {
@@ -24,6 +26,7 @@
       width: 100dvw;
       height: 100dvh;
       overflow: hidden;
+      overscroll-behavior: none;   /* no pull-to-refresh or rubber-band scrolling on phones */
       background: #000;
       touch-action: none;
       user-select: none;
