@@ -48,6 +48,13 @@ function withRoomAtStart(level, screenWidth) {
   return moved;
 }
 
+// Which method draws each kind of enemy (used once per kind, by enemyTexture)
+const ENEMY_DRAW = {
+  fish: "drawFish", snake: "drawSnake", lava: "drawLavaCreature", demon: "drawFireDemon",
+  frog: "drawMutantFrog", bug: "drawToxicBug", scorpion: "drawScorpion", sand: "drawSandCreature", slime: "drawEnemy"
+};
+const ENEMY_PICTURE_SIZE = 72;   // big enough for the largest enemy drawing, with room to spare
+
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super("GameScene");
@@ -338,19 +345,13 @@ export default class GameScene extends Phaser.Scene {
       fish: [28, 20], snake: [34, 16], lava: [32, 20], demon: [26, 26], frog: [30, 22], bug: [24, 18],
       scorpion: [34, 18], sand: [28, 26], slime: [28, 28]
     };
-    const DRAW = {
-      fish: "drawFish", snake: "drawSnake", lava: "drawLavaCreature", demon: "drawFireDemon",
-      frog: "drawMutantFrog", bug: "drawToxicBug", scorpion: "drawScorpion", sand: "drawSandCreature", slime: "drawEnemy"
-    };
 
     enemyData.forEach(([x, y, left, right, speed, color, ownKind], i) => {
       const kind = HITBOX[ownKind] ? ownKind : levelKind;
       const floats = kind === "fish" || kind === "demon" || kind === "bug";
       const enemySpeed = scaleEnemySpeed(speed, this.difficulty.enemySpeed);   // Easy slower, Hard faster
-      const gfx = this.add.graphics();
-      this[DRAW[kind]](gfx, color);
-      gfx.x = x;
-      gfx.y = kind === "slime" ? y - 16 : y;
+      // ⚡ a ready-made picture of this kind of enemy (see enemyTexture), not shapes redrawn every frame
+      const gfx = this.add.image(x, kind === "slime" ? y - 16 : y, this.enemyTexture(kind, color));
 
       const body = this.physics.add.image(x, y, null);
       body.setDisplaySize(HITBOX[kind][0], HITBOX[kind][1]);
@@ -397,13 +398,17 @@ export default class GameScene extends Phaser.Scene {
       coin.setVisible(false);
       coin.setActive(true);
 
-      let gfx = this.add.graphics();
-      gfx.fillStyle(0xffdd00, 1);
-      gfx.fillCircle(0, 0, 10);
-      gfx.fillStyle(0xffffff, 0.5);
-      gfx.fillCircle(-3, -3, 4);
-      gfx.x = x;
-      gfx.y = y;
+      // ⚡ every coin shares one picture, drawn the first time it is needed
+      if (!this.textures.exists("coin_picture")) {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0xffdd00, 1);
+        g.fillCircle(11, 11, 10);
+        g.fillStyle(0xffffff, 0.5);
+        g.fillCircle(8, 8, 4);
+        g.generateTexture("coin_picture", 22, 22);
+        g.destroy();
+      }
+      let gfx = this.add.image(x, y, "coin_picture");
       coin.gfx = gfx;
 
       this.coinGraphics.push({ coin, gfx });
@@ -765,6 +770,25 @@ export default class GameScene extends Phaser.Scene {
       this._pointerButton = {};
       this._refreshMobileButtons();
     }
+  }
+
+  // ⚡ Returns the name of a picture of this enemy, drawing it the first time it is asked for.
+  // Every enemy of the same kind and colour then shares that one picture, which is far cheaper
+  // than rebuilding each enemy from shapes on every frame.
+  // variant: only used by sand creatures (true = burrowed under the sand)
+  enemyTexture(kind, color, variant = false) {
+    const key = `enemy_${kind}_${color}_${variant ? 1 : 0}`;
+    if (!this.textures.exists(key)) {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      // The drawings are centred on (0, 0), so shift everything to the middle of the picture first.
+      // (The draw methods start with clear(), which would undo the shift, so clear() is switched off here.)
+      g.translateCanvas(ENEMY_PICTURE_SIZE / 2, ENEMY_PICTURE_SIZE / 2);
+      g.clear = () => g;
+      this[ENEMY_DRAW[kind]](g, color, variant);
+      g.generateTexture(key, ENEMY_PICTURE_SIZE, ENEMY_PICTURE_SIZE);
+      g.destroy();
+    }
+    return key;
   }
 
   // 🎨 Draw slime enemy shape
@@ -1163,7 +1187,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.time.now > enemy.nextSwitch) {
           enemy.burrowed = !enemy.burrowed;
           enemy.nextSwitch = this.time.now + (enemy.burrowed ? 1500 : 2200) + Math.random() * 600;
-          this.drawSandCreature(enemy.gfx, enemy.color, enemy.burrowed);
+          enemy.gfx.setTexture(this.enemyTexture("sand", enemy.color, enemy.burrowed));
           this.sandBurst(enemy.body.x, enemy.body.y + 12);
         }
         enemy.body.setVelocityX(enemy.speed * enemy.direction * (enemy.burrowed ? 1.4 : 1));
