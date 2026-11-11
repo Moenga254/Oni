@@ -21,7 +21,10 @@ export default defineConfig({
         description: "Oni is a fast platformer: grab the coins, dodge the monsters and reach the flag before time runs out.",
         start_url: "/",
         scope: "/",
-        display: "standalone",
+        // "fullscreen" hides Android's status bar and buttons as soon as the installed game opens.
+        // display_override lists what to try first; "standalone" is the fallback where fullscreen isn't supported.
+        display: "fullscreen",
+        display_override: ["fullscreen", "standalone"],
         orientation: "landscape",
         theme_color: "#000000",
         background_color: "#000000",

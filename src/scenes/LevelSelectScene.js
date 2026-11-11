@@ -1,6 +1,7 @@
 import { levels } from "../data/levels.js";
 import { loadStars, MAX_STARS } from "../data/Stars.js";
 import { drawStarRow } from "../utils/Starrow.js";
+import { enterFullscreen } from "../utils/Fullscreen.js";
 
 // 🧭 Layout: levels flow in rows of 3, going DOWN the screen.
 // Two rows fit at once. With more levels the list scrolls: mouse wheel, drag/swipe, or the ↑ ↓ keys.
@@ -352,6 +353,7 @@ export default class LevelSelectScene extends Phaser.Scene {
         return;
       }
       this.registry.set("currentLevel", index);
+      enterFullscreen(this);   // 📱 on phones and tablets, fill the whole screen (hides the status bar)
       this.go("LoadingScene");
     });
 

@@ -115,6 +115,7 @@ function makeTextures(scene) {
 // Each pool fills a gap in the floor. Touching it costs a life (even while blinking after a hit).
 function addPools(scene, pools, look) {
   const surfaceY = POOL_SURFACE_Y;
+  const effects = [];   // each pool's glow, shimmer and bubbles, switched off while the pool is off screen
   pools.forEach(([x, w], i) => {
     const key = `${look.cause}_pool_${i}`;
     if (scene.textures.exists(key)) scene.textures.remove(key);
@@ -138,12 +139,14 @@ function addPools(scene, pools, look) {
     scene.tweens.add({ targets: shine, alpha: 0.3, duration: 500 + i * 40, yoyo: true, repeat: -1 });
 
     // bubbles popping on the surface
-    scene.add.particles(0, 0, look.bubble, {
+    const bubbles = scene.add.particles(0, 0, look.bubble, {
       x: { min: x + 6, max: x + w - 6 }, y: surfaceY + 4,
       lifespan: 600, speedY: { min: -40, max: -15 }, speedX: { min: -8, max: 8 },
       scale: { start: 0.5, end: 1.2 }, alpha: { start: 1, end: 0 },
       frequency: Math.max(120, 36000 / w)
     });
+
+    effects.push({ x, w, glow, shine, bubbles, on: null });
 
     // the deadly part
     const zone = scene.physics.add.staticImage(x + w / 2, surfaceY + 14, null).setDisplaySize(w, 24).setVisible(false);
@@ -154,6 +157,23 @@ function addPools(scene, pools, look) {
       scene.loseLife(look.cause);
     });
   });
+
+  // ⚡ A level has a dozen pools, each bubbling and glowing. Only the ones near the screen need to.
+  const cull = () => {
+    const cam = scene.cameras.main;
+    const left = cam.scrollX - 120, right = cam.scrollX + cam.width + 120;
+    effects.forEach(e => {
+      const on = e.x + e.w > left && e.x < right;
+      if (on === e.on) return;
+      e.on = on;
+      e.glow.setVisible(on);
+      e.shine.setVisible(on);
+      e.bubbles.setVisible(on);
+      e.bubbles.emitting = on;
+    });
+  };
+  scene.events.on("update", cull);
+  scene.events.once("shutdown", () => scene.events.off("update", cull));
 }
 
 function splash(scene, x, y, texture) {

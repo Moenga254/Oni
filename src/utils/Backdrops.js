@@ -263,18 +263,37 @@ export function drawNightForestBackdrop(scene, { colors, worldWidth, worldHeight
   sky.setScrollFactor(0);
 
   // 2) Stars and the moon (they barely move: they are very far away)
-  const stars = scene.add.graphics().setScrollFactor(0.02, 0);
+  //    ⚡ Drawn once into pictures: 70 star circles rebuilt every frame were this level's biggest cost.
+  const stars = scene.make.graphics({ x: 0, y: 0, add: false });
   for (let i = 0; i < 70; i++) {
     stars.fillStyle(0xffffff, 0.3 + random() * 0.6);
     stars.fillCircle(random() * (camW + 200), random() * camH * 0.55, random() < 0.15 ? 1.6 : 0.9);
   }
+  if (scene.textures.exists("night_stars")) scene.textures.remove("night_stars");
+  stars.generateTexture("night_stars", Math.ceil(camW + 204), Math.ceil(camH * 0.55) + 4);
+  stars.destroy();
+  scene.add.image(0, 0, "night_stars").setOrigin(0, 0).setScrollFactor(0.02, 0);
+
   addGlow(scene, "moonglow", camW * 0.78, 78, 220, 220, 0xcfd8ff, 0.35);
-  const moon = scene.add.graphics().setScrollFactor(0);
-  moon.fillStyle(0xf3f1dc, 1);
-  moon.fillCircle(camW * 0.78, 78, 26);
-  moon.fillStyle(0xd9d6bd, 1);
-  moon.fillCircle(camW * 0.78 - 8, 72, 5);
-  moon.fillCircle(camW * 0.78 + 9, 86, 3.5);
+  if (!scene.textures.exists("night_moon")) {
+    const moon = scene.make.graphics({ x: 0, y: 0, add: false });
+    moon.fillStyle(0xf3f1dc, 1);
+    moon.fillCircle(28, 28, 26);
+    moon.fillStyle(0xd9d6bd, 1);
+    moon.fillCircle(20, 22, 5);
+    moon.fillCircle(37, 36, 3.5);
+    moon.generateTexture("night_moon", 56, 56);
+    moon.destroy();
+  }
+  scene.add.image(camW * 0.78, 78, "night_moon").setScrollFactor(0);
+  if (!scene.textures.exists("owl_eyes")) {
+    const eyes = scene.make.graphics({ x: 0, y: 0, add: false });
+    eyes.fillStyle(0xffd23f, 1);
+    eyes.fillCircle(4, 4, 2.6);
+    eyes.fillCircle(14, 4, 2.6);
+    eyes.generateTexture("owl_eyes", 18, 8);
+    eyes.destroy();
+  }
 
   // 3) Pine forest: far trees are lighter (hazy) and slow, near trees almost black and faster
   const widthFor = (sx) => camW + 300 + sx * maxScrollX;
@@ -293,12 +312,8 @@ export function drawNightForestBackdrop(scene, { colors, worldWidth, worldHeight
     // 🦉 Owls: pairs of yellow eyes in the far and middle trees that blink now and then
     if (name === "forest_near") return;
     for (let x = 300 + random() * 300; x < width - 100; x += 700 + random() * 600) {
-      const eyes = scene.add.graphics().setScrollFactor(sx, sy);
-      eyes.fillStyle(0xffd23f, name === "forest_far" ? 0.55 : 0.85);
-      eyes.fillCircle(-5, 0, 2.6);
-      eyes.fillCircle(5, 0, 2.6);
-      eyes.x = x;
-      eyes.y = baseline - 150 - random() * 90;
+      const eyes = scene.add.image(x, baseline - 150 - random() * 90, "owl_eyes")
+        .setScrollFactor(sx, sy).setAlpha(name === "forest_far" ? 0.55 : 0.85);
       scene.tweens.add({
         targets: eyes, scaleY: 0.1, duration: 90, yoyo: true,
         repeat: -1, repeatDelay: 2500 + random() * 4000, delay: random() * 3000

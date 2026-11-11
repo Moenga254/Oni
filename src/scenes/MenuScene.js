@@ -1,6 +1,7 @@
 import SoundManager from "../utils/SoundManager.js";
 import { DIFFICULTIES, getDifficulty, saveDifficulty } from "../data/Difficulty.js";
 import { makeButton } from "../utils/Button.js";
+import { enterFullscreen } from "../utils/Fullscreen.js";
 
 // 🏯 The title screen. The content is laid out for an 800x450 screen and centred on wider or taller ones;
 // the background always fills the whole screen.
@@ -104,7 +105,10 @@ export default class MenuScene extends Phaser.Scene {
       this.cameras.main.fadeOut(250, 0, 0, 0);
       this.cameras.main.once("camerafadeoutcomplete", () => this.scene.start(sceneKey));
     };
-    const startGame = () => go("LoadingScene");   // the loading screen opens the level
+    const startGame = () => {
+      enterFullscreen(this);   // 📱 on phones and tablets, fill the whole screen (hides the status bar)
+      go("LoadingScene");      // the loading screen opens the level
+    };
 
     makeButton(this, cx - 105, top + 352, 190, 50, "▶  PLAY", 0xe2552b, startGame);
     makeButton(this, cx + 105, top + 352, 190, 50, "☰  LEVELS", 0x4a3485, () => go("LevelSelectScene"));
