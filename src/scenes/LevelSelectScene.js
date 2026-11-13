@@ -27,6 +27,7 @@ export const THEMES = {
   volcano: { accent: 0xff5a1a, sky: [0x1a0404, 0x8a220a] },
   swamp:   { accent: 0xa6e22e, sky: [0x14200e, 0x4a5a1a] },
   desert:  { accent: 0xf0b840, sky: [0xd9772b, 0xffe0a0] },
+  city:    { accent: 0x3de0ff, sky: [0x05070f, 0x1a2a55] },
 };
 
 // Grasslands and Sky Kingdom have no theme in levels.js; give them one here for their pictures

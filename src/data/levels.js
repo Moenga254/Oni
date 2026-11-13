@@ -982,5 +982,135 @@ export const levels = [
       [5100, 300, 100, 120, 90],
       [6900, 290, 100, 120, 100],
     ]
+  },
+
+  {
+    id: 9,
+    name: "Urban Nightmare",
+    subtitle: "Level 10",
+    loadingText: "Collect all coins & avoid the mutants and robot guards",
+
+    // 🌃 An abandoned city at midnight, in dark blue and black with a little neon.
+    // The look, the enemies and the hazards are added step by step; until then the level uses
+    // the game's plain look (flat colours and slimes), so it can already be played and tested.
+    theme: "city",
+    background: [0x05070f, 0x0a1026, 0x101c3c, 0x1a2a55],   // black -> midnight blue
+    groundColor: 0x23262e,     // asphalt
+    platformColor: 0x3a4254,   // concrete and steel
+
+    worldWidth: 9100,
+    playerStart: [80, 490],
+    flagX: 9000,
+    timeLimit: 195,
+
+    // 🟢 Three checkpoints, about a quarter, half and three quarters of the way, on streets with no enemies
+    checkpoints: [2350, 4620, 6690],
+
+    platforms: [
+      // Streets: the short gaps (130px) can be jumped; the five wide ones (320px) need the ledge in the middle
+      [0,    570, 460, 30],
+      [590,  570, 330, 30],
+      [1240, 570, 340, 30],
+      [1710, 570, 320, 30],
+      [2160, 570, 380, 30],   // checkpoint 1
+      [2860, 570, 340, 30],
+      [3330, 570, 330, 30],
+      [3790, 570, 320, 30],
+      [4430, 570, 380, 30],   // checkpoint 2
+      [4940, 570, 330, 30],
+      [5400, 570, 320, 30],
+      [6040, 570, 330, 30],
+      [6500, 570, 380, 30],   // checkpoint 3
+      [7010, 570, 330, 30],
+      [7470, 570, 320, 30],
+      [8110, 570, 330, 30],
+      [8570, 570, 530, 30],   // finish
+
+      // Ledges across the five wide gaps (these become collapsing pieces of building in the hazards step)
+      [1030, 500, 100, 20],
+      [2650, 500, 100, 20],
+      [4220, 500, 100, 20],
+      [5830, 500, 100, 20],
+      [7900, 500, 100, 20],
+
+      // Fire escapes and rooftops: a low/high staircase all the way along
+      [280,  450, 100, 20],
+      [470,  360, 110, 20],
+      [680,  450, 100, 20],
+      [800,  360, 110, 20],
+      [1300, 450, 100, 20],
+      [1470, 360, 110, 20],
+      [1780, 450, 100, 20],
+      [1900, 360, 110, 20],
+      [2230, 450, 100, 20],
+      [2400, 360, 110, 20],
+      [2930, 450, 100, 20],
+      [3080, 360, 110, 20],
+      [3400, 450, 100, 20],
+      [3540, 360, 110, 20],
+      [3860, 450, 100, 20],
+      [3990, 360, 110, 20],
+      [4500, 450, 100, 20],
+      [4680, 360, 110, 20],
+      [5010, 450, 100, 20],
+      [5150, 360, 110, 20],
+      [5470, 450, 100, 20],
+      [5600, 360, 110, 20],
+      [6110, 450, 100, 20],
+      [6250, 360, 110, 20],
+      [6600, 440, 100, 20],
+      [6760, 360, 110, 20],
+      [7080, 450, 100, 20],
+      [7210, 360, 110, 20],
+      [7540, 450, 100, 20],
+      [7670, 360, 110, 20],
+      [8180, 450, 100, 20],
+      [8320, 360, 110, 20],
+      [8680, 440, 100, 20],
+    ],
+
+    coins: [
+      [330, 420],  [525, 330],  [730, 420],  [855, 330],  [1080, 470],
+      [1350, 420], [1525, 330], [1830, 420], [1955, 330], [2280, 420],
+      [2455, 330], [2700, 470], [2980, 420], [3135, 330], [3450, 420],
+      [3595, 330], [3910, 420], [4045, 330], [4270, 470], [4550, 420],
+      [4735, 330], [5060, 420], [5205, 330], [5520, 420], [5655, 330],
+      [5880, 470], [6160, 420], [6305, 330], [6650, 410], [6815, 330],
+      [7130, 420], [7265, 330], [7590, 420], [7725, 330], [7950, 470],
+      [8230, 420], [8375, 330], [8730, 410],
+    ],
+
+    // [x, y, patrolLeft, patrolRight, speed, colour, kind]
+    //   "mutant" = a mutated creature that scuttles along the street
+    //   "robot"  = a robotic guard that marches back and forth
+    // (until the enemies step, both kinds are shown as slimes)
+    enemies: [
+      [320,  540, 220,  440,  75,  0x8a5cf0, "mutant"],
+      [780,  540, 690,  900,  70,  0x5a7ea8, "robot"],
+      [1400, 540, 1330, 1560, 85,  0x8a5cf0, "mutant"],
+      [1880, 540, 1800, 2010, 75,  0x5a7ea8, "robot"],
+      [3020, 540, 2950, 3180, 90,  0x8a5cf0, "mutant"],
+      [3500, 540, 3420, 3640, 80,  0x5a7ea8, "robot"],
+      [3950, 540, 3880, 4090, 95,  0x8a5cf0, "mutant"],
+      [5100, 540, 5030, 5250, 85,  0x5a7ea8, "robot"],
+      [5180, 540, 5040, 5250, 95,  0x8a5cf0, "mutant"],
+      [5560, 540, 5490, 5700, 100, 0x8a5cf0, "mutant"],
+      [6200, 540, 6130, 6350, 90,  0x5a7ea8, "robot"],
+      [6280, 540, 6140, 6350, 100, 0x8a5cf0, "mutant"],
+      [7180, 540, 7100, 7320, 90,  0x5a7ea8, "robot"],
+      [7630, 540, 7560, 7770, 100, 0x8a5cf0, "mutant"],
+      [7700, 540, 7570, 7770, 90,  0x5a7ea8, "robot"],
+      [8280, 540, 8200, 8420, 105, 0x8a5cf0, "mutant"],
+      [8350, 540, 8210, 8420, 95,  0x5a7ea8, "robot"],
+      // (checkpoint streets 2160-2540, 4430-4810 and 6500-6880, and the finish, have no enemies)
+    ],
+
+    movingPlatforms: [
+      [900,  300, 100, 120, 90],
+      [2600, 290, 100, 120, 100],
+      [4200, 300, 100, 120, 90],
+      [5800, 290, 100, 120, 100],
+      [7400, 290, 100, 120, 100],
+    ]
   }
 ];
