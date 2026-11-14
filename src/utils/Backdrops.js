@@ -1992,11 +1992,10 @@ export function bakeCarpetPlatform(scene, key, w, h, seed) {
 // that scroll at different speeds (parallax), flickering neon signs, street lamps with pools of
 // cold light, drifting fog and thin rain.
 // Built like the other backdrops: the buildings are drawn ONCE into pictures when the level starts.
-export function drawCitBackdrop(scene, { colors, worldwidth, worldHeight }) 
-{
+export function drawCityBackdrop(scene, { colors, worldWidth, worldHeight }) {
   const camW = scene .cameras.main.width;
   const camH = scene.cameras.main.height;
-  const maxScrollX = Math.max(0, worldwidth - camW);  // how far the camera can travel sideways
+  const maxScrollX = Math.max(0, worldWidth - camW);  // how far the camera can travel sideways
   const maxScrollY = Math.max(0, worldHeight - camH);  // how far the camera can travel downhill
   const random = makeRandom(20261113);  // same random city every time you play.
 
@@ -2028,7 +2027,8 @@ export function drawCitBackdrop(scene, { colors, worldwidth, worldHeight })
    scene.add.image(camW * 0.78, camH * 0.2, "city_moon").setScrollFactor(0);
    ensureSoftTexture(scene, "city_cloud", 0x0a1026);
    for (let i = 0; i < 5; i++) {
-    const cloud = scene.add.image(random() * 40).setAlpha(0.75).setScrollFactor(0);
+    const cloud = scene.add.image(random() * camW, camH * (0.1 + random() * 0.22), "city_cloud")
+      .setDisplaySize(260 + random() * 200, 60 + random() * 40).setAlpha(0.75).setScrollFactor(0);
     scene.tweens.add({ targets: cloud, x: cloud.x + 120 + random() * 100, duration: 18000 + random() * 12000, yoyo: true, repeat: -1, ease: "Sine.InOut" });
    }
 
@@ -2072,12 +2072,11 @@ export function drawCitBackdrop(scene, { colors, worldwidth, worldHeight })
   // 3) FAR SKYLINE: pale and slow, so it feels a long way off
   {
     const sx = 0.1, sy = 0.06, width = widthFor(sx), h = 250;
-    const buildings = planBuildings(width, 50, 120, 90, 230,);
+    const buildings = planBuildings(width, 50, 120, 90, 230);
     bakeChunks(scene, "city_far", {
       width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
       draw: (g, left, chunkW) => buildings.forEach(b => {
-        if (b.gx + b.w < left + chunkW + 4)
-          return; // not in this picture
+        if (b.gx + b.w < left - 4 || b.gx > left + chunkW + 4) return;   // not in this picture
         drawBuilding(g, b, left, h, 0x101c3c, 0x16254a, [0x2f4f86], 0.05);
     })
     });
