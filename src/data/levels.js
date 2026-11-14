@@ -991,8 +991,7 @@ export const levels = [
     loadingText: "Collect all coins & avoid the mutants and robot guards",
 
     // 🌃 An abandoned city at midnight, in dark blue and black with a little neon.
-    // The look, the enemies and the hazards are added step by step; until then the level uses
-    // the game's plain look (flat colours and slimes), so it can already be played and tested.
+    // The city has its own enemy types and hazards; the backdrop and gameplay share this theme.
     theme: "city",
     background: [0x05070f, 0x0a1026, 0x101c3c, 0x1a2a55],   // black -> midnight blue
     groundColor: 0x23262e,     // asphalt
@@ -1025,13 +1024,6 @@ export const levels = [
       [7470, 570, 320, 30],
       [8110, 570, 330, 30],
       [8570, 570, 530, 30],   // finish
-
-      // Ledges across the five wide gaps (these become collapsing pieces of building in the hazards step)
-      [1030, 500, 100, 20],
-      [2650, 500, 100, 20],
-      [4220, 500, 100, 20],
-      [5830, 500, 100, 20],
-      [7900, 500, 100, 20],
 
       // Fire escapes and rooftops: a low/high staircase all the way along
       [280,  450, 100, 20],
@@ -1083,7 +1075,6 @@ export const levels = [
     // [x, y, patrolLeft, patrolRight, speed, colour, kind]
     //   "mutant" = a mutated creature that scuttles along the street
     //   "robot"  = a robotic guard that marches back and forth
-    // (until the enemies step, both kinds are shown as slimes)
     enemies: [
       [320,  540, 220,  440,  75,  0x8a5cf0, "mutant"],
       [780,  540, 690,  900,  70,  0x5a7ea8, "robot"],
@@ -1102,7 +1093,26 @@ export const levels = [
       [7700, 540, 7570, 7770, 90,  0x5a7ea8, "robot"],
       [8280, 540, 8200, 8420, 105, 0x8a5cf0, "mutant"],
       [8350, 540, 8210, 8420, 95,  0x5a7ea8, "robot"],
+      [1525, 343, 1490, 1560, 48, 0x5a7ea8, "robot"],   // on the fire escape
       // (checkpoint streets 2160-2540, 4430-4810 and 6500-6880, and the finish, have no enemies)
+    ],
+
+    // Exposed city hazards. Trap/cable entries are [x, y, width].
+    electricalTraps: [
+      [700, 570, 72], [1360, 570, 72], [1810, 570, 72],
+      [2960, 570, 76], [3480, 570, 76], [3870, 570, 76],
+      [5030, 570, 76], [5470, 570, 76], [6110, 570, 76],
+      [7100, 570, 76], [7550, 570, 76], [8200, 570, 76],
+    ],
+    exposedCables: [
+      [840, 564, 60], [1540, 564, 50], [3630, 564, 48],
+      [4080, 564, 44], [5235, 564, 44], [5680, 564, 40],
+      [6350, 564, 40], [7760, 564, 50], [8380, 564, 46],
+    ],
+    // These slabs bridge the wide street gaps, but collapse after the player lands on them.
+    collapsingPlatforms: [
+      [1030, 500, 100], [2650, 500, 100], [4220, 500, 100],
+      [5830, 500, 100], [7900, 500, 100],
     ],
 
     movingPlatforms: [
@@ -1111,6 +1121,14 @@ export const levels = [
       [4200, 300, 100, 120, 90],
       [5800, 290, 100, 120, 100],
       [7400, 290, 100, 120, 100],
-    ]
+    ],
+    // Zero-based indices into movingPlatforms.
+        movingPlatformEnemies: [
+      [0, "mutant", 0x8a5cf0, 45],
+      [1, "robot",  0x5a7ea8, 50],
+      [2, "mutant", 0x8a5cf0, 48],
+      [4, "robot",  0x5a7ea8, 55],
+    ],
+    movingPlatformTraps: [1, 3]
   }
 ];
