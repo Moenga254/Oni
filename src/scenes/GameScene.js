@@ -6,9 +6,9 @@ import {
   drawSkyKingdomBackdrop, bakeSkyIslandPlatform, bakeMarblePlatform, bakeCloudPlatform,
   drawVolcanoBackdrop, bakeBasaltPlatform, bakeObsidianPlatform,
   drawSwampBackdrop, bakeMudPlatform, bakeMossyLogPlatform, bakeRustyPlatform,
-  drawDesertBackdrop, bakeDesertGround, bakeRuinBlock, bakeCarpetPlatform, drawCityBackdrop
+  drawDesertBackdrop, bakeDesertGround, bakeRuinBlock, bakeCarpetPlatform, bakeCityMovingPlatform, drawCityBackdrop
 } from "../utils/Backdrops.js";
-import { setupVolcanoHazards, setupSwampHazards, setupDesertHazards } from "../utils/Hazards.js";
+import { setupVolcanoHazards, setupSwampHazards, setupDesertHazards, setupCityHazards } from "../utils/Hazards.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
@@ -39,7 +39,7 @@ function withRoomAtStart(level, screenWidth) {
     checkpoints: (level.checkpoints || []).map(x => x + extra),
     fallingRocks: (level.fallingRocks || []).map(x => x + extra),
   };
-  ["lavaPools", "toxicPools", "quicksand", "crumblingPlatforms", "breakingPlatforms", "sinkingPlatforms", "collapsingBlocks"]
+  ["lavaPools", "toxicPools", "quicksand", "crumblingPlatforms", "breakingPlatforms", "sinkingPlatforms", "collapsingBlocks", "collapsingPlatforms", "electricalTraps", "exposedCables"]
     .forEach(key => { if (level[key]) moved[key] = level[key].map(moveX); });
 
   // Stretch the first piece of ground back to the left edge, so there's solid ground behind the player
@@ -51,7 +51,8 @@ function withRoomAtStart(level, screenWidth) {
 // Which method draws each kind of enemy (used once per kind, by enemyTexture)
 const ENEMY_DRAW = {
   fish: "drawFish", snake: "drawSnake", lava: "drawLavaCreature", demon: "drawFireDemon",
-  frog: "drawMutantFrog", bug: "drawToxicBug", scorpion: "drawScorpion", sand: "drawSandCreature", slime: "drawEnemy"
+  frog: "drawMutantFrog", bug: "drawToxicBug", scorpion: "drawScorpion", sand: "drawSandCreature",
+  mutant: "drawMutatedCreature", robot: "drawRobotGuard", slime: "drawEnemy"
 };
 const ENEMY_PICTURE_SIZE = 72;   // big enough for the largest enemy drawing, with room to spare
 
@@ -170,6 +171,7 @@ export default class GameScene extends Phaser.Scene {
     const swampy = levelData.theme === "swamp";
     // 🟨 In the Lost Sands, the ground is sand over sandstone and the floating platforms are ruin blocks
     const desert = levelData.theme === "desert";
+    const city = levelData.theme === "city";
 
     this.plainPlatforms = [];   // the ones drawn as shapes, which moveWorld() hides while off screen
 
@@ -178,11 +180,19 @@ export default class GameScene extends Phaser.Scene {
         const key = `grass_platform_${i}`;
         const over = bakeGrassPlatform(this, key, w, h, h < 30, i);
         this.add.image(x, y - over, key).setOrigin(0, 0);
+         } else if (city) {
+        const key = `city_platform_${i}`;
+        bakeCityMovingPlatform(this, key, w, h, i);
+        this.add.image(x, y, key).setOrigin(0, 0);
       } else if (desert) {
         const key = `desert_platform_${i}`;
         if (h >= 30) {
           const over = bakeDesertGround(this, key, w, h, i);
           this.add.image(x, y - over, key).setOrigin(0, 0);
+        } else if (city) {
+          const key = `city_platform_${i}`;
+          bakeCityMovingPlatform(this, key, w, h, i);
+          this.add.image(x, y, key).setOrigin(0, 0);
         } else {
           bakeRuinBlock(this, key, w, h, i);
           this.add.image(x, y, key).setOrigin(0, 0);
@@ -265,6 +275,9 @@ export default class GameScene extends Phaser.Scene {
         // ☁️ little clouds to ride on
         overY = bakeCloudPlatform(this, `cloud_platform_${i}`, w, h, i);
         gfx = this.add.image(x, y - overY, `cloud_platform_${i}`).setOrigin(0, 0);
+      } else if (city) {
+        bakeCityMovingPlatform(this, `city_moving_platform_${i}`, w, h, i);
+        gfx = this.add.image(x, y, `city_moving_platform_${i}`).setOrigin(0, 0);
       } else {
         gfx = this.add.graphics();
         gfx.fillStyle(levelData.platformColor);
@@ -331,7 +344,15 @@ export default class GameScene extends Phaser.Scene {
     // [x, y, patrolLeft, patrolRight, speed, colour, kind?, easiestMode?]
     // easiestMode: the enemy only appears on that difficulty and harder ones (none = every difficulty)
     const MODE_RANK = { easy: 0, normal: 1, hard: 2 };
-    const enemyData = levelData.enemies.filter(e => !e[7] || MODE_RANK[this.difficultyKey] >= MODE_RANK[e[7]]);
+    const regularEnemies = levelData.enemies.filter(e => !e[7] || MODE_RANK[this.difficultyKey] >= MODE_RANK[e[7]]);
+       const platformEnemies = (levelData.movingPlatformEnemies || []).flatMap(([platformIndex, kind, color, speed]) => {
+      const platform = this.movingPlatforms[platformIndex];
+      if (!platform) return [];
+      const height = kind === "robot" ? 34 : 28;
+      const top = platform.body.y - platform.h / 2;
+      return [[platform.body.x, top - height / 2, 0, 0, speed, color, kind, null, platformIndex]];
+    });
+    const enemyData = [...regularEnemies, ...platformEnemies];
 
     // What the enemies look like depends on the level (an enemy can also name its own kind, 7th value):
     //   🐟 fish  (Deep Sea): swim at their own height (no gravity) instead of walking
@@ -346,12 +367,13 @@ export default class GameScene extends Phaser.Scene {
     const levelKind = { sea: "fish", forest: "snake", volcano: "lava", swamp: "frog", desert: "scorpion" }[levelData.theme] || "slime";
     const HITBOX = {
       fish: [28, 20], snake: [34, 16], lava: [32, 20], demon: [26, 26], frog: [30, 22], bug: [24, 18],
-      scorpion: [34, 18], sand: [28, 26], slime: [28, 28]
+      scorpion: [34, 18], sand: [28, 26], mutant: [32, 28], robot: [30, 34], slime: [28, 28]
     };
 
-    enemyData.forEach(([x, y, left, right, speed, color, ownKind], i) => {
+    enemyData.forEach(([x, y, left, right, speed, color, ownKind, , platformIndex], i) => {
       const kind = HITBOX[ownKind] ? ownKind : levelKind;
       const floats = kind === "fish" || kind === "demon" || kind === "bug";
+      const movingPlatform = Number.isInteger(platformIndex) ? this.movingPlatforms[platformIndex] : null;
       const enemySpeed = scaleEnemySpeed(speed, this.difficulty.enemySpeed);   // Easy slower, Hard faster
       // ⚡ a ready-made picture of this kind of enemy (see enemyTexture), not shapes redrawn every frame
       const gfx = this.add.image(x, kind === "slime" ? y - 16 : y, this.enemyTexture(kind, color));
@@ -362,7 +384,7 @@ export default class GameScene extends Phaser.Scene {
       body.setCollideWorldBounds(false);
       body.setImmovable(false);
 
-      if (floats) {
+      if (floats || movingPlatform) {
         body.body.setAllowGravity(false);
       } else {
         body.body.setGravityY(200);
@@ -370,7 +392,11 @@ export default class GameScene extends Phaser.Scene {
       }
 
       // bobPhase: each one bobs (or slithers, or flickers) a little, out of step with the others
-      const enemy = { body, gfx, left, right, speed: enemySpeed, color, kind, direction: 1, bobPhase: i * 1.7, nextHop: 800 + i * 300 };
+      const enemy = {
+        body, gfx, left, right, speed: enemySpeed, color, kind, movingPlatform,
+        platformOffsetX: movingPlatform ? x - movingPlatform.body.x : 0,
+        platformDirection: 1, direction: 1, bobPhase: i * 1.7, nextHop: 800 + i * 300
+      };
       if (kind === "sand") {                     // sand creatures start out of the sand, on a staggered timer
         enemy.burrowed = false;
         enemy.nextSwitch = 1500 + i * 400;
@@ -426,6 +452,8 @@ export default class GameScene extends Phaser.Scene {
     if (swampy) setupSwampHazards(this, levelData, this.difficultyKey);
     // ⏳ Quicksand and collapsing sandstone blocks (see src/utils/Hazards.js)
     if (desert) setupDesertHazards(this, levelData, this.difficultyKey);
+    // ⚡ Electric traps, live cables and crumbling street ledges (see src/utils/Hazards.js)
+    if (city) setupCityHazards(this, levelData, this.difficultyKey, this.movingPlatforms);
 
     // 🚩 Finish flag
     this.flag = this.add.graphics();
@@ -810,6 +838,52 @@ export default class GameScene extends Phaser.Scene {
     gfx.fillCircle(7, -2, 3);
   }
 
+  drawMutatedCreature(gfx, color) {
+    gfx.clear();
+    const shadow = Phaser.Display.Color.IntegerToColor(color).darken(25).color;
+    gfx.fillStyle(shadow, 1);
+    gfx.fillEllipse(0, 9, 32, 8);
+    gfx.fillStyle(color, 1);
+    gfx.fillEllipse(-1, 1, 29, 22);
+    gfx.fillCircle(-8, -8, 8);
+    gfx.fillCircle(3, -11, 9);
+    gfx.fillCircle(10, -5, 6);
+    gfx.fillStyle(0xd7ff78, 1);
+    gfx.fillCircle(-5, -6, 2.5);
+    gfx.fillCircle(5, -9, 2.5);
+    gfx.fillCircle(11, -3, 2);
+    gfx.fillStyle(0x17121f, 1);
+    gfx.fillCircle(-4, -6, 1);
+    gfx.fillCircle(6, -9, 1);
+    gfx.fillCircle(12, -3, 0.8);
+    gfx.lineStyle(2, shadow, 1);
+    gfx.lineBetween(-9, 7, -16, 13);
+    gfx.lineBetween(8, 7, 15, 13);
+  }
+
+  drawRobotGuard(gfx, color) {
+    gfx.clear();
+    const dark = Phaser.Display.Color.IntegerToColor(color).darken(30).color;
+    gfx.fillStyle(dark, 1);
+    gfx.fillRoundedRect(-13, -2, 26, 22, 4);
+    gfx.fillStyle(color, 1);
+    gfx.fillRoundedRect(-11, -16, 22, 17, 4);
+    gfx.fillStyle(0x202a36, 1);
+    gfx.fillRoundedRect(-8, -12, 16, 7, 2);
+    gfx.fillStyle(0xff4a5e, 1);
+    gfx.fillRect(-6, -10, 4, 2);
+    gfx.fillRect(2, -10, 4, 2);
+    gfx.fillStyle(0xa6c8df, 1);
+    gfx.fillRect(-8, 2, 16, 3);
+    gfx.fillStyle(dark, 1);
+    gfx.fillRect(-15, 1, 4, 13);
+    gfx.fillRect(11, 1, 4, 13);
+    gfx.fillRoundedRect(-10, 17, 7, 5, 2);
+    gfx.fillRoundedRect(3, 17, 7, 5, 2);
+    gfx.fillStyle(0x3de0ff, 1);
+    gfx.fillCircle(0, 9, 2);
+  }
+
   // 🐟 Draw a small fish facing right (it is flipped when it swims left)
   drawFish(gfx, color) {
     gfx.clear();
@@ -1151,12 +1225,29 @@ export default class GameScene extends Phaser.Scene {
     this.enemies.forEach(enemy => {
       if (!enemy.body.active) return;
 
-      enemy.body.setVelocityX(enemy.speed * enemy.direction);
-
-      if (enemy.body.x >= enemy.right) {
-        enemy.direction = -1;
-      } else if (enemy.body.x <= enemy.left) {
-        enemy.direction = 1;
+      if (enemy.movingPlatform) {
+        const platformLimit = Math.max(0, enemy.movingPlatform.w / 2 - enemy.body.body.width / 2 - 4);
+        enemy.platformOffsetX += enemy.speed * enemy.platformDirection * this.game.loop.delta / 1000;
+        if (enemy.platformOffsetX >= platformLimit) {
+          enemy.platformOffsetX = platformLimit;
+          enemy.platformDirection = -1;
+        } else if (enemy.platformOffsetX <= -platformLimit) {
+          enemy.platformOffsetX = -platformLimit;
+          enemy.platformDirection = 1;
+        }
+        enemy.direction = enemy.platformDirection;
+        enemy.body.setVelocity(0, 0);
+        enemy.body.setPosition(
+          enemy.movingPlatform.body.x + enemy.platformOffsetX,
+          enemy.movingPlatform.body.y - enemy.movingPlatform.h / 2 - enemy.body.body.height / 2
+        );
+      } else {
+        enemy.body.setVelocityX(enemy.speed * enemy.direction);
+        if (enemy.body.x >= enemy.right) {
+          enemy.direction = -1;
+        } else if (enemy.body.x <= enemy.left) {
+          enemy.direction = 1;
+        }
       }
 
       // Only the picture bobs or stretches, never the hitbox
@@ -1203,6 +1294,12 @@ export default class GameScene extends Phaser.Scene {
       } else if (enemy.kind === "lava") {
         enemy.gfx.y = enemy.body.y;
         enemy.gfx.setScale(enemy.direction * (1 + wave * 0.05), 1 - wave * 0.05);   // oozes as it crawls
+      } else if (enemy.kind === "mutant") {
+        enemy.gfx.y = enemy.body.y + wave * 2;
+        enemy.gfx.setScale(enemy.direction * (1 + wave * 0.03), 1 - wave * 0.03);
+      } else if (enemy.kind === "robot") {
+        enemy.gfx.y = enemy.body.y;
+        enemy.gfx.setScale(enemy.direction, 1);
       } else {
         enemy.gfx.y = enemy.body.y - 16;
         enemy.gfx.setScale(enemy.direction, 1);
@@ -1256,8 +1353,7 @@ export default class GameScene extends Phaser.Scene {
 
   loseLife(cause = "enemy") {
     if (this.gameWon) return;                // the level is already won
-    // Invincibility only protects from enemies and rocks: falling off the world or into lava / toxic water
-    // always costs a life, otherwise you would keep falling (or stand in it) until the blinking ends
+    // Falls and pools/quicksand always cost a life; enemies and electrical hazards respect invincibility.
     if (this.invincible && !["fall", "lava", "toxic", "quicksand"].includes(cause)) return;
     this.tweens.killTweensOf(this.player);   // stop the old blink, so it can't end the new one early
     SoundManager.play("hit");

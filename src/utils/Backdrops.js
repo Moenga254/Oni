@@ -1988,6 +1988,32 @@ export function bakeCarpetPlatform(scene, key, w, h, seed) {
 
 // ─── Urban Nightmare ─────────────────────────────────────────────────────────────────────────
 
+export function bakeCityMovingPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const accent = seed % 2 ? 0xff3d9a : 0x3de0ff;
+  g.fillStyle(0x03050b, 1);
+  g.fillRoundedRect(0, 4, w, h - 4, 3);
+  g.fillStyle(0x202838, 1);
+  g.fillRoundedRect(1, 1, w - 2, h - 6, 3);
+  g.fillStyle(0x68768c, 1);
+  g.fillRect(5, 3, w - 10, 2);
+  g.fillStyle(0x111722, 1);
+  g.fillRect(6, 7, w - 12, h - 12);
+  g.fillStyle(0x354156, 1);
+  for (let x = 10; x < w - 10; x += 22) g.fillRect(x, 8, 12, 5);
+  g.fillStyle(accent, 0.95);
+  g.fillRect(9, h - 6, w - 18, 2);
+  g.fillRect(seed % 2 ? 4 : w - 6, 5, 2, 5);
+  g.fillStyle(0xa7b4c8, 1);
+  g.fillCircle(6, 6, 1.2);
+  g.fillCircle(w - 6, 6, 1.2);
+  g.lineStyle(1, 0x080c13, 1);
+  g.lineBetween(w * 0.5, 8, w * 0.5 + (seed % 3 - 1) * 4, h - 7);
+  g.generateTexture(key, w, h);
+  g.destroy();
+}
+
 // 🌃 Urban Nightmare backdrop: a midnight sky with a hazy moon, two rows of abandoned buildings
 // that scroll at different speeds (parallax), flickering neon signs, street lamps with pools of
 // cold light, drifting fog and thin rain.

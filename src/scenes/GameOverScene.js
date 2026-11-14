@@ -183,7 +183,10 @@ export default class GameOverScene extends Phaser.Scene {
 
     // Why did the run end?
     const cause = this.cause ?? (this.timeLeft <= 0 ? "time" : "fall");
-    const enemyName = { sea: "A fish", forest: "A snake", volcano: "A fire creature", swamp: "A swamp mutant", desert: "A desert creature" }[level.theme] || "A slime";
+    const enemyName = {
+      sea: "A fish", forest: "A snake", volcano: "A fire creature", swamp: "A swamp mutant",
+      desert: "A desert creature", city: "A mutant or robot guard"
+    }[level.theme] || "A slime";
     const reasons = {
       time:  ["⏱", "Time's up!"],
       fall:  ["🕳️", "You fell off the edge!"],
@@ -191,7 +194,9 @@ export default class GameOverScene extends Phaser.Scene {
       lava:  ["🔥", "You fell into the lava!"],
       toxic: ["☣️", "You fell into the toxic water!"],
       quicksand: ["⏳", "The quicksand swallowed you!"],
-      rock:  ["🪨", "A falling rock got you!"]
+      rock:  ["🪨", "A falling rock got you!"],
+      electricity: ["⚡", "An electrical trap shocked you!"],
+      cable: ["⚡", "An exposed power cable shocked you!"]
     };
     const [icon, reason] = reasons[cause] || reasons.fall;
     this.add.text(cx, top + 128, `${icon}  ${reason}`, {

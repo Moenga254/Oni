@@ -1,7 +1,7 @@
 import { bakeCrumblePlatform, bakeRottenPlankPlatform, bakeRaftPlatform, bakeCrackedSandstone } from "./Backdrops.js";
 
-// 🌋☣️🏜️ Hazards for Magma Falls, Toxic Swamp and Lost Sands: pools you must not touch, falling rocks,
-// platforms that collapse, platforms that sink, and quicksand. Everything runs on the scene's own clock
+// 🌋☣️🏜️⚡ Hazards for Magma Falls, Toxic Swamp, Lost Sands and Urban Nightmare: pools you must not touch,
+// falling rocks, collapsing platforms, electrical traps, exposed cables and quicksand. Everything runs on the scene's own clock
 // (scene.time / tweens / the scene's update), so it all stops while the game is paused.
 
 // How long things take on each difficulty (milliseconds), per level
@@ -23,6 +23,11 @@ const TIMING = {
     easy:   { crumble: 2000, quicksandSpeed: 16 },
     normal: { crumble: 2000, quicksandSpeed: 22 },
     hard:   { crumble: 1000, quicksandSpeed: 28 },
+  },
+  city: {
+    easy:   { crumble: 3600, electricWarn: 1800, electricActive: 1100, electricOff: 2100 },
+    normal: { crumble: 3000, electricWarn: 1400, electricActive: 1400, electricOff: 1600 },
+    hard:   { crumble: 2500, electricWarn: 1100, electricActive: 1700, electricOff: 1000 },
   },
 };
 const PLATFORM_RETURN_MS = 3000;   // a collapsed platform comes back after this long
@@ -46,6 +51,7 @@ const CRUMBLE_LOOKS = {
   volcano: { name: "volcano", bake: bakeCrumblePlatform,     crackGlow: 0xff6a1a, crack: 0x140805, bits: [0x6a4632, 0x5a3a2a] },
   swamp:   { name: "swamp",   bake: bakeRottenPlankPlatform, crackGlow: 0xa6e22e, crack: 0x2a1a0c, bits: [0x7a5a38, 0x5a4026] },
   desert:  { name: "desert",  bake: bakeCrackedSandstone,    crackGlow: 0xf0c06a, crack: 0x6a3e1c, bits: [0xe8c08a, 0xc8944e] },
+  city:    { name: "city",    bake: bakeCityMovingPlatform, crackGlow: 0x3de0ff, crack: 0x161b24, bits: [0x737989, 0x424754] },
 };
 
 export function setupVolcanoHazards(scene, levelData, difficultyKey) {
@@ -69,6 +75,154 @@ export function setupDesertHazards(scene, levelData, difficultyKey) {
   makeTextures(scene);
   addQuicksand(scene, levelData.quicksand || [], timing);
   addCrumblingPlatforms(scene, levelData.collapsingBlocks || [], timing, CRUMBLE_LOOKS.desert);
+}
+
+export function setupCityHazards(scene, levelData, difficultyKey, movingPlatforms = []) {
+  const timing = TIMING.city[difficultyKey] || TIMING.city.normal;
+  addElectricalTraps(scene, levelData.electricalTraps || [], timing);
+  addExposedCables(scene, levelData.exposedCables || []);
+  addMovingPlatformTraps(scene, movingPlatforms, levelData.movingPlatformTraps || [], timing);
+  addCrumblingPlatforms(scene, levelData.collapsingPlatforms || [], timing, CRUMBLE_LOOKS.city);
+}
+
+function bakeCityMovingPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x424754, 1);
+  g.fillRoundedRect(0, 0, w, h, 2);
+  g.fillStyle(0x737989, 1);
+  g.fillRect(1, 1, w - 2, 4);
+  g.fillStyle(0x292e38, 1);
+  g.fillRect(1, h - 4, w - 2, 3);
+  const crackX = 12 + (seed * 17) % Math.max(12, w - 24);
+  g.lineStyle(1.5, 0x202530, 1);
+  g.lineBetween(crackX, 5, crackX - 4, 10);
+  g.lineBetween(crackX - 4, 10, crackX + 2, h - 3);
+  g.lineBetween(crackX + 2, h - 3, crackX + 9, h - 6);
+  g.generateTexture(key, w, h);
+  g.destroy();
+}
+
+function addElectricalTraps(scene, traps, timing) {
+  const states = traps.map(([x, y, w], i) => {
+    const plate = scene.add.rectangle(x + w / 2, y - 4, w, 8, 0x202a36).setStrokeStyle(2, 0x586579);
+    const indicator = scene.add.rectangle(x + w / 2, y - 5, w - 12, 2, 0xffb347);
+    const arc = scene.add.graphics().setVisible(false);
+    arc.lineStyle(2.5, 0x83efff, 0.95);
+    for (let ax = x + 8; ax < x + w - 8; ax += 18) {
+      arc.beginPath();
+      arc.moveTo(ax, y - 8);
+      arc.lineTo(ax + 5, y - 16);
+      arc.lineTo(ax + 10, y - 7);
+      arc.lineTo(ax + 14, y - 17);
+      arc.strokePath();
+    }
+
+    const zone = scene.physics.add.staticImage(x + w / 2, y - 8, null)
+      .setDisplaySize(w - 6, 16).setVisible(false);
+    zone.refreshBody();
+    zone.body.enable = false;
+    scene.physics.add.overlap(scene.player, zone, () => {
+      if (!scene.gameOver && !scene.gameWon) scene.loseLife("electricity");
+    });
+
+    return { x, y, w, plate, indicator, arc, zone, index: i, state: null };
+  });
+  const cycle = timing.electricWarn + timing.electricActive + timing.electricOff;
+  const update = time => {
+    states.forEach(trap => {
+      const phase = (time + trap.index * 670) % cycle;
+      const state = phase < timing.electricWarn ? "warning"
+        : phase < timing.electricWarn + timing.electricActive ? "active" : "off";
+      if (state !== trap.state) {
+        trap.state = state;
+        trap.zone.body.enable = state === "active";
+        trap.arc.setVisible(state === "active");
+        trap.indicator.setFillStyle(state === "active" ? 0x83efff : state === "warning" ? 0xffb347 : 0x425064);
+      }
+      trap.indicator.setAlpha(state === "warning" ? 0.45 + Math.sin(time / 110 + trap.index) * 0.45 : 1);
+    });
+  };
+  scene.events.on("update", update);
+  scene.events.once("shutdown", () => scene.events.off("update", update));
+}
+
+function addMovingPlatformTraps(scene, platforms, platformIndices, timing) {
+  const traps = platformIndices.flatMap((platformIndex, index) => {
+    const platform = platforms[platformIndex];
+    if (!platform) return [];
+    const top = platform.body.y - platform.h / 2;
+    const plate = scene.add.rectangle(platform.body.x, top - 3, platform.w - 12, 7, 0x151f2d)
+      .setStrokeStyle(1.5, 0x586579);
+    const indicator = scene.add.rectangle(platform.body.x, top - 4, platform.w - 22, 2, 0xffb347);
+    const arc = scene.add.graphics().setVisible(false);
+    arc.lineStyle(2.5, 0x83efff, 0.95);
+    for (let ax = -platform.w / 2 + 12; ax < platform.w / 2 - 12; ax += 18) {
+      arc.beginPath();
+      arc.moveTo(ax, -4);
+      arc.lineTo(ax + 5, -12);
+      arc.lineTo(ax + 10, -3);
+      arc.lineTo(ax + 14, -13);
+      arc.strokePath();
+    }
+
+    const zone = scene.physics.add.image(platform.body.x, top - 5, null)
+      .setDisplaySize(platform.w - 8, 16).setVisible(false);
+    zone.setImmovable(true);
+    zone.body.setAllowGravity(false);
+    zone.body.enable = false;
+    scene.physics.add.overlap(scene.player, zone, () => {
+      if (!scene.gameOver && !scene.gameWon) scene.loseLife("electricity");
+    });
+
+    return [{ platform, plate, indicator, arc, zone, index, state: null }];
+  });
+  const cycle = timing.electricWarn + timing.electricActive + timing.electricOff;
+  const update = time => {
+    traps.forEach(trap => {
+      const top = trap.platform.body.y - trap.platform.h / 2;
+      const x = trap.platform.body.x;
+      trap.plate.setPosition(x, top - 3);
+      trap.indicator.setPosition(x, top - 4);
+      trap.arc.setPosition(x, top - 2);
+      trap.zone.setPosition(x, top - 5);
+
+      const phase = (time + (trap.index + 1) * 930) % cycle;
+      const state = phase < timing.electricWarn ? "warning"
+        : phase < timing.electricWarn + timing.electricActive ? "active" : "off";
+      if (state !== trap.state) {
+        trap.state = state;
+        trap.zone.body.enable = state === "active";
+        trap.arc.setVisible(state === "active");
+        trap.indicator.setFillStyle(state === "active" ? 0x83efff : state === "warning" ? 0xffb347 : 0x425064);
+      }
+      trap.indicator.setAlpha(state === "warning" ? 0.45 + Math.sin(time / 110 + trap.index) * 0.45 : 1);
+    });
+  };
+  scene.events.on("update", update);
+  scene.events.once("shutdown", () => scene.events.off("update", update));
+}
+
+function addExposedCables(scene, cables) {
+  cables.forEach(([x, y, w]) => {
+    const cable = scene.add.graphics();
+    const points = [];
+    for (let i = 0; i <= 6; i++) points.push({ x: x + i * w / 6, y: y + (i % 2 ? -3 : 2) });
+    cable.lineStyle(6, 0x11151d, 1);
+    cable.strokePoints(points, false);
+    cable.lineStyle(2, 0x48dff5, 0.95);
+    cable.strokePoints(points, false);
+    cable.fillStyle(0xffcf59, 1);
+    cable.fillCircle(x + w * 0.3, y - 1, 2);
+    cable.fillCircle(x + w * 0.78, y, 2);
+
+    const zone = scene.physics.add.staticImage(x + w / 2, y, null)
+      .setDisplaySize(w, 12).setVisible(false);
+    zone.refreshBody();
+    scene.physics.add.overlap(scene.player, zone, () => {
+      if (!scene.gameOver && !scene.gameWon) scene.loseLife("cable");
+    });
+  });
 }
 
 function makeGlowTexture(scene, key, rgb) {
