@@ -6,7 +6,7 @@ import {
   drawSkyKingdomBackdrop, bakeSkyIslandPlatform, bakeMarblePlatform, bakeCloudPlatform,
   drawVolcanoBackdrop, bakeBasaltPlatform, bakeObsidianPlatform,
   drawSwampBackdrop, bakeMudPlatform, bakeMossyLogPlatform, bakeRustyPlatform,
-  drawDesertBackdrop, bakeDesertGround, bakeRuinBlock, bakeCarpetPlatform
+  drawDesertBackdrop, bakeDesertGround, bakeRuinBlock, bakeCarpetPlatform, drawCityBackdrop
 } from "../utils/Backdrops.js";
 import { setupVolcanoHazards, setupSwampHazards, setupDesertHazards } from "../utils/Hazards.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
@@ -101,6 +101,9 @@ export default class GameScene extends Phaser.Scene {
     if (levelData.theme === "grass") {
       // ☀️ Grasslands: sun, snowy mountains, rolling hills with trees, fluffy clouds, birds (see src/utils/Backdrops.js)
       drawGrasslandsBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    } else if (levelData.theme === "city") {
+      // 🌃 Urban Nightmare: midnight skyline, neon signs, street lamps, fog and rain (see src/utils/Backdrops.js)
+      drawCityBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
     } else if (levelData.theme === "desert") {
       // 🏜️ Lost Sands: blazing sun, pyramids, ruins in the dunes, vultures, blowing sand (see src/utils/Backdrops.js)
       drawDesertBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
