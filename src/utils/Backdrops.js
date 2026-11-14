@@ -1985,3 +1985,219 @@ export function bakeCarpetPlatform(scene, key, w, h, seed) {
   g.generateTexture(key, w, h);
   g.destroy();
 }
+
+// ─── Urban Nightmare ─────────────────────────────────────────────────────────────────────────
+
+// 🌃 Urban Nightmare backdrop: a midnight sky with a hazy moon, two rows of abandoned buildings
+// that scroll at different speeds (parallax), flickering neon signs, street lamps with pools of
+// cold light, drifting fog and thin rain.
+// Built like the other backdrops: the buildings are drawn ONCE into pictures when the level starts.
+export function drawCitBackdrop(scene, { colors, worldwidth, worldHeight }) 
+{
+  const camW = scene .cameras.main.width;
+  const camH = scene.cameras.main.height;
+  const maxScrollX = Math.max(0, worldwidth - camW);  // how far the camera can travel sideways
+  const maxScrollY = Math.max(0, worldHeight - camH);  // how far the camera can travel downhill
+  const random = makeRandom(20261113);  // same random city every time you play.
+
+  // A layer that scrolls at speed sx only needs to be this wide to cover the whole level.
+  const widthFor = (sx) => camW + 300 + sx * maxScrollX;
+  // Where the bottom of a layer must sit so it always reaches the bottom of the screen
+  const bottomBase = (sy) => camH + sy * maxScrollY + 24;
+
+  // 1) SKY: black at the top fading to midnight blue. setScrollFactor(0) pins it to the screen.
+  const sky = scene.add.graphics().setScrollFactor(0);
+  const bands = [[colors[0], colors[1], 0, 0.4], [colors[1], colors[2], 0.4, 0.75], [colors[2], colors[3], 0.75, 1.05]];
+  bands.forEach(([top, bottom, from, to]) => {
+    sky.fillGradientStyle(top, top, bottom, bottom, 1);
+    sky.fillRect(-20, camH * from - (from === 0 ? 20 : 0), camW + 40, camH * (to - from) + (from === 0 ? 20 : 1));
+  });
+
+ // 2) MOON: a soft glow, the moon itself, and dark clouds drifting across it
+ addGlow(scene, "city_moonglow", camW * 0.78, camH * 0.2, 280, 280, 0x8fb0ff, 0.3);
+  if (!scene.textures.exists("city_moon")) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xdfe8ff, 1);
+    g.fillCircle(24, 24, 22);
+    g.fillStyle(0xc2cfee, 1);
+    g.fillCircle(17, 19, 5);
+    g.fillCircle(31, 30, 3.5);
+    g.generateTexture("city_moon", 48, 48);
+    g.destroy();
+  }
+   scene.add.image(camW * 0.78, camH * 0.2, "city_moon").setScrollFactor(0);
+   ensureSoftTexture(scene, "city_cloud", 0x0a1026);
+   for (let i = 0; i < 5; i++) {
+    const cloud = scene.add.image(random() * 40).setAlpha(0.75).setScrollFactor(0);
+    scene.tweens.add({ targets: cloud, x: cloud.x + 120 + random() * 100, duration: 18000 + random() * 12000, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+   }
+
+    // Plans one row of buildings: [{ gx, w, h, roof }] from the left edge to the right edge
+    const planBuildings = (width, minW, maxW, minH, maxH) => {
+      const list = [];
+        for (let gx = -40; gx < width + 40;) {
+      const w = minW + random() * (maxW - minW);
+      list.push({ gx, w, h: minH + random() * (maxH - minH), roof: Math.floor(random() * 4), seed: Math.floor(random() * 1e6) });
+      gx += w + (random() < 0.25 ? 14 + random() * 40 : 2);   // most buildings touch; some leave an alley
+    }
+    return list;
+  };
+
+   // Draws one building into a layer picture. `left` is where this picture starts in the layer.
+  const drawBuilding = (g, b, left, h, wall, windowDark, litColors, litChance) => {
+    const x = b.gx - left, top = h - b.h;
+    const rand = makeRandom(b.seed);                    // each building keeps its own windows
+    g.fillStyle(wall, 1);
+    g.fillRect(x, top, b.w, b.h);
+    if (b.roof === 1) {                                 // antenna
+      g.fillRect(x + b.w * 0.5, top - 26, 2, 26);
+      g.fillRect(x + b.w * 0.5 - 5, top - 18, 12, 2);
+    } else if (b.roof === 2) {                          // water tower
+      g.fillRect(x + b.w * 0.3, top - 16, 20, 12);
+      g.fillRect(x + b.w * 0.3 + 2, top - 5, 2, 5);
+      g.fillRect(x + b.w * 0.3 + 16, top - 5, 2, 5);
+    } else if (b.roof === 3) {                          // collapsed corner: bite a jagged piece out of the top
+      g.fillStyle(colors[2], 1);
+      g.fillTriangle(x + b.w, top - 1, x + b.w, top + 34, x + b.w * 0.55, top - 1);
+    }
+    for (let wy = top + 12; wy < h - 14; wy += 18) {     // rows of windows
+      for (let wx = x + 8; wx < x + b.w - 12; wx += 14) {
+        const lit = rand() < litChance;
+        g.fillStyle(lit ? litColors[Math.floor(rand() * litColors.length)] : windowDark, lit ? 0.9 : 1);
+        g.fillRect(wx, wy, 7, 10);
+      }
+    }
+  };
+
+  // 3) FAR SKYLINE: pale and slow, so it feels a long way off
+  {
+    const sx = 0.1, sy = 0.06, width = widthFor(sx), h = 250;
+    const buildings = planBuildings(width, 50, 120, 90, 230,);
+    bakeChunks(scene, "city_far", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => buildings.forEach(b => {
+        if (b.gx + b.w < left + chunkW + 4)
+          return; // not in this picture
+        drawBuilding(g, b, left, h, 0x101c3c, 0x16254a, [0x2f4f86], 0.05);
+    })
+    });
+  }
+
+  
+  // 4) MIDDLE BUILDINGS: darker and faster, with a few lit windows. Some carry a neon sign.
+  const signs = [];
+  {
+    const sx = 0.26, sy = 0.14, width = widthFor(sx), h = 330;
+    const buildings = planBuildings(width, 90, 190, 150, 310);
+    const imageY = bottomBase(sy) - h;
+    bakeChunks(scene, "city_mid", {
+      width, h, imageY, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => buildings.forEach(b => {
+        if (b.gx + b.w < left - 4 || b.gx > left + chunkW + 4) return;
+        drawBuilding(g, b, left, h, 0x070c1c, 0x0d1730, [0xffd27a, 0x3de0ff, 0xffd27a], 0.07);
+      })
+    });
+    let nextSign = 200;
+    buildings.forEach(b => {
+      if (b.gx < nextSign || b.w < 110) return;
+      nextSign = b.gx + 420 + random() * 260;           // a sign every few buildings
+      signs.push({ x: b.gx + b.w / 2, y: imageY + h - b.h + 40 + random() * 50, sx, sy });
+    });
+  }
+
+  // 5) NEON SIGNS: a picture of a sign plus a soft glow behind it. Both blink now and then;
+  //    one in three is "broken" and flickers quickly.
+  const neon = [["city_sign_pink", 0xff3d9a], ["city_sign_cyan", 0x3de0ff]];
+  neon.forEach(([key, color]) => {
+    if (scene.textures.exists(key)) return;
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.lineStyle(3, color, 1);
+    g.strokeRoundedRect(3, 3, 64, 26, 6);
+    g.fillStyle(color, 1);
+    g.fillRect(12, 11, 14, 4);
+    g.fillRect(30, 11, 8, 4);
+    g.fillRect(42, 11, 16, 4);
+    g.fillRect(12, 18, 30, 4);
+    g.generateTexture(key, 70, 32);
+    g.destroy();
+    ensureSoftTexture(scene, key + "_glow", color);
+  });
+  signs.forEach((s, i) => {
+    const [key] = neon[i % 2];
+    const glow = scene.add.image(s.x, s.y, key + "_glow").setDisplaySize(190, 110).setAlpha(0.45).setScrollFactor(s.sx, s.sy).setBlendMode("ADD");
+    const sign = scene.add.image(s.x, s.y, key).setScrollFactor(s.sx, s.sy);
+    const broken = i % 3 === 2;
+    scene.tweens.add({
+      targets: [sign, glow], alpha: 0.12, duration: broken ? 60 : 90, yoyo: true, repeat: -1,
+      repeatDelay: broken ? 150 + random() * 500 : 2500 + random() * 4000, delay: random() * 3000
+    });
+  });
+
+  // 6) STREET LEVEL: rubble, wrecked cars and lamp posts in near-black, closest to the camera
+  {
+    const sx = 0.45, sy = 0.26, width = widthFor(sx), h = 150;
+    const imageY = bottomBase(sy) - h;
+    const lamps = [], wrecks = [];
+    for (let gx = 160 + random() * 200; gx < width; gx += 420 + random() * 240) lamps.push(gx);
+    for (let gx = 60 + random() * 300; gx < width; gx += 380 + random() * 420) wrecks.push({ gx, car: random() < 0.5 });
+    bakeChunks(scene, "city_near", {
+      width, h, imageY, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        g.fillStyle(0x03050b, 1);
+        g.fillRect(0, h - 14, chunkW, 14);                                   // kerb
+        wrecks.forEach(wr => {
+          const x = wr.gx - left;
+          if (x < -90 || x > chunkW + 90) return;
+          if (wr.car) {                                                      // a burnt-out car
+            g.fillRoundedRect(x, h - 34, 74, 22, 5);
+            g.fillRoundedRect(x + 16, h - 48, 40, 18, 5);
+            g.fillCircle(x + 16, h - 13, 8);
+            g.fillCircle(x + 58, h - 13, 8);
+          } else {                                                           // a heap of rubble
+            g.fillTriangle(x, h - 12, x + 70, h - 12, x + 28, h - 46);
+            g.fillTriangle(x + 34, h - 12, x + 96, h - 12, x + 70, h - 34);
+          }
+        });
+        lamps.forEach(gx => {
+          const x = gx - left;
+          if (x < -40 || x > chunkW + 40) return;
+          g.fillRect(x - 2, h - 120, 4, 108);                                // pole
+          g.fillRect(x - 2, h - 120, 26, 3);                                 // arm
+          g.fillRect(x + 18, h - 119, 10, 5);                                // lamp head
+        });
+      }
+    });
+    // The light under each lamp: a tall soft glow, added to what is behind it ("ADD") so it looks like light
+    ensureSoftTexture(scene, "city_lamplight", 0xa9c8ff);
+    lamps.forEach((gx, i) => {
+      const light = scene.add.image(gx + 23, imageY + h - 62, "city_lamplight")
+        .setDisplaySize(130, 170).setAlpha(0.5).setScrollFactor(sx, sy).setBlendMode("ADD");
+      if (i % 3 === 1) {                                                     // every third lamp is failing
+        scene.tweens.add({ targets: light, alpha: 0.08, duration: 70, yoyo: true, repeat: -1, repeatDelay: 300 + random() * 1800, delay: random() * 2000 });
+      }
+    });
+  }
+
+  // 7) FOG: pale puffs drifting slowly along the street, pinned to the screen
+  ensureSoftTexture(scene, "city_fog", 0x6f86b8);
+  for (let i = 0; i < 6; i++) {
+    const fog = scene.add.image((i + 0.5) * camW / 5, camH * (0.74 + random() * 0.14), "city_fog")
+      .setDisplaySize(320 + random() * 200, 70 + random() * 40).setAlpha(0.13 + random() * 0.08).setScrollFactor(0);
+    scene.tweens.add({ targets: fog, x: fog.x + 70 + random() * 60, duration: 9000 + random() * 6000, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+  }
+
+  // 8) RAIN: thin streaks falling at a slant
+  if (!scene.textures.exists("city_rain")) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x9fb8e8, 1);
+    g.fillRect(0, 0, 1.5, 12);
+    g.generateTexture("city_rain", 2, 12);
+    g.destroy();
+  }
+  scene.add.particles(0, 0, "city_rain", {
+    x: { min: 0, max: camW + 120 }, y: -20,
+    lifespan: 900, speedY: { min: 520, max: 640 }, speedX: { min: -90, max: -70 },
+    rotate: 8, alpha: { start: 0.35, end: 0.15 },
+    frequency: 28, advance: 900
+  }).setScrollFactor(0);
+}
