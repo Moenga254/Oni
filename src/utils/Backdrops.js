@@ -2226,3 +2226,393 @@ export function drawCityBackdrop(scene, { colors, worldWidth, worldHeight }) {
     frequency: 28, advance: 900
   }).setScrollFactor(0);
 }
+
+// ─── Lost Civilization ───────────────────────────────────────────────────────────────────────
+
+// 🏛️ A stepped temple pyramid: stacked tiers, a stairway up the middle and a small shrine on top
+function stepPyramid(g, x, baseY, w, tiers, tierH, body, shade, trim) {
+  for (let t = 0; t < tiers; t++) {
+    const tw = w * (1 - t / (tiers + 0.6));
+    const ty = baseY - (t + 1) * tierH;
+    g.fillStyle(body, 1);  g.fillRect(x - tw / 2, ty, tw, tierH + 1);
+    g.fillStyle(shade, 1); g.fillRect(x, ty, tw / 2, tierH + 1);            // the side away from the light
+    g.fillStyle(trim, 1);  g.fillRect(x - tw / 2, ty, tw, 2);                // a lit edge on every step
+  }
+  const topY = baseY - tiers * tierH;
+  g.fillStyle(shade, 1);                                                      // stairway
+  g.fillRect(x - w * 0.06, topY, w * 0.12, tiers * tierH);
+  g.fillStyle(body, 1);                                                       // shrine
+  g.fillRect(x - w * 0.11, topY - tierH * 1.2, w * 0.22, tierH * 1.2);
+  g.fillStyle(0x000000, 0.45);
+  g.fillRect(x - w * 0.035, topY - tierH * 0.8, w * 0.07, tierH * 0.8);      // doorway
+  g.fillStyle(trim, 1);
+  g.fillRect(x - w * 0.13, topY - tierH * 1.2 - 3, w * 0.26, 3);
+}
+
+// One piece of temple ruin for the middle layer. s = size (1 = normal), baseY = where it stands.
+function templeRuin(g, item, x, baseY, stone, shade, gold, moss) {
+  const s = item.s;
+  if (item.kind === "column") {                                               // a pillar, some of them broken
+    const hgt = item.h * s, w = 20 * s;
+    g.fillStyle(stone, 1); g.fillRect(x - w / 2, baseY - hgt, w, hgt);
+    g.fillStyle(shade, 1); g.fillRect(x + w * 0.1, baseY - hgt, w * 0.4, hgt);
+    g.fillStyle(stone, 1); g.fillRect(x - w * 0.8, baseY - 8 * s, w * 1.6, 8 * s);
+    if (item.broken) {
+      g.fillStyle(stone, 1); g.fillTriangle(x - w / 2, baseY - hgt, x + w / 2, baseY - hgt, x - w / 4, baseY - hgt - 10 * s);
+    } else {
+      g.fillStyle(stone, 1); g.fillRect(x - w * 0.8, baseY - hgt - 8 * s, w * 1.6, 8 * s);
+      g.fillStyle(gold, 1);  g.fillRect(x - w * 0.8, baseY - hgt - 2 * s, w * 1.6, 2 * s);
+    }
+    g.fillStyle(moss, 1); g.fillEllipse(x - w * 0.2, baseY - hgt * 0.55, w * 0.9, 8 * s);
+  } else if (item.kind === "head") {                                          // a giant stone face
+    const w = 70 * s, hgt = 84 * s;
+    g.fillStyle(stone, 1); g.fillRoundedRect(x - w / 2, baseY - hgt, w, hgt, 10 * s);
+    g.fillStyle(shade, 1); g.fillRect(x + w * 0.12, baseY - hgt + 6 * s, w * 0.3, hgt - 6 * s);
+    g.fillStyle(gold, 1);  g.fillRect(x - w * 0.55, baseY - hgt - 6 * s, w * 1.1, 9 * s);        // headband
+    g.fillStyle(0x000000, 0.55);
+    g.fillRect(x - w * 0.32, baseY - hgt * 0.68, w * 0.22, 7 * s);                                // eyes
+    g.fillRect(x + w * 0.1, baseY - hgt * 0.68, w * 0.22, 7 * s);
+    g.fillRect(x - w * 0.2, baseY - hgt * 0.26, w * 0.4, 6 * s);                                  // mouth
+    g.fillStyle(shade, 1); g.fillRect(x - w * 0.06, baseY - hgt * 0.58, w * 0.12, hgt * 0.24);   // nose
+    g.fillStyle(moss, 1);  g.fillEllipse(x - w * 0.3, baseY - hgt + 2 * s, w * 0.5, 10 * s);
+  } else if (item.kind === "arch") {                                          // a gateway
+    const w = 96 * s, hgt = 110 * s, leg = 20 * s;
+    g.fillStyle(stone, 1);
+    g.fillRect(x - w / 2, baseY - hgt, leg, hgt);
+    g.fillRect(x + w / 2 - leg, baseY - hgt, leg, hgt);
+    g.fillRect(x - w / 2 - 8 * s, baseY - hgt - 16 * s, w + 16 * s, 18 * s);
+    g.fillStyle(shade, 1); g.fillRect(x + w / 2 - leg * 0.5, baseY - hgt, leg * 0.5, hgt);
+    g.fillStyle(gold, 1);
+    g.fillRect(x - w / 2 - 8 * s, baseY - hgt - 16 * s, w + 16 * s, 3 * s);
+    g.fillCircle(x, baseY - hgt - 7 * s, 5 * s);                                                  // sun disc
+    g.fillStyle(moss, 1);  g.fillEllipse(x + w * 0.3, baseY - hgt - 15 * s, w * 0.4, 9 * s);
+  } else if (item.kind === "pyramid") {
+    stepPyramid(g, x, baseY, 230 * s, 5, 22 * s, stone, shade, gold);
+  } else {                                                                    // a jungle tree
+    g.fillStyle(item.dark, 1);
+    g.fillRect(x - 5 * s, baseY - item.h * s, 10 * s, item.h * s);
+    item.blobs.forEach(b => g.fillCircle(x + b.dx * s, baseY - item.h * s + b.dy * s, b.r * s));
+  }
+}
+
+// 🏛️ Lost Civilization backdrop: an ancient temple hidden in the jungle. A dark green canopy at the top
+// fading to golden light near the ground, shafts of sunlight, far temple pyramids in the haze, ruins
+// (pillars, gateways, giant stone faces) in the middle, dark jungle plants in front, hanging vines,
+// drifting leaves and glowing golden dust.
+// Built like the other backdrops: the scenery is drawn ONCE into pictures when the level starts.
+export function drawTempleBackdrop(scene, { colors, worldWidth, worldHeight }) {
+  const camW = scene.cameras.main.width;
+  const camH = scene.cameras.main.height;
+  const maxScrollX = Math.max(0, worldWidth - camW);   // how far the camera can travel sideways
+  const maxScrollY = Math.max(0, worldHeight - camH);  // ...and up and down
+  const random = makeRandom(20261115);                 // same "random" jungle every time you play
+
+  // A layer that scrolls at speed sx only needs to be this wide to cover the whole level
+  const widthFor = (sx) => camW + 300 + sx * maxScrollX;
+  // Where the bottom of a layer must sit so it always reaches the bottom of the screen
+  const bottomBase = (sy) => camH + sy * maxScrollY + 24;
+
+  // 1) SKY: dark green up in the canopy, fading to gold near the ground. setScrollFactor(0) pins it to the screen.
+  const sky = scene.add.graphics().setScrollFactor(0);
+  const bands = [[colors[0], colors[1], 0, 0.4], [colors[1], colors[2], 0.4, 0.75], [colors[2], colors[3], 0.75, 1.05]];
+  bands.forEach(([top, bottom, from, to]) => {
+    sky.fillGradientStyle(top, top, bottom, bottom, 1);
+    sky.fillRect(-20, camH * from - (from === 0 ? 20 : 0), camW + 40, camH * (to - from) + (from === 0 ? 20 : 1));
+  });
+
+  // 2) SUNLIGHT: a big golden glow, and slanted shafts of light coming through the leaves.
+  // "ADD" adds their colour to whatever is behind, which is what makes them look like light.
+  addGlow(scene, "temple_sunglow", camW * 0.6, camH * 0.52, camW * 1.2, camH * 1.0, 0xffd872, 0.4);
+  const rays = scene.add.graphics().setScrollFactor(0).setBlendMode("ADD");
+  for (let i = 0; i < 6; i++) {
+    const x = camW * (0.12 + i * 0.16) + random() * 40, w = 30 + random() * 50, slant = 150;
+    rays.fillStyle(0xffe08a, 0.045 + random() * 0.03);
+    rays.fillPoints([{ x, y: -10 }, { x: x + w, y: -10 }, { x: x + w * 1.8 - slant, y: camH + 10 }, { x: x - w * 0.8 - slant, y: camH + 10 }], true);
+  }
+  scene.tweens.add({ targets: rays, alpha: 0.55, duration: 4200, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+
+  // 3) FAR AWAY: temple pyramids rising out of the jungle, pale in the golden haze (slowest layer)
+  {
+    const sx = 0.08, sy = 0.05, width = widthFor(sx), h = 300;
+    const pyramids = [];
+    for (let gx = 160 + random() * 200; gx < width; gx += 480 + random() * 380) {
+      pyramids.push({ gx, w: 210 + random() * 120, tiers: 5 + Math.floor(random() * 2), tierH: 15 + random() * 5 });
+    }
+    const hillTop = gx => h - (86 + 22 * Math.sin(gx / 190) + 12 * Math.sin(gx / 71 + 1) + 6 * Math.sin(gx / 23));
+    bakeChunks(scene, "temple_far", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        pyramids.forEach(p => {
+          if (p.gx + p.w < left || p.gx - p.w > left + chunkW) return;      // not in this picture
+          stepPyramid(g, p.gx - left, h - 70, p.w, p.tiers, p.tierH, 0x8a8440, 0x6e6c34, 0xd9c060);
+        });
+        const pts = [{ x: 0, y: h }];                                         // the tree tops in front of them
+        for (let x = 0; x <= chunkW; x += 8) pts.push({ x, y: hillTop(left + x) });
+        pts.push({ x: chunkW, y: h });
+        g.fillStyle(0x4c6a2c, 1);
+        g.fillPoints(pts, true);
+      }
+    });
+  }
+
+  // 4) THE RUINS: pillars, gateways, giant stone faces and a few trees, in weathered stone with gold and moss
+  {
+    const sx = 0.22, sy = 0.12, width = widthFor(sx), h = 330;
+    const items = [];
+    const kinds = ["column", "tree", "head", "column", "arch", "tree", "column", "pyramid", "tree"];
+    let k = 0;
+    for (let gx = 60 + random() * 80; gx < width; gx += 130 + random() * 150) {
+      const kind = kinds[k++ % kinds.length];
+      const item = { gx, kind, s: 0.85 + random() * 0.4, h: 90 + random() * 80, broken: random() < 0.45, dark: 0x1f4420 };
+      if (kind === "tree") {
+        item.h = 150 + random() * 70;
+        item.blobs = [];
+        for (let b = 0; b < 7; b++) item.blobs.push({ dx: (random() - 0.5) * 90, dy: (random() - 0.6) * 50, r: 24 + random() * 18 });
+      }
+      items.push(item);
+    }
+    const bushTop = gx => h - (34 + 10 * Math.sin(gx / 60) + 7 * Math.sin(gx / 27 + 2));
+    bakeChunks(scene, "temple_mid", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        items.forEach(item => {
+          const x = item.gx - left;
+          if (x < -200 || x > chunkW + 200) return;
+          templeRuin(g, item, x, h - 30, 0x666238, 0x4e4c2c, 0xb09a3c, 0x38602a);   // hazy olive stone, so the ruins never look like platforms
+        });
+        const pts = [{ x: 0, y: h }];                                         // bushes along the bottom
+        for (let x = 0; x <= chunkW; x += 6) pts.push({ x, y: bushTop(left + x) });
+        pts.push({ x: chunkW, y: h });
+        g.fillStyle(0x234a22, 1);
+        g.fillPoints(pts, true);
+      }
+    });
+  }
+
+  // 5) IN FRONT: dark ferns and broad leaves along the bottom (fastest layer, so it feels closest)
+  {
+    const sx = 0.42, sy = 0.2, width = widthFor(sx), h = 150;
+    const plants = [];
+    for (let gx = random() * 60; gx < width; gx += 50 + random() * 90) {
+      plants.push({ gx, fern: random() < 0.6, size: 40 + random() * 45, lean: (random() - 0.5) * 0.5, gold: random() < 0.18 });
+    }
+    bakeChunks(scene, "temple_near", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        g.fillStyle(0x0f2a14, 1);
+        g.fillRect(0, h - 26, chunkW, 26);
+        plants.forEach(p => {
+          const x = p.gx - left;
+          if (x < -90 || x > chunkW + 90) return;
+          g.fillStyle(p.fern ? 0x143a1a : 0x0f2a14, 1);
+          if (p.fern) {                                                       // a fan of thin fronds
+            for (let f = -3; f <= 3; f++) {
+              const ang = f * 0.32 + p.lean, len = p.size * (1 - Math.abs(f) * 0.08);
+              const tx = x + Math.sin(ang) * len, ty = h - 22 - Math.cos(ang) * len;
+              g.fillTriangle(x - 5, h - 20, x + 5, h - 20, tx, ty);
+            }
+          } else {                                                            // two or three broad leaves
+            for (let f = -1; f <= 1; f++) {
+              const cx = x + f * p.size * 0.42, cy = h - 22 - p.size * (0.5 - Math.abs(f) * 0.14);
+              g.fillEllipse(cx, cy, p.size * 0.42, p.size * 1.05);
+            }
+          }
+          if (p.gold) {                                                       // a little golden idol left in the leaves
+            g.fillStyle(0xc9982e, 1);
+            g.fillRect(x + 14, h - 42, 10, 16);
+            g.fillCircle(x + 19, h - 46, 6);
+          }
+        });
+      }
+    });
+  }
+
+  // 6) THE CANOPY: leaves across the top of the screen with vines hanging down (it only scrolls sideways)
+  {
+    const sx = 0.42, width = widthFor(sx), h = 150;
+    const vines = [];
+    for (let gx = 20 + random() * 60; gx < width; gx += 60 + random() * 130) {
+      vines.push({ gx, len: 34 + random() * 76, sway: (random() - 0.5) * 14 });
+    }
+    const leafBottom = gx => 26 + 9 * Math.sin(gx / 46) + 6 * Math.sin(gx / 19 + 1);
+    bakeChunks(scene, "temple_canopy", {
+      width, h, imageY: -8, alpha: 1, scrollX: sx, scrollY: 0,
+      draw: (g, left, chunkW) => {
+        const pts = [{ x: 0, y: 0 }];
+        for (let x = 0; x <= chunkW; x += 6) pts.push({ x, y: leafBottom(left + x) });
+        pts.push({ x: chunkW, y: 0 });
+        g.fillStyle(0x0c2412, 1);
+        g.fillPoints(pts, true);
+        vines.forEach(v => {
+          const x = v.gx - left;
+          if (x < -30 || x > chunkW + 30) return;
+          g.lineStyle(2.5, 0x143a1a, 1);
+          g.beginPath();
+          g.moveTo(x, 10);
+          g.lineTo(x + v.sway * 0.5, 10 + v.len * 0.5);
+          g.lineTo(x + v.sway, 10 + v.len);
+          g.strokePath();
+          g.fillStyle(0x1c4a22, 1);                                           // leaves along the vine
+          for (let t = 0.25; t <= 1; t += 0.25) {
+            g.fillEllipse(x + v.sway * t + (t * 4 % 2 ? 5 : -5), 10 + v.len * t, 9, 4);
+          }
+        });
+      }
+    });
+  }
+
+  // 7) MIST: pale green-gold puffs drifting low between the ruins, pinned to the screen
+  ensureSoftTexture(scene, "temple_mist", 0xc8d088);
+  for (let i = 0; i < 6; i++) {
+    const mist = scene.add.image((i + 0.5) * camW / 5, camH * (0.72 + random() * 0.16), "temple_mist")
+      .setDisplaySize(320 + random() * 200, 70 + random() * 40).setAlpha(0.1 + random() * 0.07).setScrollFactor(0);
+    scene.tweens.add({ targets: mist, x: mist.x + 70 + random() * 60, duration: 9000 + random() * 6000, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+  }
+
+  // 8) LEAVES drifting down, and golden dust glowing in the light
+  if (!scene.textures.exists("temple_leaf")) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x6a9a34, 1);
+    g.fillEllipse(5, 3, 10, 5);
+    g.fillStyle(0x3f6a22, 1);
+    g.fillRect(1, 2.5, 8, 1);
+    g.generateTexture("temple_leaf", 10, 6);
+    g.destroy();
+  }
+  scene.add.particles(0, 0, "temple_leaf", {
+    x: { min: 0, max: camW + 80 }, y: 20,
+    lifespan: 7000, speedY: { min: 40, max: 70 }, speedX: { min: -30, max: -8 },
+    rotate: { min: 0, max: 360 }, alpha: { start: 0.8, end: 0 },
+    frequency: 650, advance: 6000
+  }).setScrollFactor(0);
+
+  if (!scene.textures.exists("temple_dust")) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xffd872, 0.3);
+    g.fillCircle(5, 5, 5);
+    g.fillStyle(0xfff0b8, 1);
+    g.fillCircle(5, 5, 1.6);
+    g.generateTexture("temple_dust", 10, 10);
+    g.destroy();
+  }
+  scene.add.particles(0, 0, "temple_dust", {
+    x: { min: 0, max: camW }, y: { min: camH * 0.2, max: camH * 0.95 },
+    lifespan: 4200, speedY: { min: -14, max: -4 }, speedX: { min: -8, max: 8 },
+    scale: { start: 0.4, end: 1 }, alpha: { start: 0.75, end: 0 },
+    frequency: 260, advance: 4000, blendMode: "ADD"
+  }).setScrollFactor(0);
+}
+
+// 🟫 Temple floor (Lost Civilization ground): brown stone blocks with a band of gold inlay,
+// covered in moss. Returns how far the moss sticks up above the top.
+export function bakeTempleGround(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(4100 + seed * 61);
+  const over = 5;
+  const top = over;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  [[0x7a5a36, 0], [0x644828, h / 3], [0x4e381e, (h * 2) / 3]].forEach(([c, y]) => { g.fillStyle(c, 1); g.fillRect(0, top + y, w, h / 3 + 1); });
+  g.lineStyle(1, 0x3a2814, 0.7);                                          // stone blocks
+  for (let row = 0; row < 2; row++) {
+    const y = top + 16 + row * 8;
+    g.lineBetween(0, y, w, y);
+    for (let x = (row ? 16 : 0) + rand() * 10; x < w; x += 30 + rand() * 10) g.lineBetween(x, y, x, y + 8);
+  }
+  g.fillStyle(0xd9ac3c, 1);                                               // gold inlay: a row of little squares
+  for (let x = 6; x < w - 6; x += 14) g.fillRect(x, top + 9, 7, 3);
+  g.fillStyle(0xf2d070, 1);
+  for (let x = 6; x < w - 6; x += 14) g.fillRect(x, top + 9, 7, 1);
+  g.fillStyle(0x2f6a2a, 1);                                               // moss on top, hanging over the edge
+  g.fillRect(0, top, w, 5);
+  for (let x = 0; x <= w; x += 9) g.fillEllipse(x + rand() * 4, top + 5, 12, 3 + rand() * 3);
+  g.fillStyle(0x4f9a3a, 1);
+  g.fillRect(0, top, w, 1.5);
+  for (let x = 3; x < w - 3; x += 6 + rand() * 7) {                      // tufts
+    g.fillTriangle(x - 2, top + 1, x + 2, top + 1, x + (rand() - 0.5) * 3, top - 2 - rand() * 3);
+  }
+  g.generateTexture(key, w, over + h);
+  g.destroy();
+  return over;
+}
+
+// 🧱 A carved temple stone (Lost Civilization floating platforms): gold symbols, moss on the corners
+// and little vines hanging underneath
+export function bakeTempleBlock(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(4300 + seed * 31);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.lineStyle(1.5, 0x245a22, 1);                                          // vines first, so the stone covers their tops
+  for (let x = 8 + rand() * 10; x < w - 6; x += 16 + rand() * 18) {
+    const len = 5 + rand() * 9;
+    g.lineBetween(x, h - 2, x + (rand() - 0.5) * 3, h + len);
+    g.fillStyle(0x3f7a2e, 1);
+    g.fillEllipse(x + 2, h + len * 0.7, 5, 2.5);
+  }
+  g.fillStyle(0x5e4426, 1);
+  g.fillRect(0, 2, w, h);
+  g.fillStyle(0x8a6a40, 1);
+  g.fillRect(0, 0, w, h - 2);
+  g.fillStyle(0xa9854f, 1);
+  g.fillRect(0, 0, w, 3);
+  g.lineStyle(1, 0x5e4426, 1);                                            // block joints
+  for (let x = 26 + rand() * 8; x < w - 8; x += 28 + rand() * 8) g.lineBetween(x, 3, x, h - 2);
+  g.fillStyle(0xe2b84a, 1);                                               // carved gold symbols
+  for (let x = 9; x < w - 9; x += 14 + rand() * 6) {
+    const k = Math.floor(rand() * 4);
+    if (k === 0) { g.fillRect(x - 2, 7, 6, 1.6); g.fillRect(x - 2, 7, 1.6, 7); g.fillRect(x - 2, 12.4, 6, 1.6); }   // a "C" spiral
+    else if (k === 1) { g.fillCircle(x + 1, 10, 2.8); g.fillStyle(0x8a6a40, 1); g.fillCircle(x + 1, 10, 1.3); g.fillStyle(0xe2b84a, 1); }
+    else if (k === 2) { g.fillTriangle(x - 2, 14, x + 4, 14, x + 1, 7); }
+    else { g.fillRect(x - 2, 8, 6, 1.6); g.fillRect(x, 8, 1.6, 6); }
+  }
+  g.fillStyle(0x3f7a2e, 1);                                               // moss on the corners
+  g.fillEllipse(5, 1.5, 16, 5);
+  g.fillEllipse(w - 6, 1.5, 18, 5);
+  g.generateTexture(key, w, h + 16);
+  g.destroy();
+}
+
+// 🟨 A stone slab banded with gold (Lost Civilization moving platforms)
+export function bakeTempleMovingPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x4a3820, 1);
+  g.fillRoundedRect(0, 0, w, h, 3);
+  g.fillStyle(0x6e5434, 1);
+  g.fillRoundedRect(0, 0, w, h - 4, 3);
+  g.fillStyle(0xd9ac3c, 1);                                               // gold bands at both ends and along the top
+  g.fillRect(4, 0, 8, h - 4);
+  g.fillRect(w - 12, 0, 8, h - 4);
+  g.fillRect(0, 0, w, 2.5);
+  g.fillStyle(0xf2d070, 1);
+  g.fillRect(4, 0, 2, h - 4);
+  g.fillRect(w - 12, 0, 2, h - 4);
+  g.fillStyle(0xe2b84a, 1);                                               // a sun in the middle
+  g.fillCircle(w / 2, h / 2 - 1, 4);
+  for (let a = 0; a < 8; a++) {
+    const ang = a * Math.PI / 4 + (seed % 2) * 0.2;
+    g.fillRect(w / 2 + Math.cos(ang) * 7 - 0.8, h / 2 - 1 + Math.sin(ang) * 6 - 0.8, 1.6, 1.6);
+  }
+  g.generateTexture(key, w, h);
+  g.destroy();
+}
+
+// ⚠️ A cracked temple slab (Lost Civilization collapsing platforms): paler, split, crumbling underneath
+export function bakeCrackedTempleSlab(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(4500 + seed * 23);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0xa58a60, 1);
+  g.fillRect(0, 0, w, h - 2);
+  g.fillStyle(0xc4aa7c, 1);
+  g.fillRect(0, 0, w, 3);
+  g.lineStyle(1.5, 0x5a4226, 1);                                          // fractures
+  for (let x = 14 + rand() * 10; x < w - 8; x += 22 + rand() * 10) {
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (rand() - 0.5) * 8, h / 2); g.lineTo(x + (rand() - 0.5) * 8, h - 2); g.strokePath();
+  }
+  g.fillStyle(0x7a6040, 1);                                               // crumbling underside
+  for (let x = 3; x < w - 3; x += 9 + rand() * 6) g.fillTriangle(x, h - 2, x + 7, h - 2, x + 3, h + 3);
+  g.fillStyle(0x3f7a2e, 1);                                               // a little moss
+  g.fillEllipse(w * 0.2, 1.5, 14, 4);
+  g.generateTexture(key, w, h + 4);
+  g.destroy();
+}

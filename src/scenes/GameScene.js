@@ -6,9 +6,10 @@ import {
   drawSkyKingdomBackdrop, bakeSkyIslandPlatform, bakeMarblePlatform, bakeCloudPlatform,
   drawVolcanoBackdrop, bakeBasaltPlatform, bakeObsidianPlatform,
   drawSwampBackdrop, bakeMudPlatform, bakeMossyLogPlatform, bakeRustyPlatform,
-  drawDesertBackdrop, bakeDesertGround, bakeRuinBlock, bakeCarpetPlatform, bakeCityMovingPlatform, drawCityBackdrop
+  drawDesertBackdrop, bakeDesertGround, bakeRuinBlock, bakeCarpetPlatform, bakeCityMovingPlatform, drawCityBackdrop,
+  drawTempleBackdrop, bakeTempleGround, bakeTempleBlock, bakeTempleMovingPlatform
 } from "../utils/Backdrops.js";
-import { setupVolcanoHazards, setupSwampHazards, setupDesertHazards, setupCityHazards } from "../utils/Hazards.js";
+import { setupVolcanoHazards, setupSwampHazards, setupDesertHazards, setupCityHazards, setupTempleHazards } from "../utils/Hazards.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
@@ -39,7 +40,8 @@ function withRoomAtStart(level, screenWidth) {
     checkpoints: (level.checkpoints || []).map(x => x + extra),
     fallingRocks: (level.fallingRocks || []).map(x => x + extra),
   };
-  ["lavaPools", "toxicPools", "quicksand", "crumblingPlatforms", "breakingPlatforms", "sinkingPlatforms", "collapsingBlocks", "collapsingPlatforms", "electricalTraps", "exposedCables"]
+  ["lavaPools", "toxicPools", "quicksand", "crumblingPlatforms", "breakingPlatforms", "sinkingPlatforms", "collapsingBlocks", "collapsingPlatforms", "electricalTraps", "exposedCables",
+   "spikePits", "floorSpikes", "spikeTraps", "poisonPlants"]
     .forEach(key => { if (level[key]) moved[key] = level[key].map(moveX); });
 
   // Stretch the first piece of ground back to the left edge, so there's solid ground behind the player
@@ -52,7 +54,7 @@ function withRoomAtStart(level, screenWidth) {
 const ENEMY_DRAW = {
   fish: "drawFish", snake: "drawSnake", lava: "drawLavaCreature", demon: "drawFireDemon",
   frog: "drawMutantFrog", bug: "drawToxicBug", scorpion: "drawScorpion", sand: "drawSandCreature",
-  mutant: "drawMutatedCreature", robot: "drawRobotGuard", slime: "drawEnemy"
+  mutant: "drawMutatedCreature", robot: "drawRobotGuard", guard: "drawStoneGuard", viper: "drawViper", slime: "drawEnemy"
 };
 const ENEMY_PICTURE_SIZE = 72;   // big enough for the largest enemy drawing, with room to spare
 
@@ -102,6 +104,9 @@ export default class GameScene extends Phaser.Scene {
     if (levelData.theme === "grass") {
       // ☀️ Grasslands: sun, snowy mountains, rolling hills with trees, fluffy clouds, birds (see src/utils/Backdrops.js)
       drawGrasslandsBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    } else if (levelData.theme === "temple") {
+      // 🏛️ Lost Civilization: jungle canopy, shafts of sunlight, temple pyramids, ruins, vines and golden dust (see src/utils/Backdrops.js)
+      drawTempleBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
     } else if (levelData.theme === "city") {
       // 🌃 Urban Nightmare: midnight skyline, neon signs, street lamps, fog and rain (see src/utils/Backdrops.js)
       drawCityBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
@@ -172,6 +177,8 @@ export default class GameScene extends Phaser.Scene {
     // 🟨 In the Lost Sands, the ground is sand over sandstone and the floating platforms are ruin blocks
     const desert = levelData.theme === "desert";
     const city = levelData.theme === "city";
+    // 🏛️ In the Lost Civilization, the ground is mossy temple floor and the floating platforms are carved stones
+    const temple = levelData.theme === "temple";
 
     this.plainPlatforms = [];   // the ones drawn as shapes, which moveWorld() hides while off screen
 
@@ -180,6 +187,15 @@ export default class GameScene extends Phaser.Scene {
         const key = `grass_platform_${i}`;
         const over = bakeGrassPlatform(this, key, w, h, h < 30, i);
         this.add.image(x, y - over, key).setOrigin(0, 0);
+      } else if (temple) {
+        const key = `temple_platform_${i}`;
+        if (h >= 30) {
+          const over = bakeTempleGround(this, key, w, h, i);
+          this.add.image(x, y - over, key).setOrigin(0, 0);
+        } else {
+          bakeTempleBlock(this, key, w, h, i);
+          this.add.image(x, y, key).setOrigin(0, 0);
+        }
          } else if (city) {
         const key = `city_platform_${i}`;
         bakeCityMovingPlatform(this, key, w, h, i);
@@ -234,7 +250,7 @@ export default class GameScene extends Phaser.Scene {
     // 🕳️ On the Grasslands and in the Lost Sands the hills / dunes behind would make gaps in the ground
     // look like solid ground, so each gap gets a dark pit, making it obvious there's nothing to stand on
     // (gaps filled with quicksand are drawn by the quicksand itself)
-    if (grassy || desert) {
+    if (grassy || desert || temple) {
       const ground = platformData.filter(([, , , h]) => h >= 30).sort((a, b) => a[0] - b[0]);
       const quicksand = levelData.quicksand || [];
       const pits = this.add.graphics();
@@ -242,9 +258,9 @@ export default class GameScene extends Phaser.Scene {
         const [gx, gy, gw] = ground[i];
         const gapX = gx + gw, gapW = ground[i + 1][0] - gapX;
         if (gapW <= 0 || quicksand.some(([qx]) => qx === gapX)) continue;
-        pits.fillStyle(desert ? 0x4a2a12 : 0x2b1a0e, 1);
+        pits.fillStyle(desert ? 0x4a2a12 : temple ? 0x2a1c0e : 0x2b1a0e, 1);
         pits.fillRect(gapX, gy + 8, gapW, WORLD_HEIGHT - gy);
-        pits.fillStyle(desert ? 0x24140a : 0x120a05, 1);
+        pits.fillStyle(desert ? 0x24140a : temple ? 0x120c06 : 0x120a05, 1);
         pits.fillRect(gapX + 4, gy + 14, gapW - 8, WORLD_HEIGHT - gy);
       }
     }
@@ -275,6 +291,10 @@ export default class GameScene extends Phaser.Scene {
         // ☁️ little clouds to ride on
         overY = bakeCloudPlatform(this, `cloud_platform_${i}`, w, h, i);
         gfx = this.add.image(x, y - overY, `cloud_platform_${i}`).setOrigin(0, 0);
+      } else if (temple) {
+        // 🟨 stone slabs banded with gold
+        bakeTempleMovingPlatform(this, `temple_moving_platform_${i}`, w, h, i);
+        gfx = this.add.image(x, y, `temple_moving_platform_${i}`).setOrigin(0, 0);
       } else if (city) {
         bakeCityMovingPlatform(this, `city_moving_platform_${i}`, w, h, i);
         gfx = this.add.image(x, y, `city_moving_platform_${i}`).setOrigin(0, 0);
@@ -363,11 +383,13 @@ export default class GameScene extends Phaser.Scene {
     //   🦟 bug   (Toxic Swamp): a poisonous insect that flies at its own height
     //   🦂 scorpion (Lost Sands): scuttles along the sand
     //   🏜️ sand  (Lost Sands): burrows under the sand (harmless) and bursts out again (dangerous)
+    //   🗿 guard (Lost Civilization): a stone statue that wakes up and marches when you come close
+    //   🐍 viper (Lost Civilization): a poisonous snake
     //   slime   (every other level)
-    const levelKind = { sea: "fish", forest: "snake", volcano: "lava", swamp: "frog", desert: "scorpion" }[levelData.theme] || "slime";
+    const levelKind = { sea: "fish", forest: "snake", volcano: "lava", swamp: "frog", desert: "scorpion", temple: "viper" }[levelData.theme] || "slime";
     const HITBOX = {
       fish: [28, 20], snake: [34, 16], lava: [32, 20], demon: [26, 26], frog: [30, 22], bug: [24, 18],
-      scorpion: [34, 18], sand: [28, 26], mutant: [32, 28], robot: [30, 34], slime: [28, 28]
+      scorpion: [34, 18], sand: [28, 26], mutant: [32, 28], robot: [30, 34], guard: [30, 38], viper: [34, 16], slime: [28, 28]
     };
 
     enemyData.forEach(([x, y, left, right, speed, color, ownKind, , platformIndex], i) => {
@@ -454,6 +476,8 @@ export default class GameScene extends Phaser.Scene {
     if (desert) setupDesertHazards(this, levelData, this.difficultyKey);
     // ⚡ Electric traps, live cables and crumbling street ledges (see src/utils/Hazards.js)
     if (city) setupCityHazards(this, levelData, this.difficultyKey, this.movingPlatforms);
+    // 🏛️ Spike pits, spike traps, poisonous plants and falling stones (see src/utils/Hazards.js)
+    if (temple) setupTempleHazards(this, levelData, this.difficultyKey);
 
     // 🚩 Finish flag
     this.flag = this.add.graphics();
@@ -884,6 +908,60 @@ export default class GameScene extends Phaser.Scene {
     gfx.fillCircle(0, 9, 2);
   }
 
+  // 🗿 Draw a stone temple guard. asleep = true draws it as a lifeless statue (dark eyes);
+  // awake, its eyes and the mark on its chest glow gold.
+  drawStoneGuard(gfx, color, asleep = false) {
+    gfx.clear();
+    const stone = Phaser.Display.Color.IntegerToColor(color);
+    const dark = stone.clone().darken(30).color;
+    const light = stone.clone().lighten(18).color;
+    gfx.fillStyle(dark, 1);                                   // legs
+    gfx.fillRect(-11, 9, 9, 10);
+    gfx.fillRect(2, 9, 9, 10);
+    gfx.fillRect(-18, -6, 5, 15);                             // arms
+    gfx.fillRect(13, -6, 5, 15);
+    gfx.fillStyle(color, 1);                                  // body
+    gfx.fillRoundedRect(-14, -8, 28, 19, 3);
+    gfx.fillStyle(light, 1);                                  // head
+    gfx.fillRoundedRect(-11, -20, 22, 14, 3);
+    gfx.fillStyle(0xd9ac3c, 1);                               // gold headdress
+    gfx.fillRect(-12, -22, 24, 4);
+    gfx.fillTriangle(-4, -22, 4, -22, 0, -27);
+    if (!asleep) {                                            // a glow around the eyes when awake
+      gfx.fillStyle(0xffd23f, 0.35);
+      gfx.fillRect(-9, -17, 9, 7);
+      gfx.fillRect(0, -17, 9, 7);
+    }
+    gfx.fillStyle(asleep ? 0x2a2218 : 0xffe680, 1);           // eyes
+    gfx.fillRect(-7, -15, 5, 3);
+    gfx.fillRect(2, -15, 5, 3);
+    gfx.fillStyle(dark, 1);                                   // carved mouth
+    gfx.fillRect(-5, -10, 10, 2);
+    gfx.fillStyle(asleep ? 0x8a7030 : 0xf2d070, 1);           // the mark on its chest
+    gfx.fillRect(-4, -1, 8, 2);
+    gfx.fillRect(-1, -4, 2, 8);
+    gfx.fillStyle(0x3f7a2e, 1);                               // moss
+    gfx.fillCircle(-10, -7, 3);
+    gfx.fillCircle(9, 7, 2.5);
+    gfx.lineStyle(1, dark, 1);                                // a crack
+    gfx.lineBetween(6, -8, 9, -2);
+    gfx.lineBetween(9, -2, 7, 3);
+  }
+
+  // 🐍 Draw a poisonous snake: the Night Owl snake, plus purple warning diamonds, fangs and a drop of venom
+  drawViper(gfx, color) {
+    this.drawSnake(gfx, color);
+    gfx.fillStyle(0x8a3ab8, 1);
+    [[-9, 2], [1, 1], [10, 0]].forEach(([x, y]) => {
+      gfx.fillTriangle(x - 3, y, x + 3, y, x, y - 3);
+      gfx.fillTriangle(x - 3, y, x + 3, y, x, y + 3);
+    });
+    gfx.fillStyle(0xffffff, 1);
+    gfx.fillTriangle(20, 5, 22, 5, 21, 8.5);
+    gfx.fillStyle(0xc8ff5a, 1);
+    gfx.fillCircle(21, 10.5, 1.4);
+  }
+
   // 🐟 Draw a small fish facing right (it is flipped when it swims left)
   drawFish(gfx, color) {
     gfx.clear();
@@ -1257,7 +1335,17 @@ export default class GameScene extends Phaser.Scene {
       if (enemy.kind === "fish") {
         enemy.gfx.y = enemy.body.y + wave * 3;
         enemy.gfx.setScale(enemy.direction, 1);
-      } else if (enemy.kind === "snake") {
+      } else if (enemy.kind === "guard") {
+        // a statue until you come close; then its eyes light up and it marches
+        const awake = Math.abs(this.player.x - enemy.body.x) < 300;
+        if (awake !== enemy.awake) {
+          enemy.awake = awake;
+          enemy.gfx.setTexture(this.enemyTexture("guard", enemy.color, !awake));
+        }
+        if (!awake) enemy.body.setVelocityX(0);
+        enemy.gfx.y = enemy.body.y - (awake ? Math.abs(Math.sin(this.time.now / 150 + enemy.bobPhase)) * 2 : 0);   // stomps as it walks
+        enemy.gfx.setScale(enemy.direction, 1);
+      } else if (enemy.kind === "snake" || enemy.kind === "viper") {
         enemy.gfx.y = enemy.body.y;
         enemy.gfx.setScale(enemy.direction * (1 + wave * 0.07), 1 - wave * 0.07);   // stretches and squashes as it slithers
       } else if (enemy.kind === "demon") {

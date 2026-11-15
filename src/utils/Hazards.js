@@ -1,4 +1,4 @@
-import { bakeCrumblePlatform, bakeRottenPlankPlatform, bakeRaftPlatform, bakeCrackedSandstone } from "./Backdrops.js";
+import { bakeCrumblePlatform, bakeRottenPlankPlatform, bakeRaftPlatform, bakeCrackedSandstone, bakeCrackedTempleSlab } from "./Backdrops.js";
 
 // 🌋☣️🏜️⚡ Hazards for Magma Falls, Toxic Swamp, Lost Sands and Urban Nightmare: pools you must not touch,
 // falling rocks, collapsing platforms, electrical traps, exposed cables and quicksand. Everything runs on the scene's own clock
@@ -29,6 +29,12 @@ const TIMING = {
     normal: { crumble: 3000, electricWarn: 1400, electricActive: 1400, electricOff: 1600 },
     hard:   { crumble: 2500, electricWarn: 1100, electricActive: 1700, electricOff: 1000 },
   },
+  //                     slab falls after   stone warning / wait      spike trap: warning, out, hidden       poison plant: warning, cloud, resting
+  temple: {
+    easy:   { crumble: 3000, rockWarn: 1300, rockCooldown: 5200, spikeWarn: 1500, spikeOut: 1000, spikeOff: 2200, plantWarn: 1200, plantCloud: 1100, plantRest: 2600 },
+    normal: { crumble: 2500, rockWarn: 1000, rockCooldown: 4200, spikeWarn: 1200, spikeOut: 1200, spikeOff: 1700, plantWarn: 1000, plantCloud: 1400, plantRest: 2100 },
+    hard:   { crumble: 2000, rockWarn: 750,  rockCooldown: 3400, spikeWarn: 950,  spikeOut: 1400, spikeOff: 1200, plantWarn: 800,  plantCloud: 1700, plantRest: 1600 },
+  },
 };
 const PLATFORM_RETURN_MS = 3000;   // a collapsed platform comes back after this long
 const ROCK_TRIGGER_DISTANCE = 280; // a rock spot only drops while you are this close to it
@@ -52,6 +58,13 @@ const CRUMBLE_LOOKS = {
   swamp:   { name: "swamp",   bake: bakeRottenPlankPlatform, crackGlow: 0xa6e22e, crack: 0x2a1a0c, bits: [0x7a5a38, 0x5a4026] },
   desert:  { name: "desert",  bake: bakeCrackedSandstone,    crackGlow: 0xf0c06a, crack: 0x6a3e1c, bits: [0xe8c08a, 0xc8944e] },
   city:    { name: "city",    bake: bakeCityMovingPlatform, crackGlow: 0x3de0ff, crack: 0x161b24, bits: [0x737989, 0x424754] },
+  temple:  { name: "temple",  bake: bakeCrackedTempleSlab,  crackGlow: 0xe2b84a, crack: 0x3a2814, bits: [0xa58a60, 0x7a6040] },
+};
+
+// What a falling rock looks like, and what the game over screen says
+const ROCK_LOOKS = {
+  volcano: { texture: "falling_rock",  trail: "lava_bubble", cause: "rock",  mark: 0xff3b1a, bang: "#ffd060", bangStroke: "#3a0a06", bits: [0x2a1a14, 0xff6a1a] },
+  temple:  { texture: "falling_stone", trail: "stone_dust",  cause: "stone", mark: 0xe2b84a, bang: "#ffe08a", bangStroke: "#2a1c0a", bits: [0x6e5a3e, 0xd9ac3c] },
 };
 
 export function setupVolcanoHazards(scene, levelData, difficultyKey) {
@@ -83,6 +96,19 @@ export function setupCityHazards(scene, levelData, difficultyKey, movingPlatform
   addExposedCables(scene, levelData.exposedCables || []);
   addMovingPlatformTraps(scene, movingPlatforms, levelData.movingPlatformTraps || [], timing);
   addCrumblingPlatforms(scene, levelData.collapsingPlatforms || [], timing, CRUMBLE_LOOKS.city);
+}
+
+// 🏛️ Lost Civilization: spike pits, spikes on the floor, spike traps that shoot up, poisonous plants,
+// falling stones and cracked slabs over the wide pits
+export function setupTempleHazards(scene, levelData, difficultyKey) {
+  const timing = TIMING.temple[difficultyKey] || TIMING.temple.normal;
+  makeTempleTextures(scene);
+  addSpikePits(scene, levelData.spikePits || []);
+  addFloorSpikes(scene, levelData.floorSpikes || []);
+  addSpikeTraps(scene, levelData.spikeTraps || [], timing);
+  addPoisonPlants(scene, levelData.poisonPlants || [], timing);
+  addCrumblingPlatforms(scene, levelData.crumblingPlatforms || [], timing, CRUMBLE_LOOKS.temple);
+  addFallingRocks(scene, levelData.fallingRocks || [], timing, ROCK_LOOKS.temple);
 }
 
 function bakeCityMovingPlatform(scene, key, w, h, seed) {
@@ -588,7 +614,7 @@ function sandPuff(scene, x, y) {
 // ─── Falling rocks ───────────────────────────────────────────────────────────────────────────
 // While you are near a rock spot, a glowing warning appears on the ground, then a rock drops there.
 // Being hit costs a life (blinking after a hit protects you, like with enemies).
-function addFallingRocks(scene, spots, timing) {
+function addFallingRocks(scene, spots, timing, look = ROCK_LOOKS.volcano) {
   const rocks = [];
   const spawners = spots.map(x => ({ x, next: 0 }));
 
@@ -599,7 +625,7 @@ function addFallingRocks(scene, spots, timing) {
       spawners.forEach(sp => {
         if (now < sp.next || Math.abs(scene.player.x - sp.x) > ROCK_TRIGGER_DISTANCE) return;
         sp.next = now + timing.rockWarn + timing.rockCooldown;
-        dropRock(scene, sp.x + Phaser.Math.Between(-15, 15), timing, rocks);
+        dropRock(scene, sp.x + Phaser.Math.Between(-15, 15), timing, rocks, look);
       });
     }
   });
@@ -622,13 +648,13 @@ function groundYAt(scene, x) {
   return tops.length ? Math.min(...tops) : 576;
 }
 
-function dropRock(scene, x, timing, rocks) {
+function dropRock(scene, x, timing, rocks, look = ROCK_LOOKS.volcano) {
   const groundY = groundYAt(scene, x);
 
   // ⚠️ warning: a glowing mark that grows on the ground, and a "!" above it
-  const mark = scene.add.ellipse(x, groundY, 40, 10, 0xff3b1a, 0.6).setScale(0.3);
+  const mark = scene.add.ellipse(x, groundY, 40, 10, look.mark, 0.6).setScale(0.3);
   const bang = scene.add.text(x, groundY - 26, "!", {
-    fontSize: "22px", fontStyle: "bold", color: "#ffd060", stroke: "#3a0a06", strokeThickness: 4
+    fontSize: "22px", fontStyle: "bold", color: look.bang, stroke: look.bangStroke, strokeThickness: 4
   }).setOrigin(0.5);
   scene.tweens.add({ targets: mark, scale: 1, duration: timing.rockWarn, ease: "Quad.In" });
   scene.tweens.add({ targets: bang, alpha: 0.2, duration: 150, yoyo: true, repeat: -1 });
@@ -637,7 +663,8 @@ function dropRock(scene, x, timing, rocks) {
     bang.destroy();
     if (scene.gameOver || scene.gameWon) { mark.destroy(); return; }
     const cam = scene.cameras.main;
-    const rock = scene.physics.add.image(x, cam.scrollY - 30, "falling_rock");
+    const rock = scene.physics.add.image(x, cam.scrollY - 30, look.texture);
+    rock.look = look;
     rock.setCircle(10, 2.5, 2.5);
     rock.body.setGravityY(500);
     rock.setVelocityY(220);
@@ -646,7 +673,7 @@ function dropRock(scene, x, timing, rocks) {
     rocks.push(rock);
 
     // a short trail of embers behind it
-    const trail = scene.add.particles(0, 0, "lava_bubble", {
+    const trail = scene.add.particles(0, 0, look.trail, {
       follow: rock, lifespan: 300, scale: { start: 0.7, end: 0 }, alpha: { start: 0.8, end: 0 },
       frequency: 40, speedX: { min: -10, max: 10 }, speedY: { min: -30, max: -10 }
     });
@@ -656,7 +683,7 @@ function dropRock(scene, x, timing, rocks) {
     scene.physics.add.overlap(scene.player, rock, () => {
       if (!rock.active) return;
       shatter(scene, rock);
-      if (!scene.invincible && !scene.gameOver && !scene.gameWon) scene.loseLife("rock");
+      if (!scene.invincible && !scene.gameOver && !scene.gameWon) scene.loseLife(look.cause);
     });
   });
 }
@@ -664,12 +691,13 @@ function dropRock(scene, x, timing, rocks) {
 function shatter(scene, rock, quiet = false) {
   if (!rock.active) return;
   const { x, y } = rock;
+  const bits = (rock.look || ROCK_LOOKS.volcano).bits;
   if (rock.mark) rock.mark.destroy();
   if (rock.trail) { rock.trail.stop(); scene.time.delayedCall(400, () => rock.trail.destroy()); }
   rock.destroy();
   if (quiet) return;
   for (let i = 0; i < 8; i++) {
-    const bit = scene.add.rectangle(x, y, 4 + Math.random() * 4, 4 + Math.random() * 3, i % 3 ? 0x2a1a14 : 0xff6a1a);
+    const bit = scene.add.rectangle(x, y, 4 + Math.random() * 4, 4 + Math.random() * 3, i % 3 ? bits[0] : bits[1]);
     scene.tweens.add({
       targets: bit, x: x + (Math.random() - 0.5) * 70, y: y - 10 - Math.random() * 30, angle: Math.random() * 360,
       alpha: 0, duration: 450, ease: "Quad.Out", onComplete: () => bit.destroy()
@@ -677,4 +705,207 @@ function shatter(scene, rock, quiet = false) {
   }
   const cam = scene.cameras.main;
   if (Math.abs(scene.player.x - x) < cam.width / 2) cam.shake(120, 0.004);
+}
+
+// ─── Lost Civilization: spikes, traps and poisonous plants ───────────────────────────────────
+
+function makeTempleTextures(scene) {
+  makeBubbleTexture(scene, "stone_dust", 0xb89a6a, 0xe8d4a0);
+  makeBubbleTexture(scene, "poison_spore", 0xb6f04a, 0xf0ffb0);
+  makeGlowTexture(scene, "poison_glow", "150,215,60");
+  if (!scene.textures.exists("falling_stone")) {                      // a carved block with a gold mark
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x5a4630, 1);
+    g.fillPoints([{ x: 3, y: 6 }, { x: 12, y: 2 }, { x: 22, y: 5 }, { x: 23, y: 17 }, { x: 15, y: 23 }, { x: 4, y: 20 }], true);
+    g.fillStyle(0x8a7250, 1);
+    g.fillPoints([{ x: 3, y: 6 }, { x: 12, y: 2 }, { x: 22, y: 5 }, { x: 13, y: 10 }], true);
+    g.fillStyle(0xe2b84a, 1);
+    g.fillRect(9, 13, 7, 1.8);
+    g.fillRect(11.6, 11, 1.8, 7);
+    g.generateTexture("falling_stone", 25, 25);
+    g.destroy();
+  }
+  if (!scene.textures.exists("poison_plant")) {                       // a fat purple bulb on a stem, with lime spots
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x2f6a2a, 1);
+    g.fillRect(20, 22, 4, 18);                                        // stem
+    g.fillEllipse(11, 34, 20, 8);                                     // leaves
+    g.fillEllipse(33, 34, 20, 8);
+    g.fillStyle(0x4f9a3a, 1);
+    g.fillEllipse(11, 33, 14, 3);
+    g.fillEllipse(33, 33, 14, 3);
+    g.fillStyle(0x6a2a94, 1);
+    g.fillEllipse(22, 15, 26, 24);                                    // bulb
+    g.fillStyle(0x8a3ab8, 1);
+    g.fillEllipse(20, 13, 20, 18);
+    g.fillStyle(0xc8ff5a, 1);                                         // poison spots
+    g.fillCircle(14, 12, 2.4);
+    g.fillCircle(24, 9, 2);
+    g.fillCircle(28, 17, 2.4);
+    g.fillCircle(18, 20, 1.8);
+    g.fillStyle(0x2a0f3a, 1);                                         // the mouth at the top
+    g.fillEllipse(22, 5, 12, 5);
+    g.fillStyle(0xc8ff5a, 1);
+    g.fillTriangle(17, 4, 20, 4, 18.5, 8);
+    g.fillTriangle(24, 4, 27, 4, 25.5, 8);
+    g.generateTexture("poison_plant", 44, 40);
+    g.destroy();
+  }
+}
+
+// A row of stone spikes with gold tips, standing on baseY
+function drawSpikeRow(g, x0, baseY, w, spikeW, spikeH) {
+  const n = Math.max(1, Math.floor(w / spikeW));
+  const step = w / n;
+  for (let i = 0; i < n; i++) {
+    const sx = x0 + i * step, mid = sx + step / 2;
+    g.fillStyle(0x8a7a5e, 1);
+    g.fillTriangle(sx, baseY, sx + step, baseY, mid, baseY - spikeH);
+    g.fillStyle(0xc9b98a, 1);                                         // the lit side
+    g.fillTriangle(sx, baseY, mid, baseY, mid, baseY - spikeH);
+    g.fillStyle(0xf2d070, 1);                                         // gold tip
+    g.fillTriangle(mid - 1.6, baseY - spikeH + 5, mid + 1.6, baseY - spikeH + 5, mid, baseY - spikeH);
+  }
+}
+
+// A deadly touch area. It can be switched on and off with zone.body.enable.
+function addDangerZone(scene, x, y, w, h, cause) {
+  const zone = scene.physics.add.staticImage(x, y, null).setDisplaySize(w, h).setVisible(false);
+  zone.refreshBody();
+  scene.physics.add.overlap(scene.player, zone, () => {
+    if (!scene.gameOver && !scene.gameWon) scene.loseLife(cause);
+  });
+  return zone;
+}
+
+// ─── Spike pits ──────────────────────────────────────────────────────────────────────────────
+// [x, width]: a gap in the floor with spikes at the bottom. Fall in and you lose a life.
+const SPIKE_PIT_TOP = 570;
+function addSpikePits(scene, pits) {
+  pits.forEach(([x, w], i) => {
+    const key = `spike_pit_${i}`;
+    if (scene.textures.exists(key)) scene.textures.remove(key);
+    const h = 34;
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x120c06, 1);
+    g.fillRect(0, 0, w, h);
+    drawSpikeRow(g, 2, h, w - 4, 13, 24);
+    g.generateTexture(key, w, h);
+    g.destroy();
+    scene.add.image(x, SPIKE_PIT_TOP, key).setOrigin(0, 0);
+    addDangerZone(scene, x + w / 2, SPIKE_PIT_TOP + 22, w - 6, 20, "spikes");
+  });
+}
+
+// ─── Spikes on the floor ─────────────────────────────────────────────────────────────────────
+// [x, y, width]: a short row of spikes standing on the ground at height y. Jump over them.
+function addFloorSpikes(scene, list) {
+  list.forEach(([x, y, w]) => {
+    const key = `floor_spikes_${w}`;
+    if (!scene.textures.exists(key)) {
+      const g = scene.make.graphics({ x: 0, y: 0, add: false });
+      drawSpikeRow(g, 0, 15, w, 9, 14);
+      g.generateTexture(key, w, 15);
+      g.destroy();
+    }
+    scene.add.image(x, y - 14, key).setOrigin(0, 0);
+    addDangerZone(scene, x + w / 2, y - 6, w - 8, 10, "spikes");
+  });
+}
+
+// ─── Spike traps ─────────────────────────────────────────────────────────────────────────────
+// [x, y, width]: a gold-rimmed plate in the floor. The spikes hide inside it, then the tips poke out
+// and rattle (the warning), then they shoot up (deadly), then they slide back down. Each trap runs
+// on a repeating timer, a little out of step with the others.
+function addSpikeTraps(scene, traps, timing) {
+  const states = traps.map(([x, y, w], index) => {
+    const plateKey = `spike_trap_plate_${w}`, spikesKey = `spike_trap_spikes_${w}`;
+    if (!scene.textures.exists(plateKey)) {
+      const g = scene.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(0x2a1c0e, 1);
+      g.fillRect(0, 0, w, 8);
+      g.lineStyle(1.5, 0xd9ac3c, 1);
+      g.strokeRect(1, 1, w - 2, 6);
+      g.fillStyle(0x000000, 1);                                       // the holes the spikes come out of
+      for (let hx = 8; hx < w - 4; hx += 10) g.fillCircle(hx, 4, 2);
+      g.generateTexture(plateKey, w, 8);
+      g.destroy();
+    }
+    if (!scene.textures.exists(spikesKey)) {
+      const g = scene.make.graphics({ x: 0, y: 0, add: false });
+      drawSpikeRow(g, 0, 26, w - 10, 10, 26);
+      g.generateTexture(spikesKey, w - 10, 26);
+      g.destroy();
+    }
+    // setOrigin(0.5, 1): the spikes are measured from their bottom edge, so they grow UP out of the plate
+    const spikes = scene.add.image(x + w / 2, y + 1, spikesKey).setOrigin(0.5, 1).setScale(1, 0);
+    scene.add.image(x, y - 1, plateKey).setOrigin(0, 0);
+    const zone = addDangerZone(scene, x + w / 2, y - 11, w - 16, 22, "spikes");
+    zone.body.enable = false;
+    return { x: x + w / 2, spikes, zone, index, state: null };
+  });
+
+  const cycle = timing.spikeWarn + timing.spikeOut + timing.spikeOff;
+  const update = time => {
+    states.forEach(trap => {
+      const phase = (time + trap.index * 730) % cycle;
+      const state = phase < timing.spikeOff ? "hidden" : phase < timing.spikeOff + timing.spikeWarn ? "warning" : "out";
+      if (state !== trap.state) {
+        trap.state = state;
+        trap.zone.body.enable = state === "out";
+        scene.tweens.killTweensOf(trap.spikes);
+        scene.tweens.add({
+          targets: trap.spikes, scaleY: state === "out" ? 1 : state === "warning" ? 0.24 : 0,
+          duration: state === "out" ? 70 : 220, ease: state === "out" ? "Quad.Out" : "Sine.InOut"
+        });
+      }
+      trap.spikes.x = trap.x + (state === "warning" ? Math.sin(time / 28) * 1.2 : 0);   // the tips rattle as a warning
+    });
+  };
+  scene.events.on("update", update);
+  scene.events.once("shutdown", () => scene.events.off("update", update));
+}
+
+// ─── Poisonous plants ────────────────────────────────────────────────────────────────────────
+// [x, y]: a plant growing on the ground (or a platform) at height y. Touching it costs a life.
+// Every few seconds it swells up (the warning) and then puffs out a cloud of poison that is much
+// bigger than the plant, so you have to wait for the cloud to clear before jumping over.
+function addPoisonPlants(scene, plants, timing) {
+  const states = plants.map(([x, y], index) => {
+    const cloud = scene.add.image(x, y - 38, "poison_glow").setAlpha(0).setScale(0.2);
+    const plant = scene.add.image(x, y + 1, "poison_plant").setOrigin(0.5, 1);
+    const spores = scene.add.particles(0, 0, "poison_spore", {
+      x: { min: x - 34, max: x + 34 }, y: { min: y - 50, max: y - 14 },
+      lifespan: 700, speedY: { min: -45, max: -12 }, speedX: { min: -14, max: 14 },
+      scale: { start: 0.5, end: 1.1 }, alpha: { start: 0.9, end: 0 }, frequency: 55, emitting: false
+    });
+    addDangerZone(scene, x, y - 12, 16, 22, "poison");                 // the plant itself
+    const cloudZone = addDangerZone(scene, x, y - 36, 84, 72, "poison");
+    cloudZone.body.enable = false;
+    return { plant, cloud, spores, cloudZone, index, state: null };
+  });
+
+  const cycle = timing.plantRest + timing.plantWarn + timing.plantCloud;
+  const update = time => {
+    states.forEach(p => {
+      const phase = (time + p.index * 910) % cycle;
+      const state = phase < timing.plantRest ? "rest" : phase < timing.plantRest + timing.plantWarn ? "warning" : "cloud";
+      if (state === p.state) return;
+      p.state = state;
+      p.cloudZone.body.enable = state === "cloud";
+      p.spores.emitting = state === "cloud";
+      scene.tweens.killTweensOf([p.plant, p.cloud]);
+      p.plant.setScale(1);
+      if (state === "warning") {                                        // swells and shrinks, faster than a heartbeat
+        scene.tweens.add({ targets: p.plant, scaleX: 1.18, scaleY: 1.24, duration: 170, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+      } else if (state === "cloud") {                                   // the cloud bursts out
+        p.cloud.setAlpha(0.85).setScale(0.2);
+        scene.tweens.add({ targets: p.cloud, scaleX: 0.95, scaleY: 0.8, duration: 220, ease: "Quad.Out" });
+      } else {                                                          // the cloud fades away
+        scene.tweens.add({ targets: p.cloud, alpha: 0, duration: 300 });
+      }
+    });
+  };
+  scene.events.on("update", update);
+  scene.events.once("shutdown", () => scene.events.off("update", update));
 }

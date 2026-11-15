@@ -185,7 +185,7 @@ export default class GameOverScene extends Phaser.Scene {
     const cause = this.cause ?? (this.timeLeft <= 0 ? "time" : "fall");
     const enemyName = {
       sea: "A fish", forest: "A snake", volcano: "A fire creature", swamp: "A swamp mutant",
-      desert: "A desert creature", city: "A mutant or robot guard"
+      desert: "A desert creature", city: "A mutant or robot guard", temple: "A stone guard or snake"
     }[level.theme] || "A slime";
     const reasons = {
       time:  ["⏱", "Time's up!"],
@@ -196,7 +196,10 @@ export default class GameOverScene extends Phaser.Scene {
       quicksand: ["⏳", "The quicksand swallowed you!"],
       rock:  ["🪨", "A falling rock got you!"],
       electricity: ["⚡", "An electrical trap shocked you!"],
-      cable: ["⚡", "An exposed power cable shocked you!"]
+      cable: ["⚡", "An exposed power cable shocked you!"],
+      spikes: ["🔱", "The spikes got you!"],
+      poison: ["☠️", "A poisonous plant got you!"],
+      stone: ["🪨", "A falling stone crushed you!"]
     };
     const [icon, reason] = reasons[cause] || reasons.fall;
     this.add.text(cx, top + 128, `${icon}  ${reason}`, {
