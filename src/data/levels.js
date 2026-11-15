@@ -1130,5 +1130,167 @@ export const levels = [
       [4, "robot",  0x5a7ea8, 55],
     ],
     movingPlatformTraps: [1, 3]
+  },
+
+  {
+    id: 10,
+    name: "Lost Civilization",
+    subtitle: "Level 11",
+    loadingText: "Collect all coins & avoid the stone guards and poisonous snakes",
+
+    // 🏛️ An ancient temple hidden in the jungle, in brown, dark green and gold.
+    // The temple has its own enemies (stone guards, poisonous snakes) and its own hazards
+    // (spikes, spike traps, poisonous plants, falling stones); see src/utils/Hazards.js.
+    theme: "temple",
+    background: [0x0b1a10, 0x16361c, 0x4a5a22, 0xc9962e],   // dark green canopy -> golden light
+    groundColor: 0x6e5434,     // brown temple stone
+    platformColor: 0x8a6a40,   // carved stone
+
+    worldWidth: 9700,          // the longest level
+    playerStart: [80, 490],
+    flagX: 9600,
+    timeLimit: 210,
+
+    // 🟢 Three checkpoints, about a quarter, half and three quarters of the way, on floors with no enemies or traps
+    checkpoints: [2420, 4680, 6780],
+
+    platforms: [
+      // Temple floor: the short gaps (130px) can be jumped; the five wide ones (300px) need the cracked slab in the middle
+      [0,    570, 500, 30],
+      [630,  570, 340, 30],
+      [1270, 570, 360, 30],
+      [1760, 570, 330, 30],
+      [2220, 570, 400, 30],   // checkpoint 1
+      [2920, 570, 340, 30],
+      [3390, 570, 330, 30],
+      [3850, 570, 330, 30],
+      [4480, 570, 400, 30],   // checkpoint 2
+      [5010, 570, 340, 30],
+      [5480, 570, 330, 30],
+      [6110, 570, 340, 30],
+      [6580, 570, 400, 30],   // checkpoint 3
+      [7110, 570, 340, 30],
+      [7750, 570, 330, 30],
+      [8210, 570, 330, 30],
+      [8670, 570, 330, 30],
+      [9130, 570, 570, 30],   // finish
+
+      // Carved stones: a low step and a high step over every floor
+      [300,  450, 100, 20],
+      [450,  360, 110, 20],
+      [700,  450, 100, 20],
+      [840,  360, 110, 20],
+      [1340, 450, 100, 20],
+      [1490, 360, 110, 20],
+      [1830, 450, 100, 20],
+      [1960, 360, 110, 20],
+      [2290, 450, 100, 20],
+      [2450, 360, 110, 20],
+      [2990, 450, 100, 20],
+      [3130, 360, 110, 20],
+      [3460, 450, 100, 20],
+      [3600, 360, 110, 20],
+      [3920, 450, 100, 20],
+      [4060, 360, 110, 20],
+      [4550, 450, 100, 20],
+      [4720, 360, 110, 20],
+      [5080, 450, 100, 20],
+      [5220, 360, 110, 20],
+      [5550, 450, 100, 20],
+      [5690, 360, 110, 20],
+      [6180, 450, 100, 20],
+      [6320, 360, 110, 20],
+      [6650, 440, 100, 20],
+      [6820, 360, 110, 20],
+      [7180, 450, 100, 20],
+      [7320, 360, 110, 20],
+      [7820, 450, 100, 20],
+      [7950, 360, 110, 20],
+      [8280, 450, 100, 20],
+      [8420, 360, 110, 20],
+      [8740, 450, 100, 20],
+      [8870, 360, 110, 20],
+      [9240, 440, 100, 20],
+    ],
+
+    coins: [
+      [350, 420],  [505, 330],  [750, 420],  [895, 330],  [1120, 470],
+      [1390, 420], [1545, 330], [1880, 420], [2015, 330], [2340, 420],
+      [2505, 330], [2770, 470], [3040, 420], [3185, 330], [3510, 420],
+      [3655, 330], [3970, 420], [4115, 330], [4330, 470], [4600, 420],
+      [4775, 330], [5130, 420], [5275, 330], [5600, 420], [5745, 330],
+      [5960, 470], [6230, 420], [6375, 330], [6700, 410], [6875, 330],
+      [7230, 420], [7375, 330], [7600, 470], [7870, 420], [8005, 330],
+      [8330, 420], [8475, 330], [8790, 420], [8925, 330], [9290, 410],
+    ],
+
+    // [x, y, patrolLeft, patrolRight, speed, colour, kind, easiestMode?]
+    //   "guard" = a stone guard: a statue until you come close, then it wakes up and marches
+    //   "viper" = a poisonous snake that slithers along the floor
+    //   easiestMode: the enemy only appears on that difficulty and harder ones
+    enemies: [
+      [400,  540, 330,  480,  60,  0x7bd13a, "viper"],
+      [800,  540, 700,  940,  55,  0x9a8a72, "guard"],
+      [1400, 540, 1300, 1600, 80,  0x7bd13a, "viper"],
+      [1900, 540, 1790, 2060, 60,  0x9a8a72, "guard"],
+      [2000, 540, 1790, 2060, 85,  0x7bd13a, "viper", "normal"],
+      [3100, 540, 2950, 3230, 85,  0x7bd13a, "viper"],
+      [3500, 540, 3420, 3690, 60,  0x9a8a72, "guard"],
+      [3950, 540, 3880, 4150, 90,  0x7bd13a, "viper"],
+      [4080, 540, 3880, 4150, 75,  0x7bd13a, "viper", "normal"],
+      [5100, 540, 5040, 5320, 65,  0x9a8a72, "guard"],
+      [5250, 540, 5040, 5320, 90,  0x7bd13a, "viper"],
+      [5600, 540, 5510, 5780, 95,  0x7bd13a, "viper"],
+      [6200, 540, 6140, 6420, 65,  0x9a8a72, "guard"],
+      [6350, 540, 6140, 6420, 90,  0x7bd13a, "viper", "normal"],
+      [7200, 540, 7140, 7420, 70,  0x9a8a72, "guard"],
+      [7350, 540, 7140, 7420, 95,  0x7bd13a, "viper"],
+      [7850, 540, 7780, 8050, 100, 0x7bd13a, "viper"],
+      [7980, 540, 7780, 8050, 65,  0x9a8a72, "guard", "normal"],
+      [8300, 540, 8240, 8510, 70,  0x9a8a72, "guard"],
+      [8450, 540, 8240, 8510, 100, 0x7bd13a, "viper"],
+      [8760, 540, 8700, 8970, 70,  0x9a8a72, "guard"],
+      [8900, 540, 8700, 8970, 105, 0x7bd13a, "viper", "hard"],
+      // snakes up on the high stones (Normal and Hard only)
+      [1545, 343, 1500, 1590, 40,  0x7bd13a, "viper", "normal"],
+      [5275, 343, 5230, 5320, 40,  0x7bd13a, "viper", "normal"],
+      [7375, 343, 7330, 7420, 45,  0x7bd13a, "viper", "normal"],
+      // (checkpoint floors 2220-2620, 4480-4880 and 6580-6980, and the finish, have no enemies)
+    ],
+
+    // 🔱 Spike pits: [x, width]. These gaps in the floor have spikes at the bottom.
+    spikePits: [
+      [500, 130], [970, 300], [2090, 130], [3260, 130], [4180, 300],
+      [5350, 130], [6980, 130], [7450, 300], [8540, 130],
+    ],
+    // 🔺 Spikes standing on the floor: [x, y, width]. Jump over them.
+    floorSpikes: [
+      [200, 570, 36], [1970, 570, 36], [4050, 570, 36], [6300, 570, 36], [8940, 570, 36],
+    ],
+    // ⚙️ Spike traps: [x, y, width]. The tips rattle as a warning, then the spikes shoot up, then hide again.
+    spikeTraps: [
+      [830, 570, 70], [3120, 570, 70], [5680, 570, 70], [7300, 570, 70], [8400, 570, 70],
+    ],
+    // 🌺 Poisonous plants: [x, y]. Touching one hurts; every few seconds it also puffs out a poison cloud.
+    // (y is the top of whatever it grows on: 570 = the floor, 360 = a high stone)
+    poisonPlants: [
+      [1500, 570], [3610, 570], [5230, 570], [6400, 570], [7960, 570], [8850, 570],
+      [3220, 360], [5780, 360], [8040, 360],
+    ],
+    // 🪨 Falling stones: the x of each spot. A warning mark shows on the floor before a stone drops.
+    fallingRocks: [1320, 2050, 3220, 3440, 4140, 5060, 6160, 7400, 7800, 8720],
+    // ⚠️ Cracked slabs: [x, y, width]. They bridge the wide pits, but fall a moment after you land on them.
+    crumblingPlatforms: [
+      [1070, 500, 100], [2720, 500, 100], [4280, 500, 100], [5910, 500, 100], [7550, 500, 100],
+    ],
+
+    // [x, y, width, moveX, speed]: gold-banded slabs gliding above the wide pits
+    movingPlatforms: [
+      [1010, 300, 100, 150, 90],
+      [2660, 290, 100, 150, 100],
+      [4220, 300, 100, 150, 90],
+      [5850, 290, 100, 150, 100],
+      [7490, 290, 100, 150, 100],
+    ]
   }
 ];

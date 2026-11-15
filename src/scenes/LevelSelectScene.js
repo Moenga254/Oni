@@ -28,6 +28,7 @@ export const THEMES = {
   swamp:   { accent: 0xa6e22e, sky: [0x14200e, 0x4a5a1a] },
   desert:  { accent: 0xf0b840, sky: [0xd9772b, 0xffe0a0] },
   city:    { accent: 0x3de0ff, sky: [0x05070f, 0x1a2a55] },
+  temple:  { accent: 0xe8b83a, sky: [0x12301a, 0xc9962e] },
 };
 
 // Grasslands and Sky Kingdom have no theme in levels.js; give them one here for their pictures
@@ -566,5 +567,28 @@ function drawLevelPicture(g, theme, x, y, w, h, sky, index) {
     hills(g, x, w, bottom, bottom - 9, 3, 18, 3, 0xc8843e);
     g.fillStyle(0x3a2414, 0.85);                                                // a vulture
     g.fillTriangle(x + 92, y + 30, x + 102, y + 26, x + 98, y + 32); g.fillTriangle(x + 102, y + 26, x + 112, y + 30, x + 104, y + 32);
+  }
+
+  if (theme === "temple") {
+    // a stepped temple in golden light, jungle trees either side, vines hanging from the top
+    g.fillStyle(0xffe08a, 0.35); g.fillCircle(x + w / 2, bottom - 40, 46);
+    for (let t = 0; t < 4; t++) {                                              // the temple's four steps
+      const tw = 96 - t * 22, ty = bottom - 20 - (t + 1) * 11;
+      g.fillStyle(0x8a6a40, 1); g.fillRect(x + w / 2 - tw / 2, ty, tw, 12);
+      g.fillStyle(0x5e4426, 1); g.fillRect(x + w / 2, ty, tw / 2, 12);
+      g.fillStyle(0xe2b84a, 1); g.fillRect(x + w / 2 - tw / 2, ty, tw, 1.5);
+    }
+    g.fillStyle(0x5e4426, 1); g.fillRect(x + w / 2 - 5, bottom - 64, 10, 44);  // stairway
+    g.fillStyle(0x8a6a40, 1); g.fillRect(x + w / 2 - 9, bottom - 76, 18, 12);  // shrine
+    g.fillStyle(0xe2b84a, 1); g.fillRect(x + w / 2 - 11, bottom - 78, 22, 2.5);
+    g.fillStyle(0x1f4420, 1);                                                  // trees
+    [[x + 30, 30], [x + 62, 22], [x + w - 34, 32], [x + w - 66, 20]].forEach(([tx, r]) => {
+      g.fillRect(tx - 3, bottom - 20 - r, 6, r + 6);
+      g.fillCircle(tx, bottom - 26 - r, r * 0.62); g.fillCircle(tx - r * 0.4, bottom - 20 - r, r * 0.45); g.fillCircle(tx + r * 0.4, bottom - 20 - r, r * 0.45);
+    });
+    hills(g, x, w, bottom, bottom - 14, 4, 22, 1, 0x234a22);
+    g.fillStyle(0x0c2412, 1); g.fillRect(x, y, w, 7);                          // canopy and vines
+    g.lineStyle(1.5, 0x143a1a, 1);
+    for (let vx = x + 14; vx < x + w - 10; vx += 22 + rand() * 20) g.lineBetween(vx, y + 6, vx + (rand() - 0.5) * 6, y + 14 + rand() * 20);
   }
 }
