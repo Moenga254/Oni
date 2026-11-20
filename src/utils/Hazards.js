@@ -936,13 +936,21 @@ function addPoisonPlants(scene, plants, timing) {
 //      underneath. They fade away when you come close, and come back once you move away.
 const SLAB_H = 20;
 
+// ⚡ Is x..x+w on (or just beside) the screen right now? Things off screen are not drawn or animated:
+// the level has 19 trick platforms, and animating all of them all the time was making it lag.
+function onCamera(scene, x, w, margin = 120) {
+  const cam = scene.cameras.main;
+  return x + w > cam.scrollX - margin && x < cam.scrollX + cam.width + margin;
+}
+
 function makeGraveTextures(scene) {
   makeBubbleTexture(scene, "grave_mist", 0xa07ae0, 0xe4d4ff);
 }
 
 // A puff of purple mist across a platform (when it dissolves or re-forms)
 function mistPuff(scene, x, y, w, inward = false) {
-  for (let i = 0; i < Math.max(8, w / 8); i++) {
+  if (!onCamera(scene, x, w, 0)) return;                                 // nobody would see it
+  for (let i = 0; i < 7; i++) {
     const px = x + Math.random() * w, py = y + Math.random() * SLAB_H;
     const dx = (Math.random() - 0.5) * 50, dy = -10 - Math.random() * 30;
     const bit = scene.add.image(inward ? px + dx : px, inward ? py + dy : py, "grave_mist").setScale(0.8 + Math.random() * 1.2).setAlpha(inward ? 0 : 0.9);
@@ -968,17 +976,22 @@ function addIllusionPlatforms(scene, list, timing) {
     const key = `illusion_platform_${i}`;
     bakeTombSlab(scene, key, w, SLAB_H, 40 + i);
     const image = scene.add.image(x, y, key).setOrigin(0, 0);
-    const shimmer = scene.add.rectangle(x + w / 2, y + SLAB_H / 2, w, SLAB_H, 0xc8a8ff, 0).setBlendMode("ADD");   // the tell
-    return { x, y, w, image, shimmer, state: "solid", nextShimmer: 1500 + i * 700, wasAbove: true };
+    const shimmer = scene.add.rectangle(x + w / 2, y + SLAB_H / 2, w, SLAB_H, 0xc8a8ff, 0).setBlendMode("ADD").setVisible(false);   // the tell
+    return { x, y, w, image, shimmer, state: "solid", nextShimmer: 1500 + i * 700, wasAbove: true, seen: true };
   });
 
   const update = time => {
     const pb = scene.player.body;
     fakes.forEach(f => {
+      const seen = onCamera(scene, f.x, f.w);
+      if (seen !== f.seen) { f.seen = seen; f.image.setVisible(seen); }
       if (f.state === "solid" && time > f.nextShimmer) {                   // 👀 the tell: a quick faint shimmer
         f.nextShimmer = time + 2600 + Math.random() * 1800;
-        scene.tweens.add({ targets: f.shimmer, fillAlpha: 0.3, duration: 180, yoyo: true });
-        scene.tweens.add({ targets: f.image, alpha: 0.72, duration: 180, yoyo: true });
+        if (seen) {
+          f.shimmer.setVisible(true);
+          scene.tweens.add({ targets: f.shimmer, fillAlpha: 0.3, duration: 180, yoyo: true, onComplete: () => f.shimmer.setVisible(false) });
+          scene.tweens.add({ targets: f.image, alpha: 0.72, duration: 180, yoyo: true });
+        }
       }
       const above = pb.bottom <= f.y + 2;
       const within = pb.right > f.x + 4 && pb.left < f.x + f.w - 4;
@@ -994,6 +1007,7 @@ function dissolve(scene, f, timing) {
   f.state = "gone";
   scene.tweens.killTweensOf([f.image, f.shimmer]);
   f.shimmer.fillAlpha = 0;
+  f.shimmer.setVisible(false);
   scene.tweens.add({ targets: f.image, alpha: 0, duration: 220 });
   mistPuff(scene, f.x, f.y, f.w);
   scene.time.delayedCall(timing.reform, () => {
@@ -1013,7 +1027,7 @@ function addVanishingPlatforms(scene, list, timing) {
     const body = scene.physics.add.staticImage(x + w / 2, y + SLAB_H / 2, null).setDisplaySize(w, SLAB_H).setVisible(false);
     body.refreshBody();
     scene.physics.add.collider(scene.player, body);
-    return { x, y, w, image, body, index: i, state: "solid" };
+    return { x, y, w, image, body, index: i, state: "solid", since: 0 };
   });
 
   const cycle = timing.vanishSolid + timing.vanishWarn + timing.vanishGone;
@@ -1021,21 +1035,20 @@ function addVanishingPlatforms(scene, list, timing) {
     plats.forEach(p => {
       const phase = (time + p.index * 900) % cycle;
       const state = phase < timing.vanishSolid ? "solid" : phase < timing.vanishSolid + timing.vanishWarn ? "warning" : "gone";
-      if (state === p.state) return;
-      if (state === "solid" && playerInside(scene, p.x, p.y, p.w, SLAB_H)) return;   // don't come back inside the player
-      p.state = state;
-      scene.tweens.killTweensOf(p.image);
-      if (state === "warning") {
-        scene.tweens.add({ targets: p.image, alpha: 0.35, duration: 110, yoyo: true, repeat: -1 });
-      } else if (state === "gone") {
-        p.body.body.enable = false;
-        p.image.setAlpha(0);
-        mistPuff(scene, p.x, p.y, p.w);
-      } else {
-        p.body.body.enable = true;
-        mistPuff(scene, p.x, p.y, p.w, true);
-        scene.tweens.add({ targets: p.image, alpha: 1, duration: 250 });
+      if (state !== p.state && !(state === "solid" && playerInside(scene, p.x, p.y, p.w, SLAB_H))) {   // don't come back inside the player
+        p.state = state;
+        p.since = time;
+        p.body.body.enable = state !== "gone";
+        if (state === "gone") mistPuff(scene, p.x, p.y, p.w);
+        else if (state === "solid") mistPuff(scene, p.x, p.y, p.w, true);
       }
+      // how it looks right now: flickering (warning), invisible (gone) or fading back in (solid)
+      const seen = onCamera(scene, p.x, p.w);
+      p.image.setVisible(seen);
+      if (!seen) return;
+      if (p.state === "warning") p.image.setAlpha(0.675 + Math.cos((time - p.since) / 35) * 0.325);
+      else if (p.state === "gone") p.image.setAlpha(0);
+      else p.image.setAlpha(Math.min(1, (time - p.since) / 250));
     });
   };
   scene.events.on("update", update);
@@ -1060,24 +1073,25 @@ function addGhostPlatforms(scene, list, timing) {
       lifespan: 1400, speedY: { min: 6, max: 16 }, speedX: { min: -6, max: 6 },
       scale: { start: 0.5, end: 1.4 }, alpha: { start: 0.45, end: 0 }, frequency: 260
     });
-    return { x, y, w, image, body, wisps, shown: true };
+    return { x, y, w, image, body, wisps, shown: true, seen: true };
   });
 
   const update = () => {
     const px = scene.player.x;
     plats.forEach(p => {
+      const seen = onCamera(scene, p.x, p.w);
+      if (seen !== p.seen) { p.seen = seen; p.image.setVisible(seen); p.wisps.setVisible(seen); }
+      p.wisps.emitting = seen && p.shown;
       const distance = Math.max(0, Math.abs(px - (p.x + p.w / 2)) - p.w / 2);   // 0 = right above or below it
       if (p.shown && distance < timing.ghostNear) {
         p.shown = false;
         p.body.body.enable = false;
-        p.wisps.emitting = false;
         scene.tweens.killTweensOf(p.image);
         scene.tweens.add({ targets: p.image, alpha: 0, duration: 220 });
         mistPuff(scene, p.x, p.y, p.w);
       } else if (!p.shown && distance > timing.ghostFar && !playerInside(scene, p.x, p.y, p.w, SLAB_H)) {
         p.shown = true;
         p.body.body.enable = true;
-        p.wisps.emitting = true;
         scene.tweens.killTweensOf(p.image);
         scene.tweens.add({ targets: p.image, alpha: 1, duration: 500 });
       }
