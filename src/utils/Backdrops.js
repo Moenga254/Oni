@@ -2616,3 +2616,402 @@ export function bakeCrackedTempleSlab(scene, key, w, h, seed) {
   g.generateTexture(key, w, h + 4);
   g.destroy();
 }
+
+// ─── The Haunted Grounds ─────────────────────────────────────────────────────────────────────
+
+// 🌳 A bare, crooked tree: a trunk and a few twisted branches (the seed makes each one different)
+function bareTree(g, x, baseY, h, seed, color) {
+  const rand = makeRandom(seed);
+  const topX = x + (rand() - 0.5) * h * 0.15, topY = baseY - h;
+  g.lineStyle(Math.max(3, h * 0.07), color, 1);
+  g.lineBetween(x, baseY, topX, topY);
+  g.lineStyle(Math.max(1.5, h * 0.03), color, 1);
+  for (let b = 0; b < 5; b++) {
+    const t = 0.35 + b * 0.13;
+    const sx = x + (topX - x) * t, sy = baseY - h * t;
+    const dir = b % 2 ? 1 : -1;
+    const ex = sx + dir * h * (0.18 + rand() * 0.2), ey = sy - h * (0.1 + rand() * 0.15);
+    g.lineBetween(sx, sy, ex, ey);
+    g.lineBetween(ex, ey, ex + dir * h * 0.08, ey - h * 0.1);            // a twig at the end
+  }
+  g.fillStyle(color, 1);
+  g.fillTriangle(x - h * 0.06, baseY, x + h * 0.06, baseY, x, baseY - h * 0.25);   // the trunk widens at the root
+}
+
+// 🪦 A gravestone. kind: 0 rounded headstone, 1 cross, 2 obelisk, 3 a slab that has tipped over
+function gravestone(g, x, baseY, s, kind, body, shade) {
+  g.fillStyle(body, 1);
+  if (kind === 0) {
+    g.fillRect(x - 11 * s, baseY - 26 * s, 22 * s, 26 * s);
+    g.fillCircle(x, baseY - 26 * s, 11 * s);
+    g.fillStyle(shade, 1);
+    g.fillRect(x + 4 * s, baseY - 26 * s, 7 * s, 26 * s);
+    g.fillRect(x - 6 * s, baseY - 20 * s, 12 * s, 2 * s);               // carved line
+  } else if (kind === 1) {
+    g.fillRect(x - 3 * s, baseY - 36 * s, 6 * s, 36 * s);
+    g.fillRect(x - 12 * s, baseY - 28 * s, 24 * s, 6 * s);
+    g.fillStyle(shade, 1);
+    g.fillRect(x + 1 * s, baseY - 36 * s, 2 * s, 36 * s);
+  } else if (kind === 2) {
+    g.fillRect(x - 7 * s, baseY - 44 * s, 14 * s, 44 * s);
+    g.fillTriangle(x - 7 * s, baseY - 44 * s, x + 7 * s, baseY - 44 * s, x, baseY - 56 * s);
+    g.fillRect(x - 10 * s, baseY - 6 * s, 20 * s, 6 * s);
+    g.fillStyle(shade, 1);
+    g.fillRect(x + 2 * s, baseY - 44 * s, 5 * s, 38 * s);
+  } else {
+    g.fillPoints([{ x: x - 12 * s, y: baseY }, { x: x - 5 * s, y: baseY - 24 * s }, { x: x + 13 * s, y: baseY - 19 * s }, { x: x + 12 * s, y: baseY }], true);
+    g.fillStyle(shade, 1);
+    g.fillPoints([{ x: x + 4 * s, y: baseY - 21 * s }, { x: x + 13 * s, y: baseY - 19 * s }, { x: x + 12 * s, y: baseY }, { x: x + 4 * s, y: baseY }], true);
+  }
+}
+
+// ⛪ A small chapel with a bell tower and a faintly lit window (far away)
+function chapel(g, x, baseY, s, body, windowColor) {
+  g.fillStyle(body, 1);
+  g.fillRect(x - 40 * s, baseY - 46 * s, 80 * s, 46 * s);
+  g.fillTriangle(x - 46 * s, baseY - 46 * s, x + 46 * s, baseY - 46 * s, x, baseY - 78 * s);
+  g.fillRect(x + 22 * s, baseY - 104 * s, 22 * s, 104 * s);                                    // tower
+  g.fillTriangle(x + 18 * s, baseY - 104 * s, x + 48 * s, baseY - 104 * s, x + 33 * s, baseY - 140 * s);   // spire
+  g.fillRect(x + 32 * s, baseY - 156 * s, 2 * s, 18 * s);                                      // cross on top
+  g.fillRect(x + 27 * s, baseY - 150 * s, 12 * s, 2 * s);
+  g.fillStyle(windowColor, 1);
+  g.fillRect(x - 24 * s, baseY - 34 * s, 7 * s, 14 * s);
+  g.fillCircle(x - 20.5 * s, baseY - 34 * s, 3.5 * s);
+  g.fillRect(x + 30 * s, baseY - 86 * s, 6 * s, 10 * s);
+}
+
+// 🏛️ A crypt: a little stone house for the dead, with two columns and a black doorway
+function crypt(g, x, baseY, s, body, shade) {
+  g.fillStyle(body, 1);
+  g.fillRect(x - 36 * s, baseY - 54 * s, 72 * s, 54 * s);
+  g.fillTriangle(x - 42 * s, baseY - 54 * s, x + 42 * s, baseY - 54 * s, x, baseY - 76 * s);
+  g.fillRect(x - 44 * s, baseY - 58 * s, 88 * s, 5 * s);
+  g.fillStyle(shade, 1);
+  g.fillRect(x - 30 * s, baseY - 50 * s, 8 * s, 50 * s);                                       // columns
+  g.fillRect(x + 22 * s, baseY - 50 * s, 8 * s, 50 * s);
+  g.fillStyle(0x05050c, 1);
+  g.fillRect(x - 12 * s, baseY - 38 * s, 24 * s, 38 * s);                                      // doorway
+  g.fillCircle(x, baseY - 38 * s, 12 * s);
+}
+
+// 🪦 The Haunted Grounds backdrop: an abandoned graveyard under a full moon. A dark blue sky with stars,
+// a huge full moon with thin clouds drifting over it, a chapel and dead trees on the far hills,
+// gravestones, crypts and iron fences in the middle, dark grass and tombs in front, low fog,
+// purple will-o'-the-wisps and bats.
+// Built like the other backdrops: the scenery is drawn ONCE into pictures when the level starts.
+export function drawGraveyardBackdrop(scene, { colors, worldWidth, worldHeight }) {
+  const camW = scene.cameras.main.width;
+  const camH = scene.cameras.main.height;
+  const maxScrollX = Math.max(0, worldWidth - camW);   // how far the camera can travel sideways
+  const maxScrollY = Math.max(0, worldHeight - camH);  // ...and up and down
+  const random = makeRandom(20261120);                 // same "random" graveyard every time you play
+
+  // A layer that scrolls at speed sx only needs to be this wide to cover the whole level
+  const widthFor = (sx) => camW + 300 + sx * maxScrollX;
+  // Where the bottom of a layer must sit so it always reaches the bottom of the screen
+  const bottomBase = (sy) => camH + sy * maxScrollY + 24;
+
+  // 1) SKY: near-black at the top, fading to dark blue and a touch of purple. setScrollFactor(0) pins it to the screen.
+  const sky = scene.add.graphics().setScrollFactor(0);
+  const bands = [[colors[0], colors[1], 0, 0.4], [colors[1], colors[2], 0.4, 0.75], [colors[2], colors[3], 0.75, 1.05]];
+  bands.forEach(([top, bottom, from, to]) => {
+    sky.fillGradientStyle(top, top, bottom, bottom, 1);
+    sky.fillRect(-20, camH * from - (from === 0 ? 20 : 0), camW + 40, camH * (to - from) + (from === 0 ? 20 : 1));
+  });
+
+  // 2) STARS
+  const stars = scene.add.graphics().setScrollFactor(0);
+  for (let i = 0; i < 80; i++) {
+    stars.fillStyle(0xdfe4ff, 0.25 + random() * 0.6);
+    stars.fillCircle(random() * camW, random() * camH * 0.6, 0.5 + random());
+  }
+
+  // 3) THE FULL MOON: a wide pale-purple glow, a bright halo, the moon, and thin clouds drifting over it
+  const moonX = camW * 0.72, moonY = camH * 0.25;
+  addGlow(scene, "grave_moonglow", moonX, moonY, 460, 460, 0xb4b0ff, 0.3);
+  addGlow(scene, "grave_moonhalo", moonX, moonY, 170, 170, 0xf4f0ff, 0.35);
+  if (!scene.textures.exists("grave_moon")) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xf3f1e8, 1);
+    g.fillCircle(48, 48, 46);
+    g.fillStyle(0xdcd9cf, 1);                                             // craters
+    g.fillCircle(32, 36, 9);
+    g.fillCircle(60, 58, 12);
+    g.fillCircle(58, 26, 5);
+    g.fillCircle(36, 66, 5);
+    g.fillStyle(0xe8e5dc, 1);
+    g.fillCircle(30, 34, 6);
+    g.generateTexture("grave_moon", 96, 96);
+    g.destroy();
+  }
+  scene.add.image(moonX, moonY, "grave_moon").setScrollFactor(0);
+  ensureSoftTexture(scene, "grave_cloud", 0x5a5e80);
+  for (let i = 0; i < 5; i++) {
+    const cloud = scene.add.image(random() * camW, camH * (0.12 + random() * 0.25), "grave_cloud")
+      .setDisplaySize(280 + random() * 220, 46 + random() * 30).setAlpha(0.3 + random() * 0.2).setScrollFactor(0);
+    scene.tweens.add({ targets: cloud, x: cloud.x + 120 + random() * 80, duration: 26000 + random() * 14000, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+  }
+
+  // 4) FAR AWAY: hills with a lonely chapel and dead trees, dark blue against the sky (slowest layer)
+  {
+    const sx = 0.08, sy = 0.05, width = widthFor(sx), h = 300;
+    const chapels = [];
+    for (let gx = 380 + random() * 200; gx < width; gx += 900 + random() * 600) chapels.push({ gx, s: 0.8 + random() * 0.35 });
+    const trees = [];
+    for (let gx = random() * 100; gx < width; gx += 130 + random() * 190) trees.push({ gx, h: 50 + random() * 55, seed: Math.floor(random() * 1e6) });
+    const hillTop = gx => h - (70 + 20 * Math.sin(gx / 210) + 11 * Math.sin(gx / 83 + 1) + 4 * Math.sin(gx / 29));
+    bakeChunks(scene, "grave_far", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        chapels.forEach(c => {
+          const x = c.gx - left;
+          if (x < -120 || x > chunkW + 120) return;                         // not in this picture
+          chapel(g, x, hillTop(c.gx) + 8, c.s, 0x1a1e3c, 0x8a74d0);
+        });
+        trees.forEach(t => {
+          const x = t.gx - left;
+          if (x < -70 || x > chunkW + 70) return;
+          bareTree(g, x, hillTop(t.gx) + 6, t.h, t.seed, 0x1a1e3c);
+        });
+        const pts = [{ x: 0, y: h }];
+        for (let x = 0; x <= chunkW; x += 8) pts.push({ x, y: hillTop(left + x) });
+        pts.push({ x: chunkW, y: h });
+        g.fillStyle(0x1a1e3c, 1);
+        g.fillPoints(pts, true);
+      }
+    });
+  }
+
+  // 5) THE GRAVEYARD: rows of gravestones, crypts, iron fences and crooked trees in grey-blue stone
+  {
+    const sx = 0.22, sy = 0.12, width = widthFor(sx), h = 300;
+    const items = [];
+    for (let gx = 40 + random() * 60; gx < width; ) {
+      const r = random();
+      if (r < 0.12) { items.push({ gx, kind: "crypt", s: 0.85 + random() * 0.3 }); gx += 130 + random() * 80; }
+      else if (r < 0.26) { items.push({ gx, kind: "tree", h: 110 + random() * 70, seed: Math.floor(random() * 1e6) }); gx += 70 + random() * 60; }
+      else if (r < 0.38) { const len = 120 + random() * 140; items.push({ gx, kind: "fence", len }); gx += len + 30 + random() * 40; }
+      else { items.push({ gx, kind: "stone", s: 0.8 + random() * 0.6, type: Math.floor(random() * 4), lean: (random() - 0.5) * 0.25 }); gx += 26 + random() * 46; }
+    }
+    const groundTop = gx => h - (40 + 8 * Math.sin(gx / 90) + 5 * Math.sin(gx / 37 + 2));
+    const stone = 0x3a4062, shade = 0x2a2f4c;
+    bakeChunks(scene, "grave_mid", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        items.forEach(item => {
+          const x = item.gx - left;
+          if (x < -280 || x > chunkW + 120) return;
+          const baseY = groundTop(item.gx) + 6;
+          if (item.kind === "crypt") crypt(g, x, baseY, item.s, stone, shade);
+          else if (item.kind === "tree") bareTree(g, x, baseY, item.h, item.seed, 0x22264a);
+          else if (item.kind === "stone") gravestone(g, x, baseY, item.s, item.type, stone, shade);
+          else {                                                            // iron fence with spear tips
+            g.fillStyle(0x161a30, 1);
+            for (let fx = 0; fx <= item.len; fx += 9) {
+              const fy = groundTop(item.gx + fx) + 6;
+              g.fillRect(x + fx - 1, fy - 34, 2.5, 34);
+              g.fillTriangle(x + fx - 3, fy - 34, x + fx + 4, fy - 34, x + fx + 0.5, fy - 41);
+            }
+            g.lineStyle(2, 0x161a30, 1);
+            [26, 8].forEach(up => g.lineBetween(x, groundTop(item.gx) + 6 - up, x + item.len, groundTop(item.gx + item.len) + 6 - up));
+          }
+        });
+        const pts = [{ x: 0, y: h }];
+        for (let x = 0; x <= chunkW; x += 6) pts.push({ x, y: groundTop(left + x) });
+        pts.push({ x: chunkW, y: h });
+        g.fillStyle(0x1d2140, 1);
+        g.fillPoints(pts, true);
+      }
+    });
+  }
+
+  // 6) IN FRONT: dark grass, big tombstones and dead bushes along the bottom (fastest layer, so it feels closest)
+  {
+    const sx = 0.42, sy = 0.2, width = widthFor(sx), h = 150;
+    const things = [];
+    for (let gx = random() * 80; gx < width; gx += 70 + random() * 120) {
+      things.push({ gx, tomb: random() < 0.45, s: 1.4 + random() * 0.7, type: Math.floor(random() * 3), size: 26 + random() * 30 });
+    }
+    bakeChunks(scene, "grave_near", {
+      width, h, imageY: bottomBase(sy) - h, alpha: 1, scrollX: sx, scrollY: sy,
+      draw: (g, left, chunkW) => {
+        g.fillStyle(0x0b0c1c, 1);
+        g.fillRect(0, h - 24, chunkW, 24);
+        things.forEach(t => {
+          const x = t.gx - left;
+          if (x < -90 || x > chunkW + 90) return;
+          if (t.tomb) gravestone(g, x, h - 20, t.s, t.type, 0x10122a, 0x0b0c1c);
+          else {                                                            // a tuft of dead grass
+            g.fillStyle(0x0b0c1c, 1);
+            for (let f = -3; f <= 3; f++) {
+              const tx = x + f * 4 + f * t.size * 0.12, ty = h - 22 - t.size * (1 - Math.abs(f) * 0.18);
+              g.fillTriangle(x + f * 3 - 2, h - 20, x + f * 3 + 2, h - 20, tx, ty);
+            }
+          }
+        });
+      }
+    });
+  }
+
+  // 7) FOG: grey-purple puffs drifting low across the graves, pinned to the screen
+  ensureSoftTexture(scene, "grave_fog", 0x8a86b8);
+  for (let i = 0; i < 7; i++) {
+    const fog = scene.add.image((i + 0.5) * camW / 6, camH * (0.7 + random() * 0.2), "grave_fog")
+      .setDisplaySize(320 + random() * 220, 70 + random() * 50).setAlpha(0.12 + random() * 0.08).setScrollFactor(0);
+    scene.tweens.add({ targets: fog, x: fog.x + 70 + random() * 70, duration: 9000 + random() * 7000, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+  }
+
+  // 8) WILL-O'-THE-WISPS: small purple lights floating up between the graves
+  if (!scene.textures.exists("grave_wisp")) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xa98cff, 0.25);
+    g.fillCircle(6, 6, 6);
+    g.fillStyle(0xe8dcff, 1);
+    g.fillCircle(6, 6, 1.8);
+    g.generateTexture("grave_wisp", 12, 12);
+    g.destroy();
+  }
+  scene.add.particles(0, 0, "grave_wisp", {
+    x: { min: 0, max: camW }, y: { min: camH * 0.55, max: camH * 0.95 },
+    lifespan: 4500, speedY: { min: -18, max: -6 }, speedX: { min: -10, max: 10 },
+    scale: { start: 0.6, end: 1.1 }, alpha: { start: 0.8, end: 0 },
+    frequency: 420, advance: 4000, blendMode: "ADD"
+  }).setScrollFactor(0);
+
+  // 9) BATS flapping across the moonlit sky every now and then
+  if (!scene.textures.exists("grave_bat")) {
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x0b0c18, 1);
+    g.fillEllipse(12, 6, 6, 7);
+    g.fillTriangle(12, 5, 0, 1, 4, 9);
+    g.fillTriangle(12, 5, 24, 1, 20, 9);
+    g.fillTriangle(10, 3, 11, 0, 12, 3);                                    // ears
+    g.fillTriangle(12, 3, 13, 0, 14, 3);
+    g.generateTexture("grave_bat", 24, 11);
+    g.destroy();
+  }
+  for (let i = 0; i < 3; i++) {
+    const size = 0.8 + random() * 0.5;
+    const bat = scene.add.image(-40, camH * 0.2, "grave_bat").setScrollFactor(0).setScale(size);
+    scene.tweens.add({ targets: bat, scaleY: size * 0.3, duration: 110, yoyo: true, repeat: -1 });   // flapping
+    const fly = () => {
+      bat.setPosition(-40, camH * (0.12 + Math.random() * 0.32));
+      scene.tweens.add({
+        targets: bat, x: camW + 40, y: bat.y + (Math.random() - 0.5) * 80,
+        duration: 7000 + Math.random() * 5000, delay: 1500 + Math.random() * 6000, ease: "Sine.InOut", onComplete: fly
+      });
+    };
+    fly();
+  }
+}
+
+// 🟫 Graveyard ground: dark earth with buried stones and bones, dead grey grass on top.
+// Returns how far the grass sticks up above the top.
+export function bakeGraveGround(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(5100 + seed * 61);
+  const over = 5;
+  const top = over;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  [[0x3a3c4c, 0], [0x2c2d3c, h / 3], [0x1f2030, (h * 2) / 3]].forEach(([c, y]) => { g.fillStyle(c, 1); g.fillRect(0, top + y, w, h / 3 + 1); });
+  for (let i = 0; i < w / 30; i++) {                                    // buried stones
+    g.fillStyle(rand() < 0.5 ? 0x4a4d60 : 0x55586c, 1);
+    g.fillEllipse(6 + rand() * (w - 12), top + 10 + rand() * (h - 14), 6 + rand() * 7, 3 + rand() * 3);
+  }
+  if (w > 120) {                                                          // a little bone
+    const bx = 20 + rand() * (w - 40), by = top + 16 + rand() * 6;
+    g.fillStyle(0xbab6aa, 1);
+    g.fillRect(bx, by, 12, 2.5);
+    g.fillCircle(bx, by + 0.5, 2); g.fillCircle(bx, by + 2, 2);
+    g.fillCircle(bx + 12, by + 0.5, 2); g.fillCircle(bx + 12, by + 2, 2);
+  }
+  g.fillStyle(0x4a5058, 1);                                               // dead grass, hanging over the edge
+  g.fillRect(0, top, w, 5);
+  for (let x = 0; x <= w; x += 9) g.fillEllipse(x + rand() * 4, top + 5, 12, 3 + rand() * 3);
+  g.fillStyle(0x6a7280, 1);
+  g.fillRect(0, top, w, 1.5);
+  for (let x = 3; x < w - 3; x += 5 + rand() * 7) {                      // tufts
+    g.fillStyle(rand() < 0.15 ? 0x7a6aa8 : 0x5e6672, 1);                 // a few purple ones
+    g.fillTriangle(x - 2, top + 1, x + 2, top + 1, x + (rand() - 0.5) * 4, top - 2 - rand() * 4);
+  }
+  g.generateTexture(key, w, over + h);
+  g.destroy();
+  return over;
+}
+
+// 🪨 A cracked grave slab (Haunted Grounds floating platforms). The illusion platforms and ghost
+// platforms use this exact same picture, so they look completely solid.
+export function bakeTombSlab(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(5300 + seed * 31);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x4e5264, 1);
+  g.fillRect(0, 2, w, h);
+  g.fillStyle(0x767c8e, 1);
+  g.fillRect(0, 0, w, h - 2);
+  g.fillStyle(0x9aa0b0, 1);
+  g.fillRect(0, 0, w, 3);
+  g.lineStyle(1, 0x4e5264, 1);                                            // joints and cracks
+  for (let x = 28 + rand() * 10; x < w - 8; x += 30 + rand() * 10) g.lineBetween(x, 3, x + (rand() - 0.5) * 4, h - 2);
+  g.fillStyle(0x5a5f72, 1);                                               // carved crosses
+  for (let x = 14 + rand() * 6; x < w - 10; x += 26 + rand() * 10) {
+    g.fillRect(x - 1, 6, 2, 8);
+    g.fillRect(x - 3.5, 8, 7, 2);
+  }
+  g.fillStyle(0x4e5264, 1);                                               // chipped corners
+  g.fillTriangle(w, 0, w - 6, 0, w, 6);
+  g.fillTriangle(0, h, 0, h - 5, 5, h);
+  g.fillStyle(0x56606a, 1);                                               // lichen
+  g.fillEllipse(6 + rand() * 10, 1.5, 14, 4);
+  g.generateTexture(key, w, h + 4);
+  g.destroy();
+}
+
+// 🟪 A cursed slab (Haunted Grounds vanishing platforms): darker stone with glowing purple runes
+export function bakeCursedSlab(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const rand = makeRandom(5500 + seed * 23);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x2c2a44, 1);
+  g.fillRect(0, 2, w, h);
+  g.fillStyle(0x454266, 1);
+  g.fillRect(0, 0, w, h - 2);
+  g.fillStyle(0x5e5a86, 1);
+  g.fillRect(0, 0, w, 3);
+  for (let x = 10; x < w - 8; x += 15 + rand() * 6) {                    // runes, with a soft glow behind
+    g.fillStyle(0xa98cff, 0.3);
+    g.fillCircle(x + 2, 10, 5);
+    g.fillStyle(0xd8c8ff, 1);
+    const k = Math.floor(rand() * 3);
+    if (k === 0) { g.fillRect(x, 6, 1.6, 8); g.fillRect(x, 6, 5, 1.6); g.fillRect(x, 10, 4, 1.6); }
+    else if (k === 1) { g.fillTriangle(x - 1, 14, x + 5, 14, x + 2, 6); }
+    else { g.fillRect(x + 1, 6, 1.6, 8); g.fillRect(x - 1, 9, 6, 1.6); }
+  }
+  g.generateTexture(key, w, h + 2);
+  g.destroy();
+}
+
+// ⛓️ An iron-bound stone slab (Haunted Grounds moving platforms)
+export function bakeGraveMovingPlatform(scene, key, w, h, seed) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x3a3e50, 1);
+  g.fillRoundedRect(0, 0, w, h, 3);
+  g.fillStyle(0x5e6476, 1);
+  g.fillRoundedRect(0, 0, w, h - 4, 3);
+  g.fillStyle(0x23252f, 1);                                               // iron bands with rivets
+  [8, w / 2 - 4, w - 16].forEach(bx => {
+    g.fillRect(bx, 0, 8, h - 4);
+    g.fillStyle(0x8a8ea0, 1);
+    g.fillCircle(bx + 4, 4, 1.4);
+    g.fillCircle(bx + 4, h - 8, 1.4);
+    g.fillStyle(0x23252f, 1);
+  });
+  g.fillStyle(0x23252f, 1);                                               // chains hanging off the ends
+  for (let c = 0; c < 3; c++) {
+    g.fillEllipse(3, h + 1 + c * 4, 3, 4);
+    g.fillEllipse(w - 3, h + 1 + c * 4 + (seed % 2) * 2, 3, 4);
+  }
+  g.generateTexture(key, w, h + 14);
+  g.destroy();
+}

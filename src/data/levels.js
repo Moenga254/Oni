@@ -1292,5 +1292,160 @@ export const levels = [
       [5850, 290, 100, 150, 100],
       [7490, 290, 100, 150, 100],
     ]
+  },
+
+  {
+    id: 11,
+    name: "The Haunted Grounds",
+    subtitle: "Level 12",
+    loadingText: "Collect all coins & avoid the skeletons and ghosts. Not every platform is real!",
+
+    // 🪦 An abandoned graveyard under a full moon, in grey, dark blue and a bit of purple.
+    // Its enemies are skeleton warriors and ghosts that fade in and out, and some of its
+    // platforms can't be trusted (illusion, vanishing and ghost platforms; see src/utils/Hazards.js).
+    theme: "graveyard",
+    background: [0x06071a, 0x10163a, 0x262a55, 0x3e3868],   // near-black -> dark blue -> a touch of purple
+    groundColor: 0x3a3c4c,     // graveyard earth
+    platformColor: 0x767c8e,   // grey grave slabs
+
+    worldWidth: 9800,
+    playerStart: [80, 490],
+    flagX: 9700,
+    timeLimit: 210,
+
+    // 🟢 Three checkpoints, about a quarter, half and three quarters of the way, on ground with no enemies
+    checkpoints: [2420, 4680, 6780],
+
+    platforms: [
+      // Graveyard ground: the short gaps (130px) can be jumped; the five wide ones (300px) need the
+      // cursed slab in the middle (a vanishing platform: wait for it to come back before you jump)
+      [0,    570, 500, 30],
+      [630,  570, 340, 30],
+      [1270, 570, 360, 30],
+      [1760, 570, 330, 30],
+      [2220, 570, 400, 30],   // checkpoint 1
+      [2920, 570, 340, 30],
+      [3390, 570, 330, 30],
+      [3850, 570, 330, 30],
+      [4480, 570, 400, 30],   // checkpoint 2
+      [5010, 570, 340, 30],
+      [5480, 570, 330, 30],
+      [6110, 570, 340, 30],
+      [6580, 570, 400, 30],   // checkpoint 3
+      [7110, 570, 340, 30],
+      [7750, 570, 330, 30],
+      [8210, 570, 330, 30],
+      [8670, 570, 330, 30],
+      [9130, 570, 670, 30],   // finish
+
+      // Real grave slabs: a low step and a high step over every stretch of ground
+      [300,  450, 100, 20],
+      [450,  360, 110, 20],
+      [700,  450, 100, 20],
+      [840,  360, 110, 20],
+      [1340, 450, 100, 20],
+      [1490, 360, 110, 20],
+      [1830, 450, 100, 20],
+      [1960, 360, 110, 20],
+      [2290, 450, 100, 20],
+      [2450, 360, 110, 20],
+      [2990, 450, 100, 20],
+      [3130, 360, 110, 20],
+      [3460, 450, 100, 20],
+      [3600, 360, 110, 20],
+      [3920, 450, 100, 20],
+      [4060, 360, 110, 20],
+      [4550, 450, 100, 20],
+      [4720, 360, 110, 20],
+      [5080, 450, 100, 20],
+      [5220, 360, 110, 20],
+      [5550, 450, 100, 20],
+      [5690, 360, 110, 20],
+      [6180, 450, 100, 20],
+      [6320, 360, 110, 20],
+      [6650, 440, 100, 20],
+      [6820, 360, 110, 20],
+      [7180, 450, 100, 20],
+      [7320, 360, 110, 20],
+      [7820, 450, 100, 20],
+      [7950, 360, 110, 20],
+      [8280, 450, 100, 20],
+      [8420, 360, 110, 20],
+      [8740, 450, 100, 20],
+      [8870, 360, 110, 20],
+      [9240, 440, 100, 20],
+    ],
+
+    coins: [
+      [350, 420],  [505, 330],  [750, 420],  [895, 330],  [1120, 470],
+      [1390, 420], [1545, 330], [1880, 420], [2015, 330], [2340, 420],
+      [2505, 330], [2770, 470], [3040, 420], [3185, 330], [3510, 420],
+      [3655, 330], [3970, 420], [4115, 330], [4330, 470], [4600, 420],
+      [4775, 330], [5130, 420], [5275, 330], [5600, 420], [5745, 330],
+      [5960, 470], [6230, 420], [6375, 330], [6700, 410], [6875, 330],
+      [7230, 420], [7375, 330], [7600, 470], [7870, 420], [8005, 330],
+      [8330, 420], [8475, 330], [8790, 420], [8925, 330], [9290, 410],
+    ],
+
+    // [x, y, patrolLeft, patrolRight, speed, colour, kind, easiestMode?]
+    //   "skeleton" = a skeleton warrior that rattles along the ground
+    //   "ghost"    = floats at its own height (y) and keeps fading away (harmless) and back (dangerous)
+    //   easiestMode: the enemy only appears on that difficulty and harder ones
+    enemies: [
+      [400,  540, 330,  480,  60,  0xe8e4d8, "skeleton"],
+      [800,  515, 700,  940,  55,  0xcfd6ff, "ghost"],
+      [1400, 540, 1300, 1600, 75,  0xe8e4d8, "skeleton"],
+      [1900, 515, 1790, 2060, 60,  0xcfd6ff, "ghost"],
+      [2000, 540, 1790, 2060, 80,  0xe8e4d8, "skeleton", "normal"],
+      [3100, 540, 2950, 3230, 80,  0xe8e4d8, "skeleton"],
+      [3500, 500, 3420, 3690, 60,  0xcfd6ff, "ghost"],
+      [3950, 540, 3880, 4150, 85,  0xe8e4d8, "skeleton"],
+      [4080, 430, 3880, 4150, 55,  0xcfd6ff, "ghost", "normal"],
+      [5100, 515, 5040, 5320, 60,  0xcfd6ff, "ghost"],
+      [5250, 540, 5040, 5320, 85,  0xe8e4d8, "skeleton"],
+      [5600, 540, 5510, 5780, 90,  0xe8e4d8, "skeleton"],
+      [6200, 515, 6140, 6420, 65,  0xcfd6ff, "ghost"],
+      [6350, 540, 6140, 6420, 85,  0xe8e4d8, "skeleton", "normal"],
+      [7200, 500, 7140, 7420, 65,  0xcfd6ff, "ghost"],
+      [7350, 540, 7140, 7420, 90,  0xe8e4d8, "skeleton"],
+      [7850, 540, 7780, 8050, 95,  0xe8e4d8, "skeleton"],
+      [7980, 430, 7780, 8050, 60,  0xcfd6ff, "ghost", "normal"],
+      [8300, 540, 8240, 8510, 95,  0xe8e4d8, "skeleton"],
+      [8450, 515, 8240, 8510, 65,  0xcfd6ff, "ghost"],
+      [8760, 540, 8700, 8970, 100, 0xe8e4d8, "skeleton"],
+      [8900, 515, 8700, 8970, 70,  0xcfd6ff, "ghost", "hard"],
+      // skeletons up on the high slabs (Normal and Hard only)
+      [1545, 341, 1500, 1590, 40,  0xe8e4d8, "skeleton", "normal"],
+      [5275, 341, 5230, 5320, 40,  0xe8e4d8, "skeleton", "normal"],
+      [7375, 341, 7330, 7420, 45,  0xe8e4d8, "skeleton", "normal"],
+      // (checkpoint ground 2220-2620, 4480-4880 and 6580-6980, and the finish, have no enemies)
+    ],
+
+    // 👻 Illusion platforms: [x, y, width]. They look exactly like the real slabs, but your feet go
+    // straight through; they dissolve into purple mist and re-form a couple of seconds later.
+    // The tell: every few seconds a faint purple shimmer runs over them.
+    illusionPlatforms: [
+      [515,  500, 100], [3275, 500, 100], [5365, 500, 100], [8555, 500, 100],   // "bridges" over short pits
+      [1330, 270, 100], [3410, 270, 100], [5030, 270, 100], [7130, 270, 100], [8230, 270, 100],   // above the high slabs
+    ],
+    // 🟪 Vanishing platforms: [x, y, width]. Cursed slabs with glowing runes over the wide pits. They
+    // flicker as a warning, fade away, then come back.
+    vanishingPlatforms: [
+      [1070, 500, 100], [2720, 500, 100], [4280, 500, 100], [5910, 500, 100], [7550, 500, 100],
+    ],
+    // 🌫️ Ghost platforms: [x, y, width]. They fade away when you come near and come back when you
+    // move away, so they can never hold you. The tell: wisps of mist leak from underneath.
+    ghostPlatforms: [
+      [1645, 470, 100], [2105, 470, 100], [3735, 470, 100], [6465, 470, 100], [9015, 470, 100],
+    ],
+
+    // [x, y, width, moveX, speed]: iron-bound slabs gliding above the wide pits
+    movingPlatforms: [
+      [1010, 300, 100, 150, 90],
+      [2660, 290, 100, 150, 100],
+      [4220, 300, 100, 150, 90],
+      [5850, 290, 100, 150, 100],
+      [7490, 290, 100, 150, 100],
+    ]
   }
 ];

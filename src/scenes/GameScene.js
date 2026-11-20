@@ -7,9 +7,10 @@ import {
   drawVolcanoBackdrop, bakeBasaltPlatform, bakeObsidianPlatform,
   drawSwampBackdrop, bakeMudPlatform, bakeMossyLogPlatform, bakeRustyPlatform,
   drawDesertBackdrop, bakeDesertGround, bakeRuinBlock, bakeCarpetPlatform, bakeCityMovingPlatform, drawCityBackdrop,
-  drawTempleBackdrop, bakeTempleGround, bakeTempleBlock, bakeTempleMovingPlatform
+  drawTempleBackdrop, bakeTempleGround, bakeTempleBlock, bakeTempleMovingPlatform,
+  drawGraveyardBackdrop, bakeGraveGround, bakeTombSlab, bakeGraveMovingPlatform
 } from "../utils/Backdrops.js";
-import { setupVolcanoHazards, setupSwampHazards, setupDesertHazards, setupCityHazards, setupTempleHazards } from "../utils/Hazards.js";
+import { setupVolcanoHazards, setupSwampHazards, setupDesertHazards, setupCityHazards, setupTempleHazards, setupGraveyardHazards } from "../utils/Hazards.js";
 import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
@@ -41,7 +42,7 @@ function withRoomAtStart(level, screenWidth) {
     fallingRocks: (level.fallingRocks || []).map(x => x + extra),
   };
   ["lavaPools", "toxicPools", "quicksand", "crumblingPlatforms", "breakingPlatforms", "sinkingPlatforms", "collapsingBlocks", "collapsingPlatforms", "electricalTraps", "exposedCables",
-   "spikePits", "floorSpikes", "spikeTraps", "poisonPlants"]
+   "spikePits", "floorSpikes", "spikeTraps", "poisonPlants", "illusionPlatforms", "vanishingPlatforms", "ghostPlatforms"]
     .forEach(key => { if (level[key]) moved[key] = level[key].map(moveX); });
 
   // Stretch the first piece of ground back to the left edge, so there's solid ground behind the player
@@ -54,9 +55,15 @@ function withRoomAtStart(level, screenWidth) {
 const ENEMY_DRAW = {
   fish: "drawFish", snake: "drawSnake", lava: "drawLavaCreature", demon: "drawFireDemon",
   frog: "drawMutantFrog", bug: "drawToxicBug", scorpion: "drawScorpion", sand: "drawSandCreature",
-  mutant: "drawMutatedCreature", robot: "drawRobotGuard", guard: "drawStoneGuard", viper: "drawViper", slime: "drawEnemy"
+  mutant: "drawMutatedCreature", robot: "drawRobotGuard", guard: "drawStoneGuard", viper: "drawViper",
+  skeleton: "drawSkeleton", ghost: "drawGhost", slime: "drawEnemy"
 };
 const ENEMY_PICTURE_SIZE = 72;   // big enough for the largest enemy drawing, with room to spare
+// 💀 Skeleton walk: 8 poses make one full stride (two steps), and one stride covers this many pixels.
+// The pose is picked from how far the skeleton has actually walked, so its feet always keep pace with
+// its speed (a faster skeleton takes quicker steps, and it stands still when it stops).
+const SKELETON_POSES = 8;
+const SKELETON_STRIDE = 34;
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -104,6 +111,9 @@ export default class GameScene extends Phaser.Scene {
     if (levelData.theme === "grass") {
       // ☀️ Grasslands: sun, snowy mountains, rolling hills with trees, fluffy clouds, birds (see src/utils/Backdrops.js)
       drawGrasslandsBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    } else if (levelData.theme === "graveyard") {
+      // 🪦 The Haunted Grounds: full moon, chapel on the hill, gravestones, crypts, fog, wisps and bats (see src/utils/Backdrops.js)
+      drawGraveyardBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
     } else if (levelData.theme === "temple") {
       // 🏛️ Lost Civilization: jungle canopy, shafts of sunlight, temple pyramids, ruins, vines and golden dust (see src/utils/Backdrops.js)
       drawTempleBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
@@ -179,6 +189,8 @@ export default class GameScene extends Phaser.Scene {
     const city = levelData.theme === "city";
     // 🏛️ In the Lost Civilization, the ground is mossy temple floor and the floating platforms are carved stones
     const temple = levelData.theme === "temple";
+    // 🪦 In the Haunted Grounds, the ground is graveyard earth and the floating platforms are grave slabs
+    const graveyard = levelData.theme === "graveyard";
 
     this.plainPlatforms = [];   // the ones drawn as shapes, which moveWorld() hides while off screen
 
@@ -187,6 +199,15 @@ export default class GameScene extends Phaser.Scene {
         const key = `grass_platform_${i}`;
         const over = bakeGrassPlatform(this, key, w, h, h < 30, i);
         this.add.image(x, y - over, key).setOrigin(0, 0);
+      } else if (graveyard) {
+        const key = `grave_platform_${i}`;
+        if (h >= 30) {
+          const over = bakeGraveGround(this, key, w, h, i);
+          this.add.image(x, y - over, key).setOrigin(0, 0);
+        } else {
+          bakeTombSlab(this, key, w, h, i);
+          this.add.image(x, y, key).setOrigin(0, 0);
+        }
       } else if (temple) {
         const key = `temple_platform_${i}`;
         if (h >= 30) {
@@ -250,7 +271,7 @@ export default class GameScene extends Phaser.Scene {
     // 🕳️ On the Grasslands and in the Lost Sands the hills / dunes behind would make gaps in the ground
     // look like solid ground, so each gap gets a dark pit, making it obvious there's nothing to stand on
     // (gaps filled with quicksand are drawn by the quicksand itself)
-    if (grassy || desert || temple) {
+    if (grassy || desert || temple || graveyard) {
       const ground = platformData.filter(([, , , h]) => h >= 30).sort((a, b) => a[0] - b[0]);
       const quicksand = levelData.quicksand || [];
       const pits = this.add.graphics();
@@ -258,9 +279,9 @@ export default class GameScene extends Phaser.Scene {
         const [gx, gy, gw] = ground[i];
         const gapX = gx + gw, gapW = ground[i + 1][0] - gapX;
         if (gapW <= 0 || quicksand.some(([qx]) => qx === gapX)) continue;
-        pits.fillStyle(desert ? 0x4a2a12 : temple ? 0x2a1c0e : 0x2b1a0e, 1);
+        pits.fillStyle(desert ? 0x4a2a12 : temple ? 0x2a1c0e : graveyard ? 0x15162a : 0x2b1a0e, 1);
         pits.fillRect(gapX, gy + 8, gapW, WORLD_HEIGHT - gy);
-        pits.fillStyle(desert ? 0x24140a : temple ? 0x120c06 : 0x120a05, 1);
+        pits.fillStyle(desert ? 0x24140a : temple ? 0x120c06 : graveyard ? 0x07070f : 0x120a05, 1);
         pits.fillRect(gapX + 4, gy + 14, gapW - 8, WORLD_HEIGHT - gy);
       }
     }
@@ -291,6 +312,10 @@ export default class GameScene extends Phaser.Scene {
         // ☁️ little clouds to ride on
         overY = bakeCloudPlatform(this, `cloud_platform_${i}`, w, h, i);
         gfx = this.add.image(x, y - overY, `cloud_platform_${i}`).setOrigin(0, 0);
+      } else if (graveyard) {
+        // ⛓️ iron-bound stone slabs
+        bakeGraveMovingPlatform(this, `grave_moving_platform_${i}`, w, h, i);
+        gfx = this.add.image(x, y, `grave_moving_platform_${i}`).setOrigin(0, 0);
       } else if (temple) {
         // 🟨 stone slabs banded with gold
         bakeTempleMovingPlatform(this, `temple_moving_platform_${i}`, w, h, i);
@@ -385,16 +410,19 @@ export default class GameScene extends Phaser.Scene {
     //   🏜️ sand  (Lost Sands): burrows under the sand (harmless) and bursts out again (dangerous)
     //   🗿 guard (Lost Civilization): a stone statue that wakes up and marches when you come close
     //   🐍 viper (Lost Civilization): a poisonous snake
+    //   💀 skeleton (Haunted Grounds): a skeleton warrior with a rusty sword, rattling along the ground
+    //   👻 ghost (Haunted Grounds): floats at its own height and keeps fading away (harmless) and back (dangerous)
     //   slime   (every other level)
-    const levelKind = { sea: "fish", forest: "snake", volcano: "lava", swamp: "frog", desert: "scorpion", temple: "viper" }[levelData.theme] || "slime";
+    const levelKind = { sea: "fish", forest: "snake", volcano: "lava", swamp: "frog", desert: "scorpion", temple: "viper", graveyard: "skeleton" }[levelData.theme] || "slime";
     const HITBOX = {
       fish: [28, 20], snake: [34, 16], lava: [32, 20], demon: [26, 26], frog: [30, 22], bug: [24, 18],
-      scorpion: [34, 18], sand: [28, 26], mutant: [32, 28], robot: [30, 34], guard: [30, 38], viper: [34, 16], slime: [28, 28]
+      scorpion: [34, 18], sand: [28, 26], mutant: [32, 28], robot: [30, 34], guard: [30, 38], viper: [34, 16],
+      skeleton: [24, 38], ghost: [26, 28], slime: [28, 28]
     };
 
     enemyData.forEach(([x, y, left, right, speed, color, ownKind, , platformIndex], i) => {
       const kind = HITBOX[ownKind] ? ownKind : levelKind;
-      const floats = kind === "fish" || kind === "demon" || kind === "bug";
+      const floats = kind === "fish" || kind === "demon" || kind === "bug" || kind === "ghost";
       const movingPlatform = Number.isInteger(platformIndex) ? this.movingPlatforms[platformIndex] : null;
       const enemySpeed = scaleEnemySpeed(speed, this.difficulty.enemySpeed);   // Easy slower, Hard faster
       // ⚡ a ready-made picture of this kind of enemy (see enemyTexture), not shapes redrawn every frame
@@ -419,10 +447,11 @@ export default class GameScene extends Phaser.Scene {
         platformOffsetX: movingPlatform ? x - movingPlatform.body.x : 0,
         platformDirection: 1, direction: 1, bobPhase: i * 1.7, nextHop: 800 + i * 300
       };
-      if (kind === "sand") {                     // sand creatures start out of the sand, on a staggered timer
+      if (kind === "sand" || kind === "ghost") { // sand creatures and ghosts start out visible, on a staggered timer
         enemy.burrowed = false;
         enemy.nextSwitch = 1500 + i * 400;
       }
+      if (kind === "ghost") gfx.setAlpha(0.92);
       body.enemyRef = enemy;                     // so hitEnemy can tell which enemy you touched
       this.enemies.push(enemy);
     });
@@ -478,6 +507,8 @@ export default class GameScene extends Phaser.Scene {
     if (city) setupCityHazards(this, levelData, this.difficultyKey, this.movingPlatforms);
     // 🏛️ Spike pits, spike traps, poisonous plants and falling stones (see src/utils/Hazards.js)
     if (temple) setupTempleHazards(this, levelData, this.difficultyKey);
+    // 🪦 Illusion, vanishing and ghost platforms (see src/utils/Hazards.js)
+    if (graveyard) setupGraveyardHazards(this, levelData, this.difficultyKey);
 
     // 🚩 Finish flag
     this.flag = this.add.graphics();
@@ -830,9 +861,9 @@ export default class GameScene extends Phaser.Scene {
   // ⚡ Returns the name of a picture of this enemy, drawing it the first time it is asked for.
   // Every enemy of the same kind and colour then shares that one picture, which is far cheaper
   // than rebuilding each enemy from shapes on every frame.
-  // variant: only used by sand creatures (true = burrowed under the sand)
+  // variant: sand creatures (true = burrowed), stone guards (true = asleep), skeletons (walk pose 0-7)
   enemyTexture(kind, color, variant = false) {
-    const key = `enemy_${kind}_${color}_${variant ? 1 : 0}`;
+    const key = `enemy_${kind}_${color}_${Number(variant) || 0}`;
     if (!this.textures.exists(key)) {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
       // The drawings are centred on (0, 0), so shift everything to the middle of the picture first.
@@ -906,6 +937,83 @@ export default class GameScene extends Phaser.Scene {
     gfx.fillRoundedRect(3, 17, 7, 5, 2);
     gfx.fillStyle(0x3de0ff, 1);
     gfx.fillCircle(0, 9, 2);
+  }
+
+  // 💀 Draw a skeleton warrior facing right, with glowing purple eyes and a rusty sword
+  // pose (0-7) is one of 8 moments in a full stride (two steps). Pose 0 is the original drawing:
+  // front foot forward, back foot behind. See SKELETON_POSES and moveWorld() for how it is used.
+  drawSkeleton(gfx, color, pose = 0) {
+    gfx.clear();
+    const shade = Phaser.Display.Color.IntegerToColor(color).darken(25).color;
+    const t = (pose / SKELETON_POSES) * Math.PI * 2;          // where we are in the stride
+    const swing = Math.cos(t), forward = -Math.sin(t);        // swing: leg position; forward > 0 = front leg moving forward
+    // Each leg: hip -> knee -> foot. The leg that is swinging forward lifts its foot and bends its knee.
+    const leg = (hipX, footX, lift, lineColor) => {
+      const footY = 19 - lift;
+      const kneeX = (hipX + footX) / 2 + 1.5 + lift * 0.6, kneeY = 13 - lift * 0.5;   // knees bend forward
+      gfx.lineStyle(3, lineColor, 1);
+      gfx.lineBetween(hipX, 7, kneeX, kneeY);
+      gfx.lineBetween(kneeX, kneeY, footX, footY);
+      gfx.fillStyle(lineColor, 1);
+      gfx.fillEllipse(footX + (footX < 0 ? -1 : 1), footY, 6, 3);   // foot
+    };
+    leg(-3, -6 * swing, Math.max(0, -forward) * 4, shade);    // back leg (a shade darker, it is further away)
+    leg(3, 6 * swing, Math.max(0, forward) * 4, color);       // front leg
+    gfx.fillStyle(color, 1);
+    gfx.fillRoundedRect(-6, 3, 12, 5, 2);                     // hips
+    gfx.lineStyle(2.5, color, 1);
+    gfx.lineBetween(0, -6, 0, 4);                             // spine
+    gfx.lineStyle(2, color, 1);                               // ribs
+    [-4, -1, 2].forEach(y => gfx.lineBetween(-6, y, 6, y));
+    // Arms swing the opposite way to the legs: the back arm swings wide, the sword arm only a little
+    const backHandX = -7 - 3 * swing, backHandY = 4 - Math.abs(swing) * 0.5;
+    gfx.lineStyle(2, shade, 1);
+    gfx.lineBetween(-7, -5, -8.5 - 1.5 * swing, -0.5);        // back arm: upper arm, then forearm
+    gfx.lineBetween(-8.5 - 1.5 * swing, -0.5, backHandX, backHandY);
+    const handX = 9 + 2 * swing, handY = 1 - (1 - Math.abs(swing)) * 1;   // sword hand
+    const sx = handX - 11, sy = handY - 1;                    // move the sword along with the hand
+    gfx.lineStyle(2.5, color, 1);
+    gfx.lineBetween(6, -5, handX, handY);                     // sword arm
+    gfx.lineStyle(2.5, 0x8a8f9e, 1);                          // the rusty sword
+    gfx.lineBetween(12 + sx, 1 + sy, 23 + sx, -13 + sy);
+    gfx.lineStyle(1.2, 0xb46a3a, 1);
+    gfx.lineBetween(15 + sx, -3 + sy, 19 + sx, -8 + sy);
+    gfx.lineStyle(2.5, 0x5a4a3a, 1);
+    gfx.lineBetween(9 + sx, -2 + sy, 15 + sx, 4 + sy);        // hilt
+    gfx.fillStyle(color, 1);                                  // skull
+    gfx.fillCircle(1, -12, 7.5);
+    gfx.fillRoundedRect(-2, -8, 9, 5, 2);                     // jaw
+    gfx.fillStyle(0x1a1a2e, 1);
+    gfx.fillCircle(-1, -13, 2.4);                             // eye sockets
+    gfx.fillCircle(5, -13, 2.4);
+    gfx.fillRect(0, -7, 1, 2); gfx.fillRect(3, -7, 1, 2);     // teeth gaps
+    gfx.fillStyle(0xc8a8ff, 1);                               // a purple glow in each eye
+    gfx.fillCircle(-1, -13, 1);
+    gfx.fillCircle(5, -13, 1);
+    gfx.fillStyle(0x5a4a7a, 1);                               // a tattered helmet
+    gfx.fillRect(-6, -20, 14, 3);
+    gfx.fillTriangle(-6, -20, 8, -20, 1, -24);
+  }
+
+  // 👻 Draw a floating ghost facing right: a soft glow, a wavy tail, hollow eyes and an open mouth
+  drawGhost(gfx, color) {
+    gfx.clear();
+    gfx.fillStyle(0xa07ae0, 0.18);                            // purple glow around it
+    gfx.fillCircle(0, -2, 22);
+    gfx.fillStyle(0xa07ae0, 0.18);
+    gfx.fillCircle(0, -2, 17);
+    gfx.fillStyle(color, 0.95);
+    gfx.fillCircle(0, -5, 13);                                // head
+    gfx.fillRect(-13, -5, 26, 13);                            // body
+    gfx.fillTriangle(-13, 8, -6, 8, -10, 16);                 // wavy tail
+    gfx.fillTriangle(-6, 8, 2, 8, -2, 15);
+    gfx.fillTriangle(2, 8, 13, 8, 9, 17);
+    gfx.fillStyle(0xffffff, 0.35);                            // a pale shine
+    gfx.fillEllipse(-5, -11, 7, 4);
+    gfx.fillStyle(0x16142a, 1);
+    gfx.fillEllipse(0, -5, 5, 7);                             // eyes
+    gfx.fillEllipse(8, -5, 5, 7);
+    gfx.fillEllipse(5, 3, 5, 6);                              // mouth
   }
 
   // 🗿 Draw a stone temple guard. asleep = true draws it as a lifeless statue (dark eyes);
@@ -1335,6 +1443,39 @@ export default class GameScene extends Phaser.Scene {
       if (enemy.kind === "fish") {
         enemy.gfx.y = enemy.body.y + wave * 3;
         enemy.gfx.setScale(enemy.direction, 1);
+      } else if (enemy.kind === "ghost") {
+        // fades away (harmless) for a while, then comes back (dangerous); like the sand creatures burrowing
+        if (this.time.now > enemy.nextSwitch) {
+          const fading = !enemy.ghostHidden;
+          enemy.ghostHidden = fading;
+          enemy.nextSwitch = this.time.now + (fading ? 1600 : 2600) + Math.random() * 700;
+          this.tweens.killTweensOf(enemy.gfx);
+          if (fading) {
+            enemy.burrowed = true;
+            this.tweens.add({ targets: enemy.gfx, alpha: 0.1, duration: 350 });
+          } else {
+            // it only becomes dangerous once it has fully appeared again
+            this.tweens.add({ targets: enemy.gfx, alpha: 0.92, duration: 350, onComplete: () => { if (!enemy.ghostHidden) enemy.burrowed = false; } });
+          }
+        }
+        enemy.gfx.y = enemy.body.y + Math.sin(this.time.now / 400 + enemy.bobPhase) * 6;
+        enemy.gfx.setScale(enemy.direction, 1);
+      } else if (enemy.kind === "skeleton") {
+        // 🚶 walk cycle: count the distance it has really moved, and turn that into a pose (0-7)
+        if (enemy.lastX === undefined) { enemy.lastX = enemy.body.x; enemy.walked = enemy.bobPhase * 10; enemy.pose = 0; }
+        enemy.walked += Math.abs(enemy.body.x - enemy.lastX);
+        enemy.lastX = enemy.body.x;
+        const stride = (enemy.walked / SKELETON_STRIDE) % 1;          // 0 -> 1 over one full stride
+        const pose = Math.floor(stride * SKELETON_POSES);
+        if (pose !== enemy.pose) {                                    // only swap the picture when the pose changes
+          enemy.pose = pose;
+          enemy.gfx.setTexture(this.enemyTexture("skeleton", enemy.color, pose));
+        }
+        // the body is lowest when the feet are apart and rises as the legs pass each other: twice per stride
+        const legsApart = Math.abs(Math.cos(stride * Math.PI * 2));
+        enemy.gfx.y = enemy.body.y - (1 - legsApart) * 2.5;
+        enemy.gfx.setScale(enemy.direction, 1);
+        enemy.gfx.angle = enemy.direction * (1.5 + Math.sin(stride * Math.PI * 4) * 1);   // leans into the walk, rocking a little each step
       } else if (enemy.kind === "guard") {
         // a statue until you come close; then its eyes light up and it marches
         const awake = Math.abs(this.player.x - enemy.body.x) < 300;
@@ -1435,7 +1576,7 @@ export default class GameScene extends Phaser.Scene {
 
   hitEnemy(player, enemyBody) {
     if (this.invincible) return;
-    if (enemyBody.enemyRef && enemyBody.enemyRef.burrowed) return;   // a sand creature under the sand can't hurt you
+    if (enemyBody.enemyRef && enemyBody.enemyRef.burrowed) return;   // a sand creature under the sand (or a faded ghost) can't hurt you
     this.loseLife("enemy");
   }
 
