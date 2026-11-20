@@ -29,6 +29,7 @@ export const THEMES = {
   desert:  { accent: 0xf0b840, sky: [0xd9772b, 0xffe0a0] },
   city:    { accent: 0x3de0ff, sky: [0x05070f, 0x1a2a55] },
   temple:  { accent: 0xe8b83a, sky: [0x12301a, 0xc9962e] },
+  graveyard: { accent: 0xa98cff, sky: [0x06071a, 0x3e3868] },
 };
 
 // Grasslands and Sky Kingdom have no theme in levels.js; give them one here for their pictures
@@ -567,6 +568,32 @@ function drawLevelPicture(g, theme, x, y, w, h, sky, index) {
     hills(g, x, w, bottom, bottom - 9, 3, 18, 3, 0xc8843e);
     g.fillStyle(0x3a2414, 0.85);                                                // a vulture
     g.fillTriangle(x + 92, y + 30, x + 102, y + 26, x + 98, y + 32); g.fillTriangle(x + 102, y + 26, x + 112, y + 30, x + 104, y + 32);
+  }
+
+  if (theme === "graveyard") {
+    // a full moon over gravestones, a crooked tree, an iron fence and a ghost
+    g.fillStyle(0xb4b0ff, 0.2); g.fillCircle(x + w - 56, y + 34, 30);
+    g.fillStyle(0xf3f1e8, 1);   g.fillCircle(x + w - 56, y + 34, 18);
+    g.fillStyle(0xdcd9cf, 1);   g.fillCircle(x + w - 62, y + 30, 4); g.fillCircle(x + w - 50, y + 40, 3);
+    g.fillStyle(0xdfe4ff, 0.8);
+    for (let i = 0; i < 12; i++) g.fillCircle(x + 8 + rand() * (w - 16), y + 6 + rand() * 40, 0.6 + rand() * 0.6);
+    hills(g, x, w, bottom, bottom - 22, 5, 30, 0.5, 0x1d2140);
+    g.lineStyle(3, 0x0e1024, 1); g.lineBetween(x + 40, bottom - 20, x + 46, bottom - 70);                   // tree
+    g.lineStyle(1.6, 0x0e1024, 1);
+    g.lineBetween(x + 44, bottom - 50, x + 30, bottom - 62); g.lineBetween(x + 45, bottom - 60, x + 60, bottom - 72); g.lineBetween(x + 46, bottom - 68, x + 40, bottom - 80);
+    [[x + 84, 0], [x + 118, 1], [x + 150, 0], [x + 186, 2]].forEach(([gx, k]) => {                          // gravestones
+      g.fillStyle(0x3a4062, 1);
+      if (k === 0) { g.fillRect(gx - 8, bottom - 30, 16, 18); g.fillCircle(gx, bottom - 30, 8); }
+      else if (k === 1) { g.fillRect(gx - 2, bottom - 38, 4, 26); g.fillRect(gx - 8, bottom - 32, 16, 4); }
+      else { g.fillRect(gx - 5, bottom - 42, 10, 30); g.fillTriangle(gx - 5, bottom - 42, gx + 5, bottom - 42, gx, bottom - 50); }
+    });
+    g.fillStyle(0x161a30, 1);                                                                                  // fence
+    for (let fx = x + 6; fx < x + 70; fx += 7) g.fillRect(fx, bottom - 30, 2, 18);
+    g.fillRect(x + 6, bottom - 25, 64, 2);
+    g.fillStyle(0x0b0c1c, 1); g.fillRect(x, bottom - 12, w, 12);
+    g.fillStyle(0xcfd6ff, 0.85); g.fillCircle(x + 132, y + 48, 9); g.fillRect(x + 123, y + 48, 18, 9);          // ghost
+    g.fillTriangle(x + 123, y + 57, x + 129, y + 57, x + 126, y + 63); g.fillTriangle(x + 135, y + 57, x + 141, y + 57, x + 138, y + 63);
+    g.fillStyle(0x16142a, 1); g.fillCircle(x + 129, y + 47, 1.8); g.fillCircle(x + 135, y + 47, 1.8);
   }
 
   if (theme === "temple") {

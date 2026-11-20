@@ -1,6 +1,6 @@
-import { bakeCrumblePlatform, bakeRottenPlankPlatform, bakeRaftPlatform, bakeCrackedSandstone, bakeCrackedTempleSlab } from "./Backdrops.js";
+import { bakeCrumblePlatform, bakeRottenPlankPlatform, bakeRaftPlatform, bakeCrackedSandstone, bakeCrackedTempleSlab, bakeTombSlab, bakeCursedSlab } from "./Backdrops.js";
 
-// 🌋☣️🏜️⚡ Hazards for Magma Falls, Toxic Swamp, Lost Sands and Urban Nightmare: pools you must not touch,
+// 🌋☣️🏜️⚡🏛️🪦 Hazards for Magma Falls, Toxic Swamp, Lost Sands, Urban Nightmare, Lost Civilization and The Haunted Grounds: pools you must not touch,
 // falling rocks, collapsing platforms, electrical traps, exposed cables and quicksand. Everything runs on the scene's own clock
 // (scene.time / tweens / the scene's update), so it all stops while the game is paused.
 
@@ -34,6 +34,12 @@ const TIMING = {
     easy:   { crumble: 3000, rockWarn: 1300, rockCooldown: 5200, spikeWarn: 1500, spikeOut: 1000, spikeOff: 2200, plantWarn: 1200, plantCloud: 1100, plantRest: 2600 },
     normal: { crumble: 2500, rockWarn: 1000, rockCooldown: 4200, spikeWarn: 1200, spikeOut: 1200, spikeOff: 1700, plantWarn: 1000, plantCloud: 1400, plantRest: 2100 },
     hard:   { crumble: 2000, rockWarn: 750,  rockCooldown: 3400, spikeWarn: 950,  spikeOut: 1400, spikeOff: 1200, plantWarn: 800,  plantCloud: 1700, plantRest: 1600 },
+  },
+  //                     illusion re-forms after   vanishing: solid, warning, gone          ghost platform: fades when you are this close, returns when this far
+  graveyard: {
+    easy:   { reform: 3000, vanishSolid: 3200, vanishWarn: 1200, vanishGone: 1500, ghostNear: 110, ghostFar: 200 },
+    normal: { reform: 2500, vanishSolid: 2600, vanishWarn: 1000, vanishGone: 1800, ghostNear: 130, ghostFar: 220 },
+    hard:   { reform: 2000, vanishSolid: 2000, vanishWarn: 800,  vanishGone: 2000, ghostNear: 150, ghostFar: 240 },
   },
 };
 const PLATFORM_RETURN_MS = 3000;   // a collapsed platform comes back after this long
@@ -109,6 +115,15 @@ export function setupTempleHazards(scene, levelData, difficultyKey) {
   addPoisonPlants(scene, levelData.poisonPlants || [], timing);
   addCrumblingPlatforms(scene, levelData.crumblingPlatforms || [], timing, CRUMBLE_LOOKS.temple);
   addFallingRocks(scene, levelData.fallingRocks || [], timing, ROCK_LOOKS.temple);
+}
+
+// 🪦 The Haunted Grounds: illusion platforms, vanishing platforms and ghost platforms
+export function setupGraveyardHazards(scene, levelData, difficultyKey) {
+  const timing = TIMING.graveyard[difficultyKey] || TIMING.graveyard.normal;
+  makeGraveTextures(scene);
+  addIllusionPlatforms(scene, levelData.illusionPlatforms || [], timing);
+  addVanishingPlatforms(scene, levelData.vanishingPlatforms || [], timing);
+  addGhostPlatforms(scene, levelData.ghostPlatforms || [], timing);
 }
 
 function bakeCityMovingPlatform(scene, key, w, h, seed) {
@@ -903,6 +918,168 @@ function addPoisonPlants(scene, plants, timing) {
         scene.tweens.add({ targets: p.cloud, scaleX: 0.95, scaleY: 0.8, duration: 220, ease: "Quad.Out" });
       } else {                                                          // the cloud fades away
         scene.tweens.add({ targets: p.cloud, alpha: 0, duration: 300 });
+      }
+    });
+  };
+  scene.events.on("update", update);
+  scene.events.once("shutdown", () => scene.events.off("update", update));
+}
+
+// ─── The Haunted Grounds: platforms you cannot trust ─────────────────────────────────────────
+// Three kinds. All of them can be spotted by an observant player:
+//   👻 illusion platforms look exactly like the real grave slabs, but every few seconds a faint
+//      purple shimmer runs over them. Land on one and your feet go straight through it; it
+//      dissolves into purple mist and re-forms a couple of seconds later.
+//   🟪 vanishing platforms are cursed slabs with glowing runes. On a timer they flicker (the
+//      warning), fade away, then come back.
+//   🌫️ ghost platforms also look like real slabs, but thin wisps of mist keep leaking from
+//      underneath. They fade away when you come close, and come back once you move away.
+const SLAB_H = 20;
+
+function makeGraveTextures(scene) {
+  makeBubbleTexture(scene, "grave_mist", 0xa07ae0, 0xe4d4ff);
+}
+
+// A puff of purple mist across a platform (when it dissolves or re-forms)
+function mistPuff(scene, x, y, w, inward = false) {
+  for (let i = 0; i < Math.max(8, w / 8); i++) {
+    const px = x + Math.random() * w, py = y + Math.random() * SLAB_H;
+    const dx = (Math.random() - 0.5) * 50, dy = -10 - Math.random() * 30;
+    const bit = scene.add.image(inward ? px + dx : px, inward ? py + dy : py, "grave_mist").setScale(0.8 + Math.random() * 1.2).setAlpha(inward ? 0 : 0.9);
+    scene.tweens.add({
+      targets: bit, x: inward ? px : px + dx, y: inward ? py : py + dy, alpha: inward ? 0.9 : 0, scale: inward ? 0.6 : 2,
+      duration: 500 + Math.random() * 300, ease: "Quad.Out", onComplete: () => bit.destroy()
+    });
+  }
+}
+
+// Is the player overlapping this rectangle? (used before bringing a platform back)
+function playerInside(scene, x, y, w, h) {
+  const pb = scene.player.body;
+  return pb.right > x && pb.left < x + w && pb.bottom > y && pb.top < y + h;
+}
+
+// ─── Illusion platforms ──────────────────────────────────────────────────────────────────────
+// [x, y, width]. No physics body at all, so nothing can stand on them. A little code watches the
+// player's feet: if they were above the top last frame and are below it now (inside its width),
+// the player has just "landed" on it, so it dissolves.
+function addIllusionPlatforms(scene, list, timing) {
+  const fakes = list.map(([x, y, w], i) => {
+    const key = `illusion_platform_${i}`;
+    bakeTombSlab(scene, key, w, SLAB_H, 40 + i);
+    const image = scene.add.image(x, y, key).setOrigin(0, 0);
+    const shimmer = scene.add.rectangle(x + w / 2, y + SLAB_H / 2, w, SLAB_H, 0xc8a8ff, 0).setBlendMode("ADD");   // the tell
+    return { x, y, w, image, shimmer, state: "solid", nextShimmer: 1500 + i * 700, wasAbove: true };
+  });
+
+  const update = time => {
+    const pb = scene.player.body;
+    fakes.forEach(f => {
+      if (f.state === "solid" && time > f.nextShimmer) {                   // 👀 the tell: a quick faint shimmer
+        f.nextShimmer = time + 2600 + Math.random() * 1800;
+        scene.tweens.add({ targets: f.shimmer, fillAlpha: 0.3, duration: 180, yoyo: true });
+        scene.tweens.add({ targets: f.image, alpha: 0.72, duration: 180, yoyo: true });
+      }
+      const above = pb.bottom <= f.y + 2;
+      const within = pb.right > f.x + 4 && pb.left < f.x + f.w - 4;
+      if (f.state === "solid" && within && f.wasAbove && !above && pb.velocity.y >= 0) dissolve(scene, f, timing);
+      f.wasAbove = above;
+    });
+  };
+  scene.events.on("update", update);
+  scene.events.once("shutdown", () => scene.events.off("update", update));
+}
+
+function dissolve(scene, f, timing) {
+  f.state = "gone";
+  scene.tweens.killTweensOf([f.image, f.shimmer]);
+  f.shimmer.fillAlpha = 0;
+  scene.tweens.add({ targets: f.image, alpha: 0, duration: 220 });
+  mistPuff(scene, f.x, f.y, f.w);
+  scene.time.delayedCall(timing.reform, () => {
+    mistPuff(scene, f.x, f.y, f.w, true);                                  // the mist gathers back...
+    scene.tweens.add({ targets: f.image, alpha: 1, duration: 450, delay: 250, onComplete: () => { f.state = "solid"; } });
+  });
+}
+
+// ─── Vanishing platforms ─────────────────────────────────────────────────────────────────────
+// [x, y, width]. Solid for a while, then flicker (the warning), then gone, then back. Each one runs
+// on its own repeating timer, a little out of step with the others.
+function addVanishingPlatforms(scene, list, timing) {
+  const plats = list.map(([x, y, w], i) => {
+    const key = `vanishing_platform_${i}`;
+    bakeCursedSlab(scene, key, w, SLAB_H, i);
+    const image = scene.add.image(x, y, key).setOrigin(0, 0);
+    const body = scene.physics.add.staticImage(x + w / 2, y + SLAB_H / 2, null).setDisplaySize(w, SLAB_H).setVisible(false);
+    body.refreshBody();
+    scene.physics.add.collider(scene.player, body);
+    return { x, y, w, image, body, index: i, state: "solid" };
+  });
+
+  const cycle = timing.vanishSolid + timing.vanishWarn + timing.vanishGone;
+  const update = time => {
+    plats.forEach(p => {
+      const phase = (time + p.index * 900) % cycle;
+      const state = phase < timing.vanishSolid ? "solid" : phase < timing.vanishSolid + timing.vanishWarn ? "warning" : "gone";
+      if (state === p.state) return;
+      if (state === "solid" && playerInside(scene, p.x, p.y, p.w, SLAB_H)) return;   // don't come back inside the player
+      p.state = state;
+      scene.tweens.killTweensOf(p.image);
+      if (state === "warning") {
+        scene.tweens.add({ targets: p.image, alpha: 0.35, duration: 110, yoyo: true, repeat: -1 });
+      } else if (state === "gone") {
+        p.body.body.enable = false;
+        p.image.setAlpha(0);
+        mistPuff(scene, p.x, p.y, p.w);
+      } else {
+        p.body.body.enable = true;
+        mistPuff(scene, p.x, p.y, p.w, true);
+        scene.tweens.add({ targets: p.image, alpha: 1, duration: 250 });
+      }
+    });
+  };
+  scene.events.on("update", update);
+  scene.events.once("shutdown", () => scene.events.off("update", update));
+}
+
+// ─── Ghost platforms ─────────────────────────────────────────────────────────────────────────
+// [x, y, width]. They fade away when the player comes within ghostNear pixels (sideways), and come
+// back once the player is more than ghostFar pixels away. So they can never hold you: they are a
+// trap for anyone who jumps at them without looking.
+function addGhostPlatforms(scene, list, timing) {
+  const plats = list.map(([x, y, w], i) => {
+    const key = `ghost_platform_${i}`;
+    bakeTombSlab(scene, key, w, SLAB_H, 70 + i);
+    const image = scene.add.image(x, y, key).setOrigin(0, 0);
+    const body = scene.physics.add.staticImage(x + w / 2, y + SLAB_H / 2, null).setDisplaySize(w, SLAB_H).setVisible(false);
+    body.refreshBody();
+    scene.physics.add.collider(scene.player, body);
+    // 👀 the tell: wisps of mist keep leaking from underneath
+    const wisps = scene.add.particles(0, 0, "grave_mist", {
+      x: { min: x + 6, max: x + w - 6 }, y: y + SLAB_H - 2,
+      lifespan: 1400, speedY: { min: 6, max: 16 }, speedX: { min: -6, max: 6 },
+      scale: { start: 0.5, end: 1.4 }, alpha: { start: 0.45, end: 0 }, frequency: 260
+    });
+    return { x, y, w, image, body, wisps, shown: true };
+  });
+
+  const update = () => {
+    const px = scene.player.x;
+    plats.forEach(p => {
+      const distance = Math.max(0, Math.abs(px - (p.x + p.w / 2)) - p.w / 2);   // 0 = right above or below it
+      if (p.shown && distance < timing.ghostNear) {
+        p.shown = false;
+        p.body.body.enable = false;
+        p.wisps.emitting = false;
+        scene.tweens.killTweensOf(p.image);
+        scene.tweens.add({ targets: p.image, alpha: 0, duration: 220 });
+        mistPuff(scene, p.x, p.y, p.w);
+      } else if (!p.shown && distance > timing.ghostFar && !playerInside(scene, p.x, p.y, p.w, SLAB_H)) {
+        p.shown = true;
+        p.body.body.enable = true;
+        p.wisps.emitting = true;
+        scene.tweens.killTweensOf(p.image);
+        scene.tweens.add({ targets: p.image, alpha: 1, duration: 500 });
       }
     });
   };
