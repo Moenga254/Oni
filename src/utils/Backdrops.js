@@ -2719,11 +2719,17 @@ export function drawGraveyardBackdrop(scene, { colors, worldWidth, worldHeight }
     sky.fillRect(-20, camH * from - (from === 0 ? 20 : 0), camW + 40, camH * (to - from) + (from === 0 ? 20 : 1));
   });
 
-  // 2) STARS
-  const stars = scene.add.graphics().setScrollFactor(0);
-  for (let i = 0; i < 80; i++) {
-    stars.fillStyle(0xdfe4ff, 0.25 + random() * 0.6);
-    stars.fillCircle(random() * camW, random() * camH * 0.6, 0.5 + random());
+  // 2) STARS: drawn once into a picture (80 circles redrawn every frame were the main cause of lag here)
+  {
+    if (scene.textures.exists("grave_stars")) scene.textures.remove("grave_stars");
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    for (let i = 0; i < 80; i++) {
+      g.fillStyle(0xdfe4ff, 0.25 + random() * 0.6);
+      g.fillCircle(random() * camW, random() * camH * 0.6, 0.5 + random());
+    }
+    g.generateTexture("grave_stars", Math.ceil(camW), Math.ceil(camH * 0.6) + 2);
+    g.destroy();
+    scene.add.image(0, 0, "grave_stars").setOrigin(0, 0).setScrollFactor(0);
   }
 
   // 3) THE FULL MOON: a wide pale-purple glow, a bright halo, the moon, and thin clouds drifting over it
