@@ -102,7 +102,7 @@ export default class MenuScene extends Phaser.Scene {
     panel.strokeRoundedRect(cx - 270, top + 160, 540, 150, 18);
 
     this.add
-      .text(cx, top + 180, "DIFFICULTY   ·   tap one or press ← →", {
+      .text(cx, top + 180, "DIFFICULTY", {
         fontSize: "13px",
         color: "#b9a6d9",
       })
@@ -184,18 +184,14 @@ export default class MenuScene extends Phaser.Scene {
       go("LoadingScene"); // the loading screen opens the level
     };
 
-    makeButton(
-      this,
-      cx - 105,
-      top + 352,
-      190,
-      50,
-      "▶  PLAY",
-      0xe2552b,
-      startGame,
-    );
-    makeButton(this, cx + 105, top + 352, 190, 50, "☰  LEVELS", 0x4a3485, () =>
+    makeButton(this, cx - 160, top + 352, 148, 50, "▶ PLAY", 0xe2552b, startGame, 18);
+    makeButton(this, cx, top + 352, 148, 50, "ENDLESS", 0x287a78, () => {
+      enterFullscreen(this);
+      go("EndlessScene");
+    }, 18);
+    makeButton(this, cx + 160, top + 352, 148, 50, "☰ LEVELS", 0x4a3485, () =>
       go("LevelSelectScene"),
+      18,
     );
 
     // Start hint and controls
@@ -217,7 +213,7 @@ export default class MenuScene extends Phaser.Scene {
     });
 
     this.add
-      .text(cx, top + 428, "← →  move        ↑  jump        P / ESC  pause", {
+      .text(cx, top + 428,{
         fontSize: "13px",
         color: "#a99cc8",
       })
@@ -229,10 +225,6 @@ export default class MenuScene extends Phaser.Scene {
     this.input.keyboard.on("keydown-LEFT", () => this.changeDifficulty(-1));
     this.input.keyboard.on("keydown-RIGHT", () => this.changeDifficulty(1));
 
-    // Tap anywhere to start, but a tap that lands on a button is just that button, not "start"
-    this.input.on("pointerdown", (pointer, objectsUnderPointer) => {
-      if (objectsUnderPointer.length === 0) startGame();
-    });
   }
 
   // 🌄 Dusk sky, stars and a moon, purple mountains, a red gate on the hill, drifting mist and rising embers
