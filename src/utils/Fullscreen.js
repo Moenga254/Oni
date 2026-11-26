@@ -8,21 +8,34 @@
 
 // Fullscreen is for touch devices and the installed app; a desktop browser window is left alone
 function wantsFullscreen() {
-  const query = (q) => typeof window.matchMedia === "function" && window.matchMedia(q).matches;
-  return query("(pointer: coarse)") || query("(display-mode: standalone)") || query("(display-mode: fullscreen)");
+  const query = (q) =>
+    typeof window.matchMedia === "function" && window.matchMedia(q).matches;
+  return (
+    query("(pointer: coarse)") ||
+    query("(display-mode: standalone)") ||
+    query("(display-mode: fullscreen)")
+  );
 }
 
 function lockLandscape() {
   try {
-    const lock = screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape");
-    if (lock && lock.catch) lock.catch(() => {});   // not allowed on this device: the rotate prompt still covers it
-  } catch (e) { /* not supported: ignore */ }
+    const lock =
+      screen.orientation &&
+      screen.orientation.lock &&
+      screen.orientation.lock("landscape");
+    if (lock && lock.catch) lock.catch(() => {}); // not allowed on this device: the rotate prompt still covers it
+  } catch (e) {
+    /* not supported: ignore */
+  }
 }
 
 export function enterFullscreen(scene) {
   const scale = scene.scale;
   if (!wantsFullscreen() || !scale.fullscreen.available) return;
-  if (scale.isFullscreen) { lockLandscape(); return; }
+  if (scale.isFullscreen) {
+    lockLandscape();
+    return;
+  }
 
   // Make the whole page fullscreen (not just the canvas), so the rotate prompt and the
   // "new version" bar keep working. The canvas still sizes itself exactly as before.
@@ -34,12 +47,19 @@ export function enterFullscreen(scene) {
     // moment, so a refusal stays silent and the game simply carries on without fullscreen.
     const quiet = (event) => event.preventDefault();
     window.addEventListener("unhandledrejection", quiet);
-    setTimeout(() => window.removeEventListener("unhandledrejection", quiet), 1000);
-    try { scale.startFullscreen({ navigationUI: "hide" }); } catch (e) { /* refused: ignore */ }
+    setTimeout(
+      () => window.removeEventListener("unhandledrejection", quiet),
+      1000,
+    );
+    try {
+      scale.startFullscreen({ navigationUI: "hide" });
+    } catch (e) {
+      /* refused: ignore */
+    }
   };
 
   scale.off("enterfullscreen", lockLandscape);
-  scale.once("enterfullscreen", lockLandscape);   // landscape can only be locked once fullscreen is on
+  scale.once("enterfullscreen", lockLandscape); // landscape can only be locked once fullscreen is on
 
   // A finger still on the screen can't start fullscreen yet (see above), so only a mouse or key tries now
   const pointer = scene.input.activePointer;
