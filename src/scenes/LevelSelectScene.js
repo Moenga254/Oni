@@ -1,5 +1,5 @@
 import { levels } from "../data/levels.js";
-import { loadStars, MAX_STARS } from "../data/Stars.js";
+import { getBestStars, loadStars, MAX_STARS, STAR_MODES } from "../data/Stars.js";
 import { drawStarRow } from "../utils/Starrow.js";
 import { enterFullscreen } from "../utils/Fullscreen.js";
 
@@ -309,11 +309,16 @@ export default class LevelSelectScene extends Phaser.Scene {
       }).setOrigin(0.5));
     } else {
       // ⭐ The best stars on this level in each mode
-      const modes = [["easy", "EASY", "#70e090"], ["normal", "NORMAL", "#9cc2ff"], ["hard", "HARD", "#ff8f8f"]];
+      const modes = [
+        ["easy", "EASY", "#70e090"],
+        ["normal", "NORMAL", "#9cc2ff"],
+        ["hard", "HARD", "#ff8f8f"]
+      ];
       modes.forEach(([key, label, color], i) => {
+        if (!STAR_MODES.includes(key)) return;
         const gx = (i - 1) * 78;
         add(this.add.text(gx, top + 104, label, { fontSize: "10px", fontStyle: "bold", color }).setOrigin(0.5).setLetterSpacing(1));
-        drawStarRow(this, gx, top + 120, allStars[key]?.[index] || 0, { radius: 6.5, gap: 16 }).forEach(add);
+        drawStarRow(this, gx, top + 120, getBestStars(allStars, index, key), { radius: 6.5, gap: 16 }).forEach(add);
       });
 
       const divider = add(this.add.graphics());

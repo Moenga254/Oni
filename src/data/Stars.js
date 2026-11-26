@@ -42,7 +42,7 @@ export function starRequirements(timeLimit, totalCoins) {
 }
 
 const STORAGE_KEY = "coinCollectorStars";
-const MODES = ["easy", "normal", "hard"];
+export const STAR_MODES = ["easy", "normal", "hard"];
 
 // Keep only sensible entries: level number -> 0..3 stars
 function cleanLevels(raw) {
@@ -65,19 +65,29 @@ export function loadStars() {
   const result = { easy: {}, normal: {}, hard: {} };
   if (!raw || typeof raw !== "object") return result;
 
-  if (MODES.some(mode => mode in raw)) {
+  if (STAR_MODES.some(mode => mode in raw)) {
     // Current format: { easy: { 0: 3 }, normal: { 0: 2 }, hard: { 0: 1 } }
-    MODES.forEach(mode => { result[mode] = cleanLevels(raw[mode]); });
+    STAR_MODES.forEach(mode => { result[mode] = cleanLevels(raw[mode]); });
   } else {
     // Old format { 0: 3, 1: 2 } (saved before stars were kept per difficulty) counts as Normal
     result.normal = cleanLevels(raw);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+    } catch (e) {
+      // Ignore storage errors
+    }
   }
   return result;
 }
 
+export function getBestStars(allStars, levelIndex, difficulty) {
+  const mode = STAR_MODES.includes(difficulty) ? difficulty : "normal";
+  return allStars?.[mode]?.[levelIndex] || 0;
+}
+
 // Keeps the best result for that level in that difficulty (every other level and mode is left alone)
 export function saveBestStars(levelIndex, difficulty, stars) {
-  const mode = MODES.includes(difficulty) ? difficulty : "normal";
+  const mode = STAR_MODES.includes(difficulty) ? difficulty : "normal";
   const all = loadStars();
 
   const previous = all[mode][levelIndex] || 0;

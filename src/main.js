@@ -5,6 +5,7 @@ import GameOverScene from "./scenes/GameOverScene.js";
 import PauseScene   from "./scenes/PauseScene.js";
 import LevelSelectScene from "./scenes/LevelSelectScene.js";
 import LoadingScene from "./scenes/LoadingScene.js";
+import EndlessScene from "./scenes/EndlessScene.js";
 import { setupPWA } from "./pwa.js";
 
 const config = {
@@ -34,7 +35,7 @@ const config = {
     },
   },
 
-  scene: [MenuScene, GameScene, GameOverScene, PauseScene, LevelSelectScene, LoadingScene],
+  scene: [MenuScene, GameScene, GameOverScene, PauseScene, LevelSelectScene, LoadingScene, EndlessScene],
 };
 
 const game = new Phaser.Game(config);

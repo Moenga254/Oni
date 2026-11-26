@@ -1,26 +1,61 @@
 import Phaser from "phaser";
 import { levels } from "../data/levels.js";
 import {
-  drawIceCaveBackdrop, drawDeepSeaBackdrop, drawNightForestBackdrop, drawCrystalCaveBackdrop,
-  drawGrasslandsBackdrop, bakeGrassPlatform, bakeWoodPlatform,
-  drawSkyKingdomBackdrop, bakeSkyIslandPlatform, bakeMarblePlatform, bakeCloudPlatform,
-  drawVolcanoBackdrop, bakeBasaltPlatform, bakeObsidianPlatform,
-  drawSwampBackdrop, bakeMudPlatform, bakeMossyLogPlatform, bakeRustyPlatform,
-  drawDesertBackdrop, bakeDesertGround, bakeRuinBlock, bakeCarpetPlatform, bakeCityMovingPlatform, drawCityBackdrop,
-  drawTempleBackdrop, bakeTempleGround, bakeTempleBlock, bakeTempleMovingPlatform,
-  drawGraveyardBackdrop, bakeGraveGround, bakeTombSlab, bakeGraveMovingPlatform
+  drawIceCaveBackdrop,
+  drawDeepSeaBackdrop,
+  drawNightForestBackdrop,
+  drawCrystalCaveBackdrop,
+  drawGrasslandsBackdrop,
+  bakeGrassPlatform,
+  bakeWoodPlatform,
+  drawSkyKingdomBackdrop,
+  bakeSkyIslandPlatform,
+  bakeMarblePlatform,
+  bakeCloudPlatform,
+  drawVolcanoBackdrop,
+  bakeBasaltPlatform,
+  bakeObsidianPlatform,
+  drawSwampBackdrop,
+  bakeMudPlatform,
+  bakeMossyLogPlatform,
+  bakeRustyPlatform,
+  drawDesertBackdrop,
+  bakeDesertGround,
+  bakeRuinBlock,
+  bakeCarpetPlatform,
+  bakeCityMovingPlatform,
+  drawCityBackdrop,
+  drawTempleBackdrop,
+  bakeTempleGround,
+  bakeTempleBlock,
+  bakeTempleMovingPlatform,
+  drawGraveyardBackdrop,
+  bakeGraveGround,
+  bakeTombSlab,
+  bakeGraveMovingPlatform,
 } from "../utils/Backdrops.js";
-import { setupVolcanoHazards, setupSwampHazards, setupDesertHazards, setupCityHazards, setupTempleHazards, setupGraveyardHazards } from "../utils/Hazards.js";
-import { DIFFICULTIES, getDifficulty, scaleEnemySpeed } from "../data/Difficulty.js";
+import {
+  setupVolcanoHazards,
+  setupSwampHazards,
+  setupDesertHazards,
+  setupCityHazards,
+  setupTempleHazards,
+  setupGraveyardHazards,
+} from "../utils/Hazards.js";
+import {
+  DIFFICULTIES,
+  getDifficulty,
+  scaleEnemySpeed,
+} from "../data/Difficulty.js";
 import SoundManager from "../utils/SoundManager.js";
 import Particles from "../utils/Particles.js";
 
 // 🪂 Player gravity. The total pull = 300 (world gravity, main.js) + the player's own value below.
 //   Going UP is unchanged, so the jump is exactly as high as before (apex ~164px).
 //   Coming DOWN is heavier, so you land sooner and enemies have less time to catch you in mid-air.
-export const RISE_GRAVITY   = 800;    // total 1100
-export const FALL_GRAVITY   = 1570;   // total 1870  (1.7x heavier). Raise for a snappier drop, lower for floatier.
-export const MAX_FALL_SPEED = 900;    // top falling speed, so a long drop can never skip through a thin platform
+export const RISE_GRAVITY = 800; // total 1100
+export const FALL_GRAVITY = 1570; // total 1870  (1.7x heavier). Raise for a snappier drop, lower for floatier.
+export const MAX_FALL_SPEED = 900; // top falling speed, so a long drop can never skip through a thin platform
 
 // 📱 Returns a copy of the level moved to the right, with extra ground added at the start, so the player
 // begins in the middle of the screen (clear of the touch buttons in the bottom corners).
@@ -37,28 +72,66 @@ function withRoomAtStart(level, screenWidth) {
     coins: level.coins.map(moveX),
     movingPlatforms: (level.movingPlatforms || []).map(moveX),
     // enemies also have their patrol range: [x, y, patrolLeft, patrolRight, ...]
-    enemies: level.enemies.map(([x, y, left, right, ...rest]) => [x + extra, y, left + extra, right + extra, ...rest]),
-    checkpoints: (level.checkpoints || []).map(x => x + extra),
-    fallingRocks: (level.fallingRocks || []).map(x => x + extra),
+    enemies: level.enemies.map(([x, y, left, right, ...rest]) => [
+      x + extra,
+      y,
+      left + extra,
+      right + extra,
+      ...rest,
+    ]),
+    checkpoints: (level.checkpoints || []).map((x) => x + extra),
+    fallingRocks: (level.fallingRocks || []).map((x) => x + extra),
   };
-  ["lavaPools", "toxicPools", "quicksand", "crumblingPlatforms", "breakingPlatforms", "sinkingPlatforms", "collapsingBlocks", "collapsingPlatforms", "electricalTraps", "exposedCables",
-   "spikePits", "floorSpikes", "spikeTraps", "poisonPlants", "illusionPlatforms", "vanishingPlatforms", "ghostPlatforms"]
-    .forEach(key => { if (level[key]) moved[key] = level[key].map(moveX); });
+  [
+    "lavaPools",
+    "toxicPools",
+    "quicksand",
+    "crumblingPlatforms",
+    "breakingPlatforms",
+    "sinkingPlatforms",
+    "collapsingBlocks",
+    "collapsingPlatforms",
+    "electricalTraps",
+    "exposedCables",
+    "spikePits",
+    "floorSpikes",
+    "spikeTraps",
+    "poisonPlants",
+    "illusionPlatforms",
+    "vanishingPlatforms",
+    "ghostPlatforms",
+  ].forEach((key) => {
+    if (level[key]) moved[key] = level[key].map(moveX);
+  });
 
   // Stretch the first piece of ground back to the left edge, so there's solid ground behind the player
   const first = moved.platforms.find(([x, , , h]) => x === extra && h >= 30);
-  if (first) { first[0] = 0; first[2] += extra; }
+  if (first) {
+    first[0] = 0;
+    first[2] += extra;
+  }
   return moved;
 }
 
 // Which method draws each kind of enemy (used once per kind, by enemyTexture)
 const ENEMY_DRAW = {
-  fish: "drawFish", snake: "drawSnake", lava: "drawLavaCreature", demon: "drawFireDemon",
-  frog: "drawMutantFrog", bug: "drawToxicBug", scorpion: "drawScorpion", sand: "drawSandCreature",
-  mutant: "drawMutatedCreature", robot: "drawRobotGuard", guard: "drawStoneGuard", viper: "drawViper",
-  skeleton: "drawSkeleton", ghost: "drawGhost", slime: "drawEnemy"
+  fish: "drawFish",
+  snake: "drawSnake",
+  lava: "drawLavaCreature",
+  demon: "drawFireDemon",
+  frog: "drawMutantFrog",
+  bug: "drawToxicBug",
+  scorpion: "drawScorpion",
+  sand: "drawSandCreature",
+  mutant: "drawMutatedCreature",
+  robot: "drawRobotGuard",
+  guard: "drawStoneGuard",
+  viper: "drawViper",
+  skeleton: "drawSkeleton",
+  ghost: "drawGhost",
+  slime: "drawEnemy",
 };
-const ENEMY_PICTURE_SIZE = 72;   // big enough for the largest enemy drawing, with room to spare
+const ENEMY_PICTURE_SIZE = 72; // big enough for the largest enemy drawing, with room to spare
 // 💀 Skeleton walk: 8 poses make one full stride (two steps), and one stride covers this many pixels.
 // The pose is picked from how far the skeleton has actually walked, so its feet always keep pace with
 // its speed (a faster skeleton takes quicker steps, and it stands still when it stops).
@@ -73,16 +146,18 @@ export default class GameScene extends Phaser.Scene {
   preload() {
     this.load.spritesheet("player", "/assets/dude.png", {
       frameWidth: 32,
-      frameHeight: 48
+      frameHeight: 48,
     });
   }
 
   create() {
-
     // 👇 Load current level data
     const levelIndex = this.registry.get("currentLevel") || 0;
     this.currentLevel = levelIndex;
-    const levelData = withRoomAtStart(levels[levelIndex], this.cameras.main.width);
+    const levelData = withRoomAtStart(
+      levels[levelIndex],
+      this.cameras.main.width,
+    );
 
     // Use levelData for everything
     const WORLD_WIDTH = levelData.worldWidth;
@@ -100,9 +175,9 @@ export default class GameScene extends Phaser.Scene {
     this.worldWidth = WORLD_WIDTH;
     this.worldHeight = WORLD_HEIGHT;
     this.playerStart = levelData.playerStart;
-    this.respawnPoint = [...levelData.playerStart];   // moves forward when you touch a checkpoint
-    this.difficultyKey = getDifficulty(this.registry);  // chosen on the Menu
-    this.difficulty    = DIFFICULTIES[this.difficultyKey];
+    this.respawnPoint = [...levelData.playerStart]; // moves forward when you touch a checkpoint
+    this.difficultyKey = getDifficulty(this.registry); // chosen on the Menu
+    this.difficulty = DIFFICULTIES[this.difficultyKey];
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -110,40 +185,88 @@ export default class GameScene extends Phaser.Scene {
     // 🎨 Background
     if (levelData.theme === "grass") {
       // ☀️ Grasslands: sun, snowy mountains, rolling hills with trees, fluffy clouds, birds (see src/utils/Backdrops.js)
-      drawGrasslandsBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawGrasslandsBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else if (levelData.theme === "graveyard") {
       // 🪦 The Haunted Grounds: full moon, chapel on the hill, gravestones, crypts, fog, wisps and bats (see src/utils/Backdrops.js)
-      drawGraveyardBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawGraveyardBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else if (levelData.theme === "temple") {
       // 🏛️ Lost Civilization: jungle canopy, shafts of sunlight, temple pyramids, ruins, vines and golden dust (see src/utils/Backdrops.js)
-      drawTempleBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawTempleBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else if (levelData.theme === "city") {
       // 🌃 Urban Nightmare: midnight skyline, neon signs, street lamps, fog and rain (see src/utils/Backdrops.js)
-      drawCityBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawCityBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else if (levelData.theme === "desert") {
       // 🏜️ Lost Sands: blazing sun, pyramids, ruins in the dunes, vultures, blowing sand (see src/utils/Backdrops.js)
-      drawDesertBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawDesertBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else if (levelData.theme === "swamp") {
       // ☣️ Toxic Swamp: smog, factories, dead trees with moss, toxic haze, reeds and barrels (see src/utils/Backdrops.js)
-      drawSwampBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawSwampBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else if (levelData.theme === "volcano") {
       // 🌋 Magma Falls: smoking volcanoes, falls of magma, red-lit rocks, embers and ash (see src/utils/Backdrops.js)
-      drawVolcanoBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawVolcanoBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else if (levelData.theme === "sunset") {
       // 🏰 Sky Kingdom: sunset sky, setting sun, castles on far islands, a sea of clouds, birds (see src/utils/Backdrops.js)
-      drawSkyKingdomBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawSkyKingdomBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else if (levelData.theme === "crystal") {
       // 💎 Crystal Cave: purple cave, glowing crystals on the floor and ceiling, sparkles (see src/utils/Backdrops.js)
-      drawCrystalCaveBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawCrystalCaveBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else if (levelData.theme === "ice") {
       // 🧊 Ice Cave: cold gradient, layered silhouettes and drifting snow (see src/utils/Backdrops.js)
-      drawIceCaveBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawIceCaveBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else if (levelData.theme === "sea") {
       // 🌊 Deep Sea: light rays, rocks and kelp, rising bubbles (see src/utils/Backdrops.js)
-      drawDeepSeaBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawDeepSeaBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else if (levelData.theme === "forest") {
       // 🦉 Night Owl: moon and stars, pine silhouettes, fog along the top, owls and fireflies (see src/utils/Backdrops.js)
-      drawNightForestBackdrop(this, { colors: levelData.background, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+      drawNightForestBackdrop(this, {
+        colors: levelData.background,
+        worldWidth: WORLD_WIDTH,
+        worldHeight: WORLD_HEIGHT,
+      });
     } else {
       const bg = this.add.graphics();
       bg.fillGradientStyle(...levelData.background, 1);
@@ -152,25 +275,27 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // ☁️ Clouds (only on the plain sky levels, not in the cave or under the sea)
-    if (!levelData.theme)
-      {
-    const cloudGraphics = this.add.graphics();
-    cloudGraphics.fillStyle(0xffffff, 0.9);
-    const cloudPositions = [];
-    for (let cx = 200; cx < WORLD_WIDTH; cx += 400) cloudPositions.push(cx);
-    cloudPositions.forEach(x => {
-      const y = Phaser.Math.Between(60, 180);
-      cloudGraphics.fillEllipse(x, y, 120, 50);
-      cloudGraphics.fillEllipse(x + 40, y - 20, 80, 40);
-      cloudGraphics.fillEllipse(x - 30, y - 10, 70, 35);
-    });
-    cloudGraphics.setScrollFactor(0.2);
-  }
-
+    if (!levelData.theme) {
+      const cloudGraphics = this.add.graphics();
+      cloudGraphics.fillStyle(0xffffff, 0.9);
+      const cloudPositions = [];
+      for (let cx = 200; cx < WORLD_WIDTH; cx += 400) cloudPositions.push(cx);
+      cloudPositions.forEach((x) => {
+        const y = Phaser.Math.Between(60, 180);
+        cloudGraphics.fillEllipse(x, y, 120, 50);
+        cloudGraphics.fillEllipse(x + 40, y - 20, 80, 40);
+        cloudGraphics.fillEllipse(x - 30, y - 10, 70, 35);
+      });
+      cloudGraphics.setScrollFactor(0.2);
+    }
 
     // 🧱 Platform data from the level: [x, y, width, height] -> add colour
     const platformData = levelData.platforms.map(([x, y, w, h]) => [
-      x, y, w, h, h >= 30 ? levelData.groundColor : levelData.platformColor
+      x,
+      y,
+      w,
+      h,
+      h >= 30 ? levelData.groundColor : levelData.platformColor,
     ]);
 
     this.platforms = this.physics.add.staticGroup();
@@ -192,7 +317,7 @@ export default class GameScene extends Phaser.Scene {
     // 🪦 In the Haunted Grounds, the ground is graveyard earth and the floating platforms are grave slabs
     const graveyard = levelData.theme === "graveyard";
 
-    this.plainPlatforms = [];   // the ones drawn as shapes, which moveWorld() hides while off screen
+    this.plainPlatforms = []; // the ones drawn as shapes, which moveWorld() hides while off screen
 
     platformData.forEach(([x, y, w, h, color], i) => {
       if (grassy) {
@@ -217,7 +342,7 @@ export default class GameScene extends Phaser.Scene {
           bakeTempleBlock(this, key, w, h, i);
           this.add.image(x, y, key).setOrigin(0, 0);
         }
-         } else if (city) {
+      } else if (city) {
         const key = `city_platform_${i}`;
         bakeCityMovingPlatform(this, key, w, h, i);
         this.add.image(x, y, key).setOrigin(0, 0);
@@ -236,7 +361,10 @@ export default class GameScene extends Phaser.Scene {
         }
       } else if (swampy) {
         const key = `swamp_platform_${i}`;
-        const over = h >= 30 ? bakeMudPlatform(this, key, w, h, i) : bakeMossyLogPlatform(this, key, w, h, i);
+        const over =
+          h >= 30
+            ? bakeMudPlatform(this, key, w, h, i)
+            : bakeMossyLogPlatform(this, key, w, h, i);
         this.add.image(x, y - over, key).setOrigin(0, 0);
       } else if (volcanic) {
         const key = `basalt_platform_${i}`;
@@ -272,16 +400,37 @@ export default class GameScene extends Phaser.Scene {
     // look like solid ground, so each gap gets a dark pit, making it obvious there's nothing to stand on
     // (gaps filled with quicksand are drawn by the quicksand itself)
     if (grassy || desert || temple || graveyard) {
-      const ground = platformData.filter(([, , , h]) => h >= 30).sort((a, b) => a[0] - b[0]);
+      const ground = platformData
+        .filter(([, , , h]) => h >= 30)
+        .sort((a, b) => a[0] - b[0]);
       const quicksand = levelData.quicksand || [];
       const pits = this.add.graphics();
       for (let i = 0; i < ground.length - 1; i++) {
         const [gx, gy, gw] = ground[i];
-        const gapX = gx + gw, gapW = ground[i + 1][0] - gapX;
+        const gapX = gx + gw,
+          gapW = ground[i + 1][0] - gapX;
         if (gapW <= 0 || quicksand.some(([qx]) => qx === gapX)) continue;
-        pits.fillStyle(desert ? 0x4a2a12 : temple ? 0x2a1c0e : graveyard ? 0x15162a : 0x2b1a0e, 1);
+        pits.fillStyle(
+          desert
+            ? 0x4a2a12
+            : temple
+              ? 0x2a1c0e
+              : graveyard
+                ? 0x15162a
+                : 0x2b1a0e,
+          1,
+        );
         pits.fillRect(gapX, gy + 8, gapW, WORLD_HEIGHT - gy);
-        pits.fillStyle(desert ? 0x24140a : temple ? 0x120c06 : graveyard ? 0x07070f : 0x120a05, 1);
+        pits.fillStyle(
+          desert
+            ? 0x24140a
+            : temple
+              ? 0x120c06
+              : graveyard
+                ? 0x07070f
+                : 0x120a05,
+          1,
+        );
         pits.fillRect(gapX + 4, gy + 14, gapW - 8, WORLD_HEIGHT - gy);
       }
     }
@@ -291,7 +440,7 @@ export default class GameScene extends Phaser.Scene {
     (levelData.movingPlatforms || []).forEach(([x, y, w, moveX, speed], i) => {
       const h = 20;
       let gfx;
-      let overY = 0;   // how far the picture sticks up above the platform's top
+      let overY = 0; // how far the picture sticks up above the platform's top
       if (grassy) {
         // 🪵 wooden planks
         bakeWoodPlatform(this, `wood_platform_${i}`, w, h, i);
@@ -311,15 +460,21 @@ export default class GameScene extends Phaser.Scene {
       } else if (skyKingdom) {
         // ☁️ little clouds to ride on
         overY = bakeCloudPlatform(this, `cloud_platform_${i}`, w, h, i);
-        gfx = this.add.image(x, y - overY, `cloud_platform_${i}`).setOrigin(0, 0);
+        gfx = this.add
+          .image(x, y - overY, `cloud_platform_${i}`)
+          .setOrigin(0, 0);
       } else if (graveyard) {
         // ⛓️ iron-bound stone slabs
         bakeGraveMovingPlatform(this, `grave_moving_platform_${i}`, w, h, i);
-        gfx = this.add.image(x, y, `grave_moving_platform_${i}`).setOrigin(0, 0);
+        gfx = this.add
+          .image(x, y, `grave_moving_platform_${i}`)
+          .setOrigin(0, 0);
       } else if (temple) {
         // 🟨 stone slabs banded with gold
         bakeTempleMovingPlatform(this, `temple_moving_platform_${i}`, w, h, i);
-        gfx = this.add.image(x, y, `temple_moving_platform_${i}`).setOrigin(0, 0);
+        gfx = this.add
+          .image(x, y, `temple_moving_platform_${i}`)
+          .setOrigin(0, 0);
       } else if (city) {
         bakeCityMovingPlatform(this, `city_moving_platform_${i}`, w, h, i);
         gfx = this.add.image(x, y, `city_moving_platform_${i}`).setOrigin(0, 0);
@@ -339,15 +494,24 @@ export default class GameScene extends Phaser.Scene {
       body.setVelocityX(speed);
 
       this.movingPlatforms.push({
-        body, gfx, w, h, overY,
+        body,
+        gfx,
+        w,
+        h,
+        overY,
         left: x + w / 2,
         right: x + moveX + w / 2,
-        speed, direction: 1
+        speed,
+        direction: 1,
       });
     });
 
     // 🧍 Player
-    this.player = this.physics.add.sprite(this.playerStart[0], this.playerStart[1], "player");
+    this.player = this.physics.add.sprite(
+      this.playerStart[0],
+      this.playerStart[1],
+      "player",
+    );
     // A solid wall at the far left only: you can't walk off the start of the level,
     // but you can still fall down a pit or walk off the right after the flag
     this.physics.world.setBoundsCollision(true, false, false, false);
@@ -357,7 +521,9 @@ export default class GameScene extends Phaser.Scene {
     this.player.body.maxVelocity.y = MAX_FALL_SPEED;
 
     this.physics.add.collider(this.player, this.platforms);
-    this.movingPlatforms.forEach(mp => this.physics.add.collider(this.player, mp.body));
+    this.movingPlatforms.forEach((mp) =>
+      this.physics.add.collider(this.player, mp.body),
+    );
 
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
@@ -371,7 +537,7 @@ export default class GameScene extends Phaser.Scene {
         key: "walk",
         frames: this.anims.generateFrameNumbers("player", { start: 0, end: 3 }),
         frameRate: 10,
-        repeat: -1
+        repeat: -1,
       });
     }
 
@@ -379,7 +545,7 @@ export default class GameScene extends Phaser.Scene {
       this.anims.create({
         key: "idle",
         frames: [{ key: "player", frame: 4 }],
-        frameRate: 20
+        frameRate: 20,
       });
     }
 
@@ -389,14 +555,30 @@ export default class GameScene extends Phaser.Scene {
     // [x, y, patrolLeft, patrolRight, speed, colour, kind?, easiestMode?]
     // easiestMode: the enemy only appears on that difficulty and harder ones (none = every difficulty)
     const MODE_RANK = { easy: 0, normal: 1, hard: 2 };
-    const regularEnemies = levelData.enemies.filter(e => !e[7] || MODE_RANK[this.difficultyKey] >= MODE_RANK[e[7]]);
-       const platformEnemies = (levelData.movingPlatformEnemies || []).flatMap(([platformIndex, kind, color, speed]) => {
-      const platform = this.movingPlatforms[platformIndex];
-      if (!platform) return [];
-      const height = kind === "robot" ? 34 : 28;
-      const top = platform.body.y - platform.h / 2;
-      return [[platform.body.x, top - height / 2, 0, 0, speed, color, kind, null, platformIndex]];
-    });
+    const regularEnemies = levelData.enemies.filter(
+      (e) => !e[7] || MODE_RANK[this.difficultyKey] >= MODE_RANK[e[7]],
+    );
+    const platformEnemies = (levelData.movingPlatformEnemies || []).flatMap(
+      ([platformIndex, kind, color, speed]) => {
+        const platform = this.movingPlatforms[platformIndex];
+        if (!platform) return [];
+        const height = kind === "robot" ? 34 : 28;
+        const top = platform.body.y - platform.h / 2;
+        return [
+          [
+            platform.body.x,
+            top - height / 2,
+            0,
+            0,
+            speed,
+            color,
+            kind,
+            null,
+            platformIndex,
+          ],
+        ];
+      },
+    );
     const enemyData = [...regularEnemies, ...platformEnemies];
 
     // What the enemies look like depends on the level (an enemy can also name its own kind, 7th value):
@@ -413,55 +595,99 @@ export default class GameScene extends Phaser.Scene {
     //   💀 skeleton (Haunted Grounds): a skeleton warrior with a rusty sword, rattling along the ground
     //   👻 ghost (Haunted Grounds): floats at its own height and keeps fading away (harmless) and back (dangerous)
     //   slime   (every other level)
-    const levelKind = { sea: "fish", forest: "snake", volcano: "lava", swamp: "frog", desert: "scorpion", temple: "viper", graveyard: "skeleton" }[levelData.theme] || "slime";
+    const levelKind =
+      {
+        sea: "fish",
+        forest: "snake",
+        volcano: "lava",
+        swamp: "frog",
+        desert: "scorpion",
+        temple: "viper",
+        graveyard: "skeleton",
+      }[levelData.theme] || "slime";
     const HITBOX = {
-      fish: [28, 20], snake: [34, 16], lava: [32, 20], demon: [26, 26], frog: [30, 22], bug: [24, 18],
-      scorpion: [34, 18], sand: [28, 26], mutant: [32, 28], robot: [30, 34], guard: [30, 38], viper: [34, 16],
-      skeleton: [24, 38], ghost: [26, 28], slime: [28, 28]
+      fish: [28, 20],
+      snake: [34, 16],
+      lava: [32, 20],
+      demon: [26, 26],
+      frog: [30, 22],
+      bug: [24, 18],
+      scorpion: [34, 18],
+      sand: [28, 26],
+      mutant: [32, 28],
+      robot: [30, 34],
+      guard: [30, 38],
+      viper: [34, 16],
+      skeleton: [24, 38],
+      ghost: [26, 28],
+      slime: [28, 28],
     };
 
-    enemyData.forEach(([x, y, left, right, speed, color, ownKind, , platformIndex], i) => {
-      const kind = HITBOX[ownKind] ? ownKind : levelKind;
-      const floats = kind === "fish" || kind === "demon" || kind === "bug" || kind === "ghost";
-      const movingPlatform = Number.isInteger(platformIndex) ? this.movingPlatforms[platformIndex] : null;
-      const enemySpeed = scaleEnemySpeed(speed, this.difficulty.enemySpeed);   // Easy slower, Hard faster
-      // ⚡ a ready-made picture of this kind of enemy (see enemyTexture), not shapes redrawn every frame
-      const gfx = this.add.image(x, kind === "slime" ? y - 16 : y, this.enemyTexture(kind, color));
+    enemyData.forEach(
+      ([x, y, left, right, speed, color, ownKind, , platformIndex], i) => {
+        const kind = HITBOX[ownKind] ? ownKind : levelKind;
+        const floats =
+          kind === "fish" ||
+          kind === "demon" ||
+          kind === "bug" ||
+          kind === "ghost";
+        const movingPlatform = Number.isInteger(platformIndex)
+          ? this.movingPlatforms[platformIndex]
+          : null;
+        const enemySpeed = scaleEnemySpeed(speed, this.difficulty.enemySpeed); // Easy slower, Hard faster
+        // ⚡ a ready-made picture of this kind of enemy (see enemyTexture), not shapes redrawn every frame
+        const gfx = this.add.image(
+          x,
+          kind === "slime" ? y - 16 : y,
+          this.enemyTexture(kind, color),
+        );
 
-      const body = this.physics.add.image(x, y, null);
-      body.setDisplaySize(HITBOX[kind][0], HITBOX[kind][1]);
-      body.setVisible(false);
-      body.setCollideWorldBounds(false);
-      body.setImmovable(false);
+        const body = this.physics.add.image(x, y, null);
+        body.setDisplaySize(HITBOX[kind][0], HITBOX[kind][1]);
+        body.setVisible(false);
+        body.setCollideWorldBounds(false);
+        body.setImmovable(false);
 
-      if (floats || movingPlatform) {
-        body.body.setAllowGravity(false);
-      } else {
-        body.body.setGravityY(200);
-        this.physics.add.collider(body, this.platforms);
-      }
+        if (floats || movingPlatform) {
+          body.body.setAllowGravity(false);
+        } else {
+          body.body.setGravityY(200);
+          this.physics.add.collider(body, this.platforms);
+        }
 
-      // bobPhase: each one bobs (or slithers, or flickers) a little, out of step with the others
-      const enemy = {
-        body, gfx, left, right, speed: enemySpeed, color, kind, movingPlatform,
-        platformOffsetX: movingPlatform ? x - movingPlatform.body.x : 0,
-        platformDirection: 1, direction: 1, bobPhase: i * 1.7, nextHop: 800 + i * 300
-      };
-      if (kind === "sand" || kind === "ghost") { // sand creatures and ghosts start out visible, on a staggered timer
-        enemy.burrowed = false;
-        enemy.nextSwitch = 1500 + i * 400;
-      }
-      if (kind === "ghost") gfx.setAlpha(0.92);
-      body.enemyRef = enemy;                     // so hitEnemy can tell which enemy you touched
-      this.enemies.push(enemy);
-    });
+        // bobPhase: each one bobs (or slithers, or flickers) a little, out of step with the others
+        const enemy = {
+          body,
+          gfx,
+          left,
+          right,
+          speed: enemySpeed,
+          color,
+          kind,
+          movingPlatform,
+          platformOffsetX: movingPlatform ? x - movingPlatform.body.x : 0,
+          platformDirection: 1,
+          direction: 1,
+          bobPhase: i * 1.7,
+          nextHop: 800 + i * 300,
+        };
+        if (kind === "sand" || kind === "ghost") {
+          // sand creatures and ghosts start out visible, on a staggered timer
+          enemy.burrowed = false;
+          enemy.nextSwitch = 1500 + i * 400;
+        }
+        if (kind === "ghost") gfx.setAlpha(0.92);
+        body.enemyRef = enemy; // so hitEnemy can tell which enemy you touched
+        this.enemies.push(enemy);
+      },
+    );
 
     this.physics.add.overlap(
       this.player,
-      this.enemies.map(e => e.body),
+      this.enemies.map((e) => e.body),
       this.hitEnemy,
       null,
-      this
+      this,
     );
 
     // 🪙 Coins
@@ -495,7 +721,13 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.physics.add.collider(this.coins, this.platforms);
-    this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
+    this.physics.add.overlap(
+      this.player,
+      this.coins,
+      this.collectCoin,
+      null,
+      this,
+    );
 
     // 🌋 Lava pools, falling rocks and collapsing platforms (see src/utils/Hazards.js)
     if (volcanic) setupVolcanoHazards(this, levelData, this.difficultyKey);
@@ -504,7 +736,13 @@ export default class GameScene extends Phaser.Scene {
     // ⏳ Quicksand and collapsing sandstone blocks (see src/utils/Hazards.js)
     if (desert) setupDesertHazards(this, levelData, this.difficultyKey);
     // ⚡ Electric traps, live cables and crumbling street ledges (see src/utils/Hazards.js)
-    if (city) setupCityHazards(this, levelData, this.difficultyKey, this.movingPlatforms);
+    if (city)
+      setupCityHazards(
+        this,
+        levelData,
+        this.difficultyKey,
+        this.movingPlatforms,
+      );
     // 🏛️ Spike pits, spike traps, poisonous plants and falling stones (see src/utils/Hazards.js)
     if (temple) setupTempleHazards(this, levelData, this.difficultyKey);
     // 🪦 Illusion, vanishing and ghost platforms (see src/utils/Hazards.js)
@@ -518,74 +756,111 @@ export default class GameScene extends Phaser.Scene {
     this.flag.fillTriangle(6, 0, 6, 25, 36, 12);
     const flagX = levelData.flagX;
     const flagGroundY = Math.max(
-      ...levelData.platforms.filter(([px, , pw]) => flagX >= px && flagX <= px + pw).map(([, py]) => py)
+      ...levelData.platforms
+        .filter(([px, , pw]) => flagX >= px && flagX <= px + pw)
+        .map(([, py]) => py),
     );
     this.flag.x = flagX;
     this.flag.y = flagGroundY - 60;
 
-    this.flagZone = this.physics.add.staticImage(flagX + 3, flagGroundY - 30, null);
-    this.flagZone.setDisplaySize(8, 60);   // about as wide as the pole, so you have to really touch it
+    this.flagZone = this.physics.add.staticImage(
+      flagX + 3,
+      flagGroundY - 30,
+      null,
+    );
+    this.flagZone.setDisplaySize(8, 60); // about as wide as the pole, so you have to really touch it
     this.flagZone.refreshBody();
     this.flagZone.setVisible(false);
 
-    this.physics.add.overlap(this.player, this.flagZone, this.reachFlag, null, this);
+    this.physics.add.overlap(
+      this.player,
+      this.flagZone,
+      this.reachFlag,
+      null,
+      this,
+    );
 
     // 🟢 Checkpoints: smaller green flags (only levels that define `checkpoints` get them)
     this.checkpoints = [];
     (levelData.checkpoints || []).forEach((cx) => {
       const groundY = Math.max(
-        ...levelData.platforms.filter(([px, , pw]) => cx >= px && cx <= px + pw).map(([, py]) => py)
+        ...levelData.platforms
+          .filter(([px, , pw]) => cx >= px && cx <= px + pw)
+          .map(([, py]) => py),
       );
-      if (!Number.isFinite(groundY)) return;   // no ground under this x: skip it instead of floating in mid-air
+      if (!Number.isFinite(groundY)) return; // no ground under this x: skip it instead of floating in mid-air
 
-      const poleH = 42;                        // the finish flag pole is 60px tall
+      const poleH = 42; // the finish flag pole is 60px tall
       const gfx = this.add.graphics();
       gfx.x = cx;
       gfx.y = groundY - poleH;
       const draw = (active) => {
         gfx.clear();
-        gfx.fillStyle(active ? 0x1faa3c : 0x2e6b34, 1);   // pole
+        gfx.fillStyle(active ? 0x1faa3c : 0x2e6b34, 1); // pole
         gfx.fillRect(0, 0, 4, poleH);
-        gfx.fillStyle(active ? 0x39ff6a : 0x3f9a4f, 1);   // green pennant (dull until you touch it)
+        gfx.fillStyle(active ? 0x39ff6a : 0x3f9a4f, 1); // green pennant (dull until you touch it)
         gfx.fillTriangle(4, 0, 4, 17, 26, 8);
       };
       draw(false);
 
-      const zone = this.physics.add.staticImage(cx + 2, groundY - poleH / 2, null);
+      const zone = this.physics.add.staticImage(
+        cx + 2,
+        groundY - poleH / 2,
+        null,
+      );
       zone.setDisplaySize(40, poleH);
       zone.refreshBody();
       zone.setVisible(false);
 
-      const cp = { x: cx, groundY, gfx, draw, active: false, respawn: [cx, groundY - 60] };
+      const cp = {
+        x: cx,
+        groundY,
+        gfx,
+        draw,
+        active: false,
+        respawn: [cx, groundY - 60],
+      };
       this.checkpoints.push(cp);
-      this.physics.add.overlap(this.player, zone, () => this.activateCheckpoint(cp), null, this);
+      this.physics.add.overlap(
+        this.player,
+        zone,
+        () => this.activateCheckpoint(cp),
+        null,
+        this,
+      );
     });
 
     // 📊 UI
     this.score = 0;
 
-    this.scoreText = this.add.text(16, 16, "Score: 0", {
-      fontSize: "24px",
-      color: "#ffffff",
-      stroke: "#000000",
-      strokeThickness: 4
-    }).setScrollFactor(0);
+    this.scoreText = this.add
+      .text(16, 16, "Score: 0", {
+        fontSize: "24px",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setScrollFactor(0);
 
-    this.coinCountText = this.add.text(16, 46, `Coins: 0 / ${this.totalCoins}`, {
-      fontSize: "20px",
-      color: "#ffdd00",
-      stroke: "#000000",
-      strokeThickness: 4
-    }).setScrollFactor(0);
+    this.coinCountText = this.add
+      .text(16, 46, `Coins: 0 / ${this.totalCoins}`, {
+        fontSize: "20px",
+        color: "#ffdd00",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setScrollFactor(0);
 
     // ❤️ Lives
     this.lives = this.difficulty.lives;
-    this.livesText = this.add.text(16, 72, "Lives: " + "❤️".repeat(this.lives), {
-      fontSize: "20px",
-      color: "#ff4444",
-      stroke: "#000000",
-      strokeThickness: 4
-    }).setScrollFactor(0);
+    this.livesText = this.add
+      .text(16, 72, "Lives: " + "❤️".repeat(this.lives), {
+        fontSize: "20px",
+        color: "#ff4444",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setScrollFactor(0);
 
     this.invincible = false;
 
@@ -593,15 +868,16 @@ export default class GameScene extends Phaser.Scene {
     this.updateProgressBar();
 
     // ⏸ Pause button (top-right corner, however wide the screen is)
-    const pauseBtn = this.add.text(this.cameras.main.width - 20, 16, "⏸", {
-      fontSize: "28px",
-      color: "#ffffff",
-      stroke: "#000000",
-      strokeThickness: 4
-    })
-    .setOrigin(1, 0)
-    .setScrollFactor(0)
-    .setInteractive({ useHandCursor: true });
+    const pauseBtn = this.add
+      .text(this.cameras.main.width - 20, 16, "⏸", {
+        fontSize: "28px",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true });
 
     pauseBtn.on("pointerover", () => pauseBtn.setAlpha(0.7));
     pauseBtn.on("pointerout", () => pauseBtn.setAlpha(1));
@@ -614,37 +890,48 @@ export default class GameScene extends Phaser.Scene {
     this.timeLeft = levelData.timeLimit;
     const startMins = Math.floor(this.timeLeft / 60);
     const startSecs = String(this.timeLeft % 60).padStart(2, "0");
-    this.timerX = this.cameras.main.width / 2;   // centred, like the progress bar
-    this.timerText = this.add.text(this.timerX, 16, `⏱ ${startMins}:${startSecs}`, {
-      fontSize: "24px",
-      color: "#ffffff",
-      stroke: "#000000",
-      strokeThickness: 4
-    }).setOrigin(0.5, 0).setScrollFactor(0);
+    this.timerX = this.cameras.main.width / 2; // centred, like the progress bar
+    this.timerText = this.add
+      .text(this.timerX, 16, `⏱ ${startMins}:${startSecs}`, {
+        fontSize: "24px",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0);
 
     this.time.addEvent({
       delay: 1000,
       callback: this.tickTimer,
       callbackScope: this,
-      loop: true
+      loop: true,
     });
 
     // 📱 Mobile controls
-    this.mobileLeft  = false;
+    this.mobileLeft = false;
     this.mobileRight = false;
-    this.mobileJump  = false;
+    this.mobileJump = false;
     // Jump timing (see update()): last time a jump was requested / last time we stood on the ground
-    this._jumpPressedAt  = -Infinity;
+    this._jumpPressedAt = -Infinity;
     this._lastGroundedAt = -Infinity;
 
     // Optional FPS counter: open the game with ?fps in the address bar to check phone performance
     if (new URLSearchParams(window.location.search).has("fps")) {
-      const fpsText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height - 6, "", {
-        fontSize: "14px", color: "#ffff00", backgroundColor: "#000000aa"
-      }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(50);
+      const fpsText = this.add
+        .text(this.cameras.main.width / 2, this.cameras.main.height - 6, "", {
+          fontSize: "14px",
+          color: "#ffff00",
+          backgroundColor: "#000000aa",
+        })
+        .setOrigin(0.5, 1)
+        .setScrollFactor(0)
+        .setDepth(50);
       this.time.addEvent({
-        delay: 500, loop: true,
-        callback: () => fpsText.setText(Math.round(this.game.loop.actualFps) + " FPS")
+        delay: 500,
+        loop: true,
+        callback: () =>
+          fpsText.setText(Math.round(this.game.loop.actualFps) + " FPS"),
       });
     }
 
@@ -670,23 +957,33 @@ export default class GameScene extends Phaser.Scene {
       spark.x = cp.x + 12;
       spark.y = cp.groundY - 34;
       const angle = Math.random() * Math.PI * 2;
-      const dist  = 30 + Math.random() * 40;
+      const dist = 30 + Math.random() * 40;
       this.tweens.add({
         targets: spark,
         x: spark.x + Math.cos(angle) * dist,
         y: spark.y + Math.sin(angle) * dist - 20,
         alpha: 0,
         duration: 500,
-        onComplete: () => spark.destroy()
+        onComplete: () => spark.destroy(),
       });
     }
 
-    const label = this.add.text(cp.x + 12, cp.groundY - 70, "Checkpoint!", {
-      fontSize: "16px", color: "#39ff6a", fontStyle: "bold", stroke: "#000000", strokeThickness: 3
-    }).setOrigin(0.5).setDepth(20);
+    const label = this.add
+      .text(cp.x + 12, cp.groundY - 70, "Checkpoint!", {
+        fontSize: "16px",
+        color: "#39ff6a",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(20);
     this.tweens.add({
-      targets: label, y: label.y - 30, alpha: 0, duration: 1100,
-      onComplete: () => label.destroy()
+      targets: label,
+      y: label.y - 30,
+      alpha: 0,
+      duration: 1100,
+      onComplete: () => label.destroy(),
     });
   }
 
@@ -710,7 +1007,7 @@ export default class GameScene extends Phaser.Scene {
         duration: 50,
         yoyo: true,
         repeat: 2,
-        onComplete: () => this.timerText.x = this.timerX
+        onComplete: () => (this.timerText.x = this.timerX),
       });
     }
 
@@ -728,17 +1025,17 @@ export default class GameScene extends Phaser.Scene {
     // can end up much smaller on a phone. displayScale = game pixels per real screen pixel, so we
     // size the buttons in REAL screen pixels (about 66px tall) to keep them thumb-friendly.
     const scaleY = (this.scale.displayScale && this.scale.displayScale.y) || 1;
-    const btnH   = Math.min(Math.max(Math.round(66 * scaleY), 76), 104);
-    const sideW  = Math.round(btnH * 1.15);   // ◀ ▶ a bit wider than tall
-    const jumpW  = Math.round(btnH * 1.5);    // ▲ the widest: it is the button pressed most
+    const btnH = Math.min(Math.max(Math.round(66 * scaleY), 76), 104);
+    const sideW = Math.round(btnH * 1.15); // ◀ ▶ a bit wider than tall
+    const jumpW = Math.round(btnH * 1.5); // ▲ the widest: it is the button pressed most
     const margin = 16;
-    const gap    = 14;
-    const y      = camH - margin - btnH;
+    const gap = 14;
+    const y = camH - margin - btnH;
 
     this._btnRects = {
-      left:  { x: margin,                  y, w: sideW, h: btnH },
-      right: { x: margin + sideW + gap,    y, w: sideW, h: btnH },
-      jump:  { x: camW - margin - jumpW,   y, w: jumpW, h: btnH },
+      left: { x: margin, y, w: sideW, h: btnH },
+      right: { x: margin + sideW + gap, y, w: sideW, h: btnH },
+      jump: { x: camW - margin - jumpW, y, w: jumpW, h: btnH },
     };
 
     // Draw the buttons (purely visual: touches are handled below)
@@ -758,36 +1055,51 @@ export default class GameScene extends Phaser.Scene {
         g.strokeRoundedRect(r.x, r.y, r.w, r.h, 16);
       };
       draw(false);
-      const text = this.add.text(r.x + r.w / 2, r.y + r.h / 2, labels[name], {
-        fontSize: Math.round(btnH * 0.42) + "px", color: "#ffffff"
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
+      const text = this.add
+        .text(r.x + r.w / 2, r.y + r.h / 2, labels[name], {
+          fontSize: Math.round(btnH * 0.42) + "px",
+          color: "#ffffff",
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(11);
       this._btnGfx[name] = { draw };
       this._mobileUi.push(g, text);
     }
 
     // Which button is each finger on? (one finger = at most one button; the nearest wins)
     // The touch area is a little bigger than the drawn button so a slightly-off tap still counts.
-    const padX = 12, padY = 22;
+    const padX = 12,
+      padY = 22;
     const pickButton = (px, py) => {
-      let best = null, bestDist = Infinity;
+      let best = null,
+        bestDist = Infinity;
       for (const [name, r] of Object.entries(this._btnRects)) {
-        if (px >= r.x - padX && px <= r.x + r.w + padX && py >= r.y - padY && py <= r.y + r.h + padY) {
+        if (
+          px >= r.x - padX &&
+          px <= r.x + r.w + padX &&
+          py >= r.y - padY &&
+          py <= r.y + r.h + padY
+        ) {
           const d = Math.hypot(px - (r.x + r.w / 2), py - (r.y + r.h / 2));
-          if (d < bestDist) { bestDist = d; best = name; }
+          if (d < bestDist) {
+            bestDist = d;
+            best = name;
+          }
         }
       }
       return best;
     };
 
-    this._pointerButton = {};   // pointer id -> "left" | "right" | "jump" | null
+    this._pointerButton = {}; // pointer id -> "left" | "right" | "jump" | null
 
     // Only redraw a button when its pressed state really changes (redrawing on every
     // finger movement was wasting time on phones)
     const refresh = () => {
       const down = new Set(Object.values(this._pointerButton).filter(Boolean));
-      this.mobileLeft  = down.has("left");
+      this.mobileLeft = down.has("left");
       this.mobileRight = down.has("right");
-      this.mobileJump  = down.has("jump");
+      this.mobileJump = down.has("jump");
       for (const name of Object.keys(this._btnRects)) {
         const pressed = down.has(name);
         if (pressed !== this._btnPressed[name]) {
@@ -800,8 +1112,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.input.on("pointerdown", (ptr) => {
       if (!this._controlsVisible) {
-        if (!ptr.wasTouch) return;          // a mouse click on a laptop: ignore
-        this.setControlsVisible(true);      // first real touch on a hybrid device: show the buttons
+        if (!ptr.wasTouch) return; // a mouse click on a laptop: ignore
+        this.setControlsVisible(true); // first real touch on a hybrid device: show the buttons
       }
       const name = pickButton(ptr.x, ptr.y);
       this._pointerButton[ptr.id] = name;
@@ -815,7 +1127,7 @@ export default class GameScene extends Phaser.Scene {
       if (!this._controlsVisible || !(ptr.id in this._pointerButton)) return;
       const name = pickButton(ptr.x, ptr.y);
       if (name !== this._pointerButton[ptr.id]) {
-        if (name === "jump") this._jumpPressedAt = performance.now();   // sliding onto jump counts as a press
+        if (name === "jump") this._jumpPressedAt = performance.now(); // sliding onto jump counts as a press
         this._pointerButton[ptr.id] = name;
         refresh();
       }
@@ -831,13 +1143,18 @@ export default class GameScene extends Phaser.Scene {
     this.input.on("pointerupoutside", release);
 
     // Never leave a button "stuck" if the finger leaves the screen or the game is paused/resumed
-    const releaseAll = () => { this._pointerButton = {}; refresh(); };
+    const releaseAll = () => {
+      this._pointerButton = {};
+      refresh();
+    };
     this.input.on("gameout", releaseAll);
     this.events.on("resume", releaseAll);
 
     // Show only on touch devices. "(pointer: coarse)" means the main pointer is a finger.
     const device = this.sys.game.device;
-    const coarsePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    const coarsePointer =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: coarse)").matches;
     const touchOnly = device.input.touch && !device.os.desktop;
     this.setControlsVisible(Boolean(coarsePointer || touchOnly));
 
@@ -851,7 +1168,7 @@ export default class GameScene extends Phaser.Scene {
 
   setControlsVisible(visible) {
     this._controlsVisible = visible;
-    this._mobileUi.forEach(obj => obj.setVisible(visible));
+    this._mobileUi.forEach((obj) => obj.setVisible(visible));
     if (!visible) {
       this._pointerButton = {};
       this._refreshMobileButtons();
@@ -945,52 +1262,58 @@ export default class GameScene extends Phaser.Scene {
   drawSkeleton(gfx, color, pose = 0) {
     gfx.clear();
     const shade = Phaser.Display.Color.IntegerToColor(color).darken(25).color;
-    const t = (pose / SKELETON_POSES) * Math.PI * 2;          // where we are in the stride
-    const swing = Math.cos(t), forward = -Math.sin(t);        // swing: leg position; forward > 0 = front leg moving forward
+    const t = (pose / SKELETON_POSES) * Math.PI * 2; // where we are in the stride
+    const swing = Math.cos(t),
+      forward = -Math.sin(t); // swing: leg position; forward > 0 = front leg moving forward
     // Each leg: hip -> knee -> foot. The leg that is swinging forward lifts its foot and bends its knee.
     const leg = (hipX, footX, lift, lineColor) => {
       const footY = 19 - lift;
-      const kneeX = (hipX + footX) / 2 + 1.5 + lift * 0.6, kneeY = 13 - lift * 0.5;   // knees bend forward
+      const kneeX = (hipX + footX) / 2 + 1.5 + lift * 0.6,
+        kneeY = 13 - lift * 0.5; // knees bend forward
       gfx.lineStyle(3, lineColor, 1);
       gfx.lineBetween(hipX, 7, kneeX, kneeY);
       gfx.lineBetween(kneeX, kneeY, footX, footY);
       gfx.fillStyle(lineColor, 1);
-      gfx.fillEllipse(footX + (footX < 0 ? -1 : 1), footY, 6, 3);   // foot
+      gfx.fillEllipse(footX + (footX < 0 ? -1 : 1), footY, 6, 3); // foot
     };
-    leg(-3, -6 * swing, Math.max(0, -forward) * 4, shade);    // back leg (a shade darker, it is further away)
-    leg(3, 6 * swing, Math.max(0, forward) * 4, color);       // front leg
+    leg(-3, -6 * swing, Math.max(0, -forward) * 4, shade); // back leg (a shade darker, it is further away)
+    leg(3, 6 * swing, Math.max(0, forward) * 4, color); // front leg
     gfx.fillStyle(color, 1);
-    gfx.fillRoundedRect(-6, 3, 12, 5, 2);                     // hips
+    gfx.fillRoundedRect(-6, 3, 12, 5, 2); // hips
     gfx.lineStyle(2.5, color, 1);
-    gfx.lineBetween(0, -6, 0, 4);                             // spine
-    gfx.lineStyle(2, color, 1);                               // ribs
-    [-4, -1, 2].forEach(y => gfx.lineBetween(-6, y, 6, y));
+    gfx.lineBetween(0, -6, 0, 4); // spine
+    gfx.lineStyle(2, color, 1); // ribs
+    [-4, -1, 2].forEach((y) => gfx.lineBetween(-6, y, 6, y));
     // Arms swing the opposite way to the legs: the back arm swings wide, the sword arm only a little
-    const backHandX = -7 - 3 * swing, backHandY = 4 - Math.abs(swing) * 0.5;
+    const backHandX = -7 - 3 * swing,
+      backHandY = 4 - Math.abs(swing) * 0.5;
     gfx.lineStyle(2, shade, 1);
-    gfx.lineBetween(-7, -5, -8.5 - 1.5 * swing, -0.5);        // back arm: upper arm, then forearm
+    gfx.lineBetween(-7, -5, -8.5 - 1.5 * swing, -0.5); // back arm: upper arm, then forearm
     gfx.lineBetween(-8.5 - 1.5 * swing, -0.5, backHandX, backHandY);
-    const handX = 9 + 2 * swing, handY = 1 - (1 - Math.abs(swing)) * 1;   // sword hand
-    const sx = handX - 11, sy = handY - 1;                    // move the sword along with the hand
+    const handX = 9 + 2 * swing,
+      handY = 1 - (1 - Math.abs(swing)) * 1; // sword hand
+    const sx = handX - 11,
+      sy = handY - 1; // move the sword along with the hand
     gfx.lineStyle(2.5, color, 1);
-    gfx.lineBetween(6, -5, handX, handY);                     // sword arm
-    gfx.lineStyle(2.5, 0x8a8f9e, 1);                          // the rusty sword
+    gfx.lineBetween(6, -5, handX, handY); // sword arm
+    gfx.lineStyle(2.5, 0x8a8f9e, 1); // the rusty sword
     gfx.lineBetween(12 + sx, 1 + sy, 23 + sx, -13 + sy);
     gfx.lineStyle(1.2, 0xb46a3a, 1);
     gfx.lineBetween(15 + sx, -3 + sy, 19 + sx, -8 + sy);
     gfx.lineStyle(2.5, 0x5a4a3a, 1);
-    gfx.lineBetween(9 + sx, -2 + sy, 15 + sx, 4 + sy);        // hilt
-    gfx.fillStyle(color, 1);                                  // skull
+    gfx.lineBetween(9 + sx, -2 + sy, 15 + sx, 4 + sy); // hilt
+    gfx.fillStyle(color, 1); // skull
     gfx.fillCircle(1, -12, 7.5);
-    gfx.fillRoundedRect(-2, -8, 9, 5, 2);                     // jaw
+    gfx.fillRoundedRect(-2, -8, 9, 5, 2); // jaw
     gfx.fillStyle(0x1a1a2e, 1);
-    gfx.fillCircle(-1, -13, 2.4);                             // eye sockets
+    gfx.fillCircle(-1, -13, 2.4); // eye sockets
     gfx.fillCircle(5, -13, 2.4);
-    gfx.fillRect(0, -7, 1, 2); gfx.fillRect(3, -7, 1, 2);     // teeth gaps
-    gfx.fillStyle(0xc8a8ff, 1);                               // a purple glow in each eye
+    gfx.fillRect(0, -7, 1, 2);
+    gfx.fillRect(3, -7, 1, 2); // teeth gaps
+    gfx.fillStyle(0xc8a8ff, 1); // a purple glow in each eye
     gfx.fillCircle(-1, -13, 1);
     gfx.fillCircle(5, -13, 1);
-    gfx.fillStyle(0x5a4a7a, 1);                               // a tattered helmet
+    gfx.fillStyle(0x5a4a7a, 1); // a tattered helmet
     gfx.fillRect(-6, -20, 14, 3);
     gfx.fillTriangle(-6, -20, 8, -20, 1, -24);
   }
@@ -998,22 +1321,22 @@ export default class GameScene extends Phaser.Scene {
   // 👻 Draw a floating ghost facing right: a soft glow, a wavy tail, hollow eyes and an open mouth
   drawGhost(gfx, color) {
     gfx.clear();
-    gfx.fillStyle(0xa07ae0, 0.18);                            // purple glow around it
+    gfx.fillStyle(0xa07ae0, 0.18); // purple glow around it
     gfx.fillCircle(0, -2, 22);
     gfx.fillStyle(0xa07ae0, 0.18);
     gfx.fillCircle(0, -2, 17);
     gfx.fillStyle(color, 0.95);
-    gfx.fillCircle(0, -5, 13);                                // head
-    gfx.fillRect(-13, -5, 26, 13);                            // body
-    gfx.fillTriangle(-13, 8, -6, 8, -10, 16);                 // wavy tail
+    gfx.fillCircle(0, -5, 13); // head
+    gfx.fillRect(-13, -5, 26, 13); // body
+    gfx.fillTriangle(-13, 8, -6, 8, -10, 16); // wavy tail
     gfx.fillTriangle(-6, 8, 2, 8, -2, 15);
     gfx.fillTriangle(2, 8, 13, 8, 9, 17);
-    gfx.fillStyle(0xffffff, 0.35);                            // a pale shine
+    gfx.fillStyle(0xffffff, 0.35); // a pale shine
     gfx.fillEllipse(-5, -11, 7, 4);
     gfx.fillStyle(0x16142a, 1);
-    gfx.fillEllipse(0, -5, 5, 7);                             // eyes
+    gfx.fillEllipse(0, -5, 5, 7); // eyes
     gfx.fillEllipse(8, -5, 5, 7);
-    gfx.fillEllipse(5, 3, 5, 6);                              // mouth
+    gfx.fillEllipse(5, 3, 5, 6); // mouth
   }
 
   // 🗿 Draw a stone temple guard. asleep = true draws it as a lifeless statue (dark eyes);
@@ -1023,35 +1346,36 @@ export default class GameScene extends Phaser.Scene {
     const stone = Phaser.Display.Color.IntegerToColor(color);
     const dark = stone.clone().darken(30).color;
     const light = stone.clone().lighten(18).color;
-    gfx.fillStyle(dark, 1);                                   // legs
+    gfx.fillStyle(dark, 1); // legs
     gfx.fillRect(-11, 9, 9, 10);
     gfx.fillRect(2, 9, 9, 10);
-    gfx.fillRect(-18, -6, 5, 15);                             // arms
+    gfx.fillRect(-18, -6, 5, 15); // arms
     gfx.fillRect(13, -6, 5, 15);
-    gfx.fillStyle(color, 1);                                  // body
+    gfx.fillStyle(color, 1); // body
     gfx.fillRoundedRect(-14, -8, 28, 19, 3);
-    gfx.fillStyle(light, 1);                                  // head
+    gfx.fillStyle(light, 1); // head
     gfx.fillRoundedRect(-11, -20, 22, 14, 3);
-    gfx.fillStyle(0xd9ac3c, 1);                               // gold headdress
+    gfx.fillStyle(0xd9ac3c, 1); // gold headdress
     gfx.fillRect(-12, -22, 24, 4);
     gfx.fillTriangle(-4, -22, 4, -22, 0, -27);
-    if (!asleep) {                                            // a glow around the eyes when awake
+    if (!asleep) {
+      // a glow around the eyes when awake
       gfx.fillStyle(0xffd23f, 0.35);
       gfx.fillRect(-9, -17, 9, 7);
       gfx.fillRect(0, -17, 9, 7);
     }
-    gfx.fillStyle(asleep ? 0x2a2218 : 0xffe680, 1);           // eyes
+    gfx.fillStyle(asleep ? 0x2a2218 : 0xffe680, 1); // eyes
     gfx.fillRect(-7, -15, 5, 3);
     gfx.fillRect(2, -15, 5, 3);
-    gfx.fillStyle(dark, 1);                                   // carved mouth
+    gfx.fillStyle(dark, 1); // carved mouth
     gfx.fillRect(-5, -10, 10, 2);
-    gfx.fillStyle(asleep ? 0x8a7030 : 0xf2d070, 1);           // the mark on its chest
+    gfx.fillStyle(asleep ? 0x8a7030 : 0xf2d070, 1); // the mark on its chest
     gfx.fillRect(-4, -1, 8, 2);
     gfx.fillRect(-1, -4, 2, 8);
-    gfx.fillStyle(0x3f7a2e, 1);                               // moss
+    gfx.fillStyle(0x3f7a2e, 1); // moss
     gfx.fillCircle(-10, -7, 3);
     gfx.fillCircle(9, 7, 2.5);
-    gfx.lineStyle(1, dark, 1);                                // a crack
+    gfx.lineStyle(1, dark, 1); // a crack
     gfx.lineBetween(6, -8, 9, -2);
     gfx.lineBetween(9, -2, 7, 3);
   }
@@ -1060,7 +1384,11 @@ export default class GameScene extends Phaser.Scene {
   drawViper(gfx, color) {
     this.drawSnake(gfx, color);
     gfx.fillStyle(0x8a3ab8, 1);
-    [[-9, 2], [1, 1], [10, 0]].forEach(([x, y]) => {
+    [
+      [-9, 2],
+      [1, 1],
+      [10, 0],
+    ].forEach(([x, y]) => {
       gfx.fillTriangle(x - 3, y, x + 3, y, x, y - 3);
       gfx.fillTriangle(x - 3, y, x + 3, y, x, y + 3);
     });
@@ -1074,15 +1402,15 @@ export default class GameScene extends Phaser.Scene {
   drawFish(gfx, color) {
     gfx.clear();
     gfx.fillStyle(color, 1);
-    gfx.fillTriangle(-10, 0, -20, -9, -20, 9);      // tail
-    gfx.fillEllipse(0, 0, 28, 18);                  // body
-    gfx.fillTriangle(-4, -7, 6, -7, -2, -14);       // top fin
+    gfx.fillTriangle(-10, 0, -20, -9, -20, 9); // tail
+    gfx.fillEllipse(0, 0, 28, 18); // body
+    gfx.fillTriangle(-4, -7, 6, -7, -2, -14); // top fin
     gfx.fillStyle(0xffffff, 0.35);
-    gfx.fillEllipse(1, 3, 16, 6);                   // lighter belly
+    gfx.fillEllipse(1, 3, 16, 6); // lighter belly
     gfx.fillStyle(0x000000, 0.25);
-    gfx.fillRect(-3, -8, 3, 16);                    // stripe
+    gfx.fillRect(-3, -8, 3, 16); // stripe
     gfx.fillStyle(0xffffff, 1);
-    gfx.fillCircle(7, -2, 4);                       // eye
+    gfx.fillCircle(7, -2, 4); // eye
     gfx.fillStyle(0x000000, 1);
     gfx.fillCircle(8, -2, 2);
   }
@@ -1092,31 +1420,37 @@ export default class GameScene extends Phaser.Scene {
   drawScorpion(gfx, color) {
     gfx.clear();
     const dark = Phaser.Display.Color.IntegerToColor(color).darken(25).color;
-    gfx.lineStyle(1.5, dark, 1);                                 // legs
+    gfx.lineStyle(1.5, dark, 1); // legs
     for (let k = 0; k < 4; k++) {
       const lx = -8 + k * 5;
       gfx.lineBetween(lx, 2, lx - 4, 9);
       gfx.lineBetween(lx + 1, 2, lx + 4, 9);
     }
-    gfx.fillStyle(color, 1);                                     // body segments
+    gfx.fillStyle(color, 1); // body segments
     gfx.fillEllipse(-2, 2, 26, 11);
     gfx.fillStyle(dark, 1);
-    [-9, -4, 1, 6].forEach(sx => gfx.fillRect(sx, -2, 1.2, 8));
-    gfx.fillStyle(color, 1);                                     // head
+    [-9, -4, 1, 6].forEach((sx) => gfx.fillRect(sx, -2, 1.2, 8));
+    gfx.fillStyle(color, 1); // head
     gfx.fillEllipse(11, 3, 10, 8);
-    gfx.lineStyle(2.4, color, 1);                                // arms and pincers
+    gfx.lineStyle(2.4, color, 1); // arms and pincers
     gfx.lineBetween(13, 2, 19, -2);
     gfx.lineBetween(13, 5, 19, 7);
     gfx.fillStyle(dark, 1);
     gfx.fillTriangle(18, -5, 23, -3, 18, 0);
     gfx.fillTriangle(18, 4, 23, 7, 18, 9);
-    gfx.fillStyle(color, 1);                                     // tail curling up and forward
-    [[-14, 0, 4], [-17, -5, 3.8], [-17, -11, 3.6], [-13, -16, 3.4], [-7, -18, 3.2]].forEach(([tx, ty, r]) => gfx.fillCircle(tx, ty, r));
-    gfx.fillStyle(0x2a1408, 1);                                  // stinger
+    gfx.fillStyle(color, 1); // tail curling up and forward
+    [
+      [-14, 0, 4],
+      [-17, -5, 3.8],
+      [-17, -11, 3.6],
+      [-13, -16, 3.4],
+      [-7, -18, 3.2],
+    ].forEach(([tx, ty, r]) => gfx.fillCircle(tx, ty, r));
+    gfx.fillStyle(0x2a1408, 1); // stinger
     gfx.fillTriangle(-4, -20, -2, -14, 1, -18);
     gfx.fillStyle(0xfff2c0, 0.9);
     gfx.fillCircle(-2, -17, 0.9);
-    gfx.fillStyle(0x1a0a04, 1);                                  // eyes
+    gfx.fillStyle(0x1a0a04, 1); // eyes
     gfx.fillCircle(13, 1, 1.2);
   }
 
@@ -1136,37 +1470,47 @@ export default class GameScene extends Phaser.Scene {
       gfx.fillCircle(8, 7, 1.4);
       return;
     }
-    gfx.fillStyle(dark, 1);                                      // base spreading into the ground
+    gfx.fillStyle(dark, 1); // base spreading into the ground
     gfx.fillEllipse(0, 11, 30, 6);
-    gfx.fillStyle(color, 1);                                     // lumpy body
+    gfx.fillStyle(color, 1); // lumpy body
     gfx.fillCircle(0, 4, 11);
     gfx.fillCircle(-2, -6, 8);
     gfx.fillCircle(3, -11, 5.5);
-    gfx.fillStyle(dark, 1);                                      // shaded side and stones
+    gfx.fillStyle(dark, 1); // shaded side and stones
     gfx.fillEllipse(-6, 6, 7, 10);
     gfx.fillStyle(0x8a6a4a, 1);
     gfx.fillCircle(-4, 0, 2);
     gfx.fillCircle(5, 8, 1.6);
-    gfx.fillStyle(color, 1);                                     // arms
+    gfx.fillStyle(color, 1); // arms
     gfx.fillEllipse(-11, 2, 6, 10);
     gfx.fillEllipse(12, 0, 6, 10);
-    gfx.fillStyle(0x3a1e0a, 1);                                  // eye sockets
+    gfx.fillStyle(0x3a1e0a, 1); // eye sockets
     gfx.fillEllipse(2, -6, 6, 4);
     gfx.fillEllipse(8, -6, 5, 4);
-    gfx.fillStyle(0xffb030, 1);                                  // glowing eyes
+    gfx.fillStyle(0xffb030, 1); // glowing eyes
     gfx.fillCircle(2.5, -6, 1.6);
     gfx.fillCircle(8, -6, 1.4);
-    gfx.fillStyle(0x3a1e0a, 1);                                  // mouth
+    gfx.fillStyle(0x3a1e0a, 1); // mouth
     gfx.fillEllipse(5, 0, 6, 2.5);
   }
 
   // A burst of sand when a sand creature dives in or bursts out
   sandBurst(x, y) {
     for (let i = 0; i < 8; i++) {
-      const grain = this.add.circle(x + (Math.random() - 0.5) * 16, y, 1.5 + Math.random() * 2, i % 2 ? 0xe8b870 : 0xc8944e);
+      const grain = this.add.circle(
+        x + (Math.random() - 0.5) * 16,
+        y,
+        1.5 + Math.random() * 2,
+        i % 2 ? 0xe8b870 : 0xc8944e,
+      );
       this.tweens.add({
-        targets: grain, x: grain.x + (Math.random() - 0.5) * 40, y: y - 10 - Math.random() * 22, alpha: 0,
-        duration: 420, ease: "Quad.Out", onComplete: () => grain.destroy()
+        targets: grain,
+        x: grain.x + (Math.random() - 0.5) * 40,
+        y: y - 10 - Math.random() * 22,
+        alpha: 0,
+        duration: 420,
+        ease: "Quad.Out",
+        onComplete: () => grain.destroy(),
       });
     }
   }
@@ -1175,35 +1519,40 @@ export default class GameScene extends Phaser.Scene {
   // and toxic drool. Its feet sit on the bottom of its hitbox (y = +11).
   drawMutantFrog(gfx, color) {
     gfx.clear();
-    gfx.fillStyle(0x3a5a12, 1);                                  // back legs, folded
+    gfx.fillStyle(0x3a5a12, 1); // back legs, folded
     gfx.fillEllipse(-11, 6, 14, 10);
     gfx.fillEllipse(-14, 10, 12, 3);
-    gfx.fillStyle(color, 1);                                     // body
+    gfx.fillStyle(color, 1); // body
     gfx.fillEllipse(0, 2, 30, 18);
-    gfx.fillStyle(0x4a7a1a, 1);                                  // darker back
+    gfx.fillStyle(0x4a7a1a, 1); // darker back
     gfx.fillEllipse(-3, -2, 22, 9);
-    gfx.fillStyle(0xe8f5b0, 1);                                  // pale belly
+    gfx.fillStyle(0xe8f5b0, 1); // pale belly
     gfx.fillEllipse(4, 7, 18, 6);
-    gfx.fillStyle(0x8a4aa8, 0.9);                                // mutant blotches
+    gfx.fillStyle(0x8a4aa8, 0.9); // mutant blotches
     gfx.fillCircle(-7, -1, 2.6);
     gfx.fillCircle(0, -3, 1.8);
-    gfx.fillStyle(0xc8ff4a, 1);                                  // warts
-    [[-11, 2], [-4, 3], [-9, -4], [2, 0]].forEach(([wx, wy]) => gfx.fillCircle(wx, wy, 1.2));
-    gfx.fillStyle(color, 1);                                     // front leg
+    gfx.fillStyle(0xc8ff4a, 1); // warts
+    [
+      [-11, 2],
+      [-4, 3],
+      [-9, -4],
+      [2, 0],
+    ].forEach(([wx, wy]) => gfx.fillCircle(wx, wy, 1.2));
+    gfx.fillStyle(color, 1); // front leg
     gfx.fillRect(8, 6, 4, 5);
     gfx.fillEllipse(11, 11, 8, 3);
-    gfx.fillStyle(color, 1);                                     // eye bumps: one normal, one huge
+    gfx.fillStyle(color, 1); // eye bumps: one normal, one huge
     gfx.fillCircle(5, -7, 4.5);
     gfx.fillCircle(11, -8, 6.5);
     gfx.fillStyle(0xfff27a, 1);
     gfx.fillCircle(5, -7.5, 3);
     gfx.fillCircle(11, -8.5, 5);
-    gfx.fillStyle(0x1a1a0a, 1);                                  // slit pupils
+    gfx.fillStyle(0x1a1a0a, 1); // slit pupils
     gfx.fillRect(4.5, -9.5, 1.4, 4);
     gfx.fillRect(11.5, -12, 2, 7);
-    gfx.lineStyle(1.2, 0x2a3a0e, 1);                             // mouth
+    gfx.lineStyle(1.2, 0x2a3a0e, 1); // mouth
     gfx.lineBetween(6, 1, 15, -1);
-    gfx.fillStyle(0xb4ff2a, 1);                                  // toxic drool
+    gfx.fillStyle(0xb4ff2a, 1); // toxic drool
     gfx.fillCircle(13, 2, 1.6);
     gfx.fillRect(12.4, 2, 1.2, 4);
   }
@@ -1212,24 +1561,24 @@ export default class GameScene extends Phaser.Scene {
   // see-through wings
   drawToxicBug(gfx, color) {
     gfx.clear();
-    gfx.fillStyle(0xeaffd0, 0.45);                               // wings
+    gfx.fillStyle(0xeaffd0, 0.45); // wings
     gfx.fillEllipse(-4, -9, 16, 9);
     gfx.fillEllipse(3, -10, 12, 8);
     gfx.lineStyle(1, 0xeaffd0, 0.7);
     gfx.strokeEllipse(-4, -9, 16, 9);
-    gfx.fillStyle(0x2a1a0a, 1);                                  // abdomen
+    gfx.fillStyle(0x2a1a0a, 1); // abdomen
     gfx.fillEllipse(-6, 2, 16, 10);
-    gfx.fillStyle(color, 1);                                     // glowing stripes
+    gfx.fillStyle(color, 1); // glowing stripes
     gfx.fillRect(-10, -2, 2.4, 8);
     gfx.fillRect(-6, -3, 2.4, 10);
     gfx.fillRect(-2, -2, 2.4, 8);
     gfx.fillStyle(0x2a1a0a, 1);
-    gfx.fillTriangle(-14, 1, -14, 4, -19, 3);                   // stinger
-    gfx.fillCircle(4, 0, 4.5);                                   // thorax
-    gfx.fillCircle(9, -1, 3.6);                                  // head
-    gfx.fillStyle(0xff3b3b, 1);                                  // red eyes
+    gfx.fillTriangle(-14, 1, -14, 4, -19, 3); // stinger
+    gfx.fillCircle(4, 0, 4.5); // thorax
+    gfx.fillCircle(9, -1, 3.6); // head
+    gfx.fillStyle(0xff3b3b, 1); // red eyes
     gfx.fillCircle(10.5, -2, 1.6);
-    gfx.lineStyle(1, 0x2a1a0a, 1);                               // antennae and legs
+    gfx.lineStyle(1, 0x2a1a0a, 1); // antennae and legs
     gfx.lineBetween(10, -4, 14, -9);
     gfx.lineBetween(11, -3, 16, -6);
     gfx.lineBetween(2, 4, 0, 8);
@@ -1239,25 +1588,25 @@ export default class GameScene extends Phaser.Scene {
   // 🔥 Draw a small fire demon facing right: a flame-shaped body, dark horns and glowing eyes
   drawFireDemon(gfx, color) {
     gfx.clear();
-    gfx.fillStyle(color, 0.35);                                  // heat glow
+    gfx.fillStyle(color, 0.35); // heat glow
     gfx.fillCircle(0, 2, 17);
-    gfx.fillStyle(color, 1);                                     // outer flame
+    gfx.fillStyle(color, 1); // outer flame
     gfx.fillCircle(0, 5, 11);
     gfx.fillTriangle(-11, 3, 11, 3, 2, -21);
     gfx.fillTriangle(-12, 4, -4, -2, -15, -11);
     gfx.fillTriangle(12, 4, 4, -2, 14, -9);
-    gfx.fillStyle(0xffd060, 1);                                  // hot core
+    gfx.fillStyle(0xffd060, 1); // hot core
     gfx.fillCircle(0, 7, 6.5);
     gfx.fillTriangle(-6, 6, 6, 6, 1, -8);
-    gfx.fillStyle(0x3a0a06, 1);                                  // horns
+    gfx.fillStyle(0x3a0a06, 1); // horns
     gfx.fillTriangle(-8, -5, -3, -6, -11, -15);
     gfx.fillTriangle(8, -5, 3, -6, 11, -15);
-    gfx.fillStyle(0x2a0806, 1);                                  // face
+    gfx.fillStyle(0x2a0806, 1); // face
     gfx.fillEllipse(2, 3, 15, 9);
-    gfx.fillStyle(0xfff2a0, 1);                                  // glowing eyes, slanted
+    gfx.fillStyle(0xfff2a0, 1); // glowing eyes, slanted
     gfx.fillTriangle(-3, 1, 1, 2, -2, 4);
     gfx.fillTriangle(4, 2, 8, 1, 6, 4);
-    gfx.lineStyle(1.2, 0xff8a1a, 1);                             // grin
+    gfx.lineStyle(1.2, 0xff8a1a, 1); // grin
     gfx.lineBetween(-1, 6, 6, 6);
   }
 
@@ -1265,23 +1614,23 @@ export default class GameScene extends Phaser.Scene {
   // Its bottom sits on the bottom of its hitbox (y = +10).
   drawLavaCreature(gfx, color) {
     gfx.clear();
-    gfx.fillStyle(color, 0.3);                                   // heat glow
+    gfx.fillStyle(color, 0.3); // heat glow
     gfx.fillEllipse(0, 2, 44, 30);
-    gfx.fillStyle(color, 1);                                     // molten body
+    gfx.fillStyle(color, 1); // molten body
     gfx.fillEllipse(0, 1, 34, 20);
     gfx.fillRect(-17, 1, 34, 9);
-    gfx.fillStyle(0x2a1410, 1);                                  // crust plates
+    gfx.fillStyle(0x2a1410, 1); // crust plates
     gfx.fillEllipse(-6, -4, 16, 10);
     gfx.fillEllipse(7, -3, 14, 9);
     gfx.fillEllipse(-12, 4, 9, 7);
     gfx.fillEllipse(13, 5, 8, 6);
-    gfx.lineStyle(1.5, 0xffd060, 1);                             // glowing cracks between plates
+    gfx.lineStyle(1.5, 0xffd060, 1); // glowing cracks between plates
     gfx.lineBetween(0, -8, 1, 2);
     gfx.lineBetween(-8, 1, -15, 3);
-    gfx.fillStyle(color, 1);                                     // drips at the bottom
+    gfx.fillStyle(color, 1); // drips at the bottom
     gfx.fillCircle(-10, 10, 2.5);
     gfx.fillCircle(4, 10, 2);
-    gfx.fillStyle(0xfff2a0, 1);                                  // eyes
+    gfx.fillStyle(0xfff2a0, 1); // eyes
     gfx.fillCircle(6, 1, 3);
     gfx.fillCircle(13, 1, 2.6);
     gfx.fillStyle(0x2a0806, 1);
@@ -1320,7 +1669,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   updateProgressBar() {
-    const left = this.cameras.main.width / 2 - 200;   // 400px bar, centred on screen
+    const left = this.cameras.main.width / 2 - 200; // 400px bar, centred on screen
     this.progressBar.clear();
     this.progressBar.fillStyle(0x000000, 0.5);
     this.progressBar.fillRect(left, 20, 400, 12);
@@ -1341,13 +1690,14 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (this.player.y > this.worldHeight + 50) {  // below world bottom
+    if (this.player.y > this.worldHeight + 50) {
+      // below world bottom
       this.loseLife("fall");
       return;
     }
 
     // Movement — keyboard OR mobile buttons
-    const goLeft  = this.cursors.left.isDown  || this.mobileLeft;
+    const goLeft = this.cursors.left.isDown || this.mobileLeft;
     const goRight = this.cursors.right.isDown || this.mobileRight;
 
     // ⏳ Standing in quicksand (Lost Sands): you wade slowly and can only make small jumps
@@ -1372,18 +1722,20 @@ export default class GameScene extends Phaser.Scene {
     //   • coyote time: a press just AFTER running off a ledge still counts (100 ms)
     // Touch taps record _jumpPressedAt themselves in createMobileControls().
     const now = performance.now();
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.up)) this._jumpPressedAt = now;
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.up))
+      this._jumpPressedAt = now;
     if (this.player.body.touching.down) this._lastGroundedAt = now;
 
     if (now - this._jumpPressedAt <= 130 && now - this._lastGroundedAt <= 100) {
       this.player.setVelocityY(inQuicksand ? -420 : -600); // higher to clear platforms with strong gravity (a small hop out of quicksand)
       SoundManager.play("jump");
-      this._jumpPressedAt  = -Infinity;   // this press is used up
-      this._lastGroundedAt = -Infinity;   // so no second jump in mid-air
+      this._jumpPressedAt = -Infinity; // this press is used up
+      this._lastGroundedAt = -Infinity; // so no second jump in mid-air
     }
 
     // Heavier gravity on the way DOWN (same jump height, quicker landing)
-    const falling = this.player.body.velocity.y > 0 && !this.player.body.touching.down;
+    const falling =
+      this.player.body.velocity.y > 0 && !this.player.body.touching.down;
     this.player.body.setGravityY(falling ? FALL_GRAVITY : RISE_GRAVITY);
 
     const onGround = this.player.body.touching.down;
@@ -1402,18 +1754,23 @@ export default class GameScene extends Phaser.Scene {
     // ⚡ Shapes are rebuilt every frame even when nobody can see them, which is what made the busy levels
     // lag. So anything outside the camera is hidden; hiding only skips the drawing, it still moves and collides.
     const cam = this.cameras.main;
-    const viewLeft = cam.scrollX - 80, viewRight = cam.scrollX + cam.width + 80;
+    const viewLeft = cam.scrollX - 80,
+      viewRight = cam.scrollX + cam.width + 80;
     const onScreen = (x, width = 0) => x + width > viewLeft && x < viewRight;
 
-    this.plainPlatforms.forEach(p => p.gfx.setVisible(onScreen(p.x, p.w)));
+    this.plainPlatforms.forEach((p) => p.gfx.setVisible(onScreen(p.x, p.w)));
 
     // 👾 Move enemies
-    this.enemies.forEach(enemy => {
+    this.enemies.forEach((enemy) => {
       if (!enemy.body.active) return;
 
       if (enemy.movingPlatform) {
-        const platformLimit = Math.max(0, enemy.movingPlatform.w / 2 - enemy.body.body.width / 2 - 4);
-        enemy.platformOffsetX += enemy.speed * enemy.platformDirection * this.game.loop.delta / 1000;
+        const platformLimit = Math.max(
+          0,
+          enemy.movingPlatform.w / 2 - enemy.body.body.width / 2 - 4,
+        );
+        enemy.platformOffsetX +=
+          (enemy.speed * enemy.platformDirection * this.game.loop.delta) / 1000;
         if (enemy.platformOffsetX >= platformLimit) {
           enemy.platformOffsetX = platformLimit;
           enemy.platformDirection = -1;
@@ -1425,7 +1782,9 @@ export default class GameScene extends Phaser.Scene {
         enemy.body.setVelocity(0, 0);
         enemy.body.setPosition(
           enemy.movingPlatform.body.x + enemy.platformOffsetX,
-          enemy.movingPlatform.body.y - enemy.movingPlatform.h / 2 - enemy.body.body.height / 2
+          enemy.movingPlatform.body.y -
+            enemy.movingPlatform.h / 2 -
+            enemy.body.body.height / 2,
         );
       } else {
         enemy.body.setVelocityX(enemy.speed * enemy.direction);
@@ -1448,34 +1807,51 @@ export default class GameScene extends Phaser.Scene {
         if (this.time.now > enemy.nextSwitch) {
           const fading = !enemy.ghostHidden;
           enemy.ghostHidden = fading;
-          enemy.nextSwitch = this.time.now + (fading ? 1600 : 2600) + Math.random() * 700;
+          enemy.nextSwitch =
+            this.time.now + (fading ? 1600 : 2600) + Math.random() * 700;
           this.tweens.killTweensOf(enemy.gfx);
           if (fading) {
             enemy.burrowed = true;
             this.tweens.add({ targets: enemy.gfx, alpha: 0.1, duration: 350 });
           } else {
             // it only becomes dangerous once it has fully appeared again
-            this.tweens.add({ targets: enemy.gfx, alpha: 0.92, duration: 350, onComplete: () => { if (!enemy.ghostHidden) enemy.burrowed = false; } });
+            this.tweens.add({
+              targets: enemy.gfx,
+              alpha: 0.92,
+              duration: 350,
+              onComplete: () => {
+                if (!enemy.ghostHidden) enemy.burrowed = false;
+              },
+            });
           }
         }
-        enemy.gfx.y = enemy.body.y + Math.sin(this.time.now / 400 + enemy.bobPhase) * 6;
+        enemy.gfx.y =
+          enemy.body.y + Math.sin(this.time.now / 400 + enemy.bobPhase) * 6;
         enemy.gfx.setScale(enemy.direction, 1);
       } else if (enemy.kind === "skeleton") {
         // 🚶 walk cycle: count the distance it has really moved, and turn that into a pose (0-7)
-        if (enemy.lastX === undefined) { enemy.lastX = enemy.body.x; enemy.walked = enemy.bobPhase * 10; enemy.pose = 0; }
+        if (enemy.lastX === undefined) {
+          enemy.lastX = enemy.body.x;
+          enemy.walked = enemy.bobPhase * 10;
+          enemy.pose = 0;
+        }
         enemy.walked += Math.abs(enemy.body.x - enemy.lastX);
         enemy.lastX = enemy.body.x;
-        const stride = (enemy.walked / SKELETON_STRIDE) % 1;          // 0 -> 1 over one full stride
+        const stride = (enemy.walked / SKELETON_STRIDE) % 1; // 0 -> 1 over one full stride
         const pose = Math.floor(stride * SKELETON_POSES);
-        if (pose !== enemy.pose) {                                    // only swap the picture when the pose changes
+        if (pose !== enemy.pose) {
+          // only swap the picture when the pose changes
           enemy.pose = pose;
-          enemy.gfx.setTexture(this.enemyTexture("skeleton", enemy.color, pose));
+          enemy.gfx.setTexture(
+            this.enemyTexture("skeleton", enemy.color, pose),
+          );
         }
         // the body is lowest when the feet are apart and rises as the legs pass each other: twice per stride
         const legsApart = Math.abs(Math.cos(stride * Math.PI * 2));
         enemy.gfx.y = enemy.body.y - (1 - legsApart) * 2.5;
         enemy.gfx.setScale(enemy.direction, 1);
-        enemy.gfx.angle = enemy.direction * (1.5 + Math.sin(stride * Math.PI * 4) * 1);   // leans into the walk, rocking a little each step
+        enemy.gfx.angle =
+          enemy.direction * (1.5 + Math.sin(stride * Math.PI * 4) * 1); // leans into the walk, rocking a little each step
       } else if (enemy.kind === "guard") {
         // a statue until you come close; then its eyes light up and it marches
         const awake = Math.abs(this.player.x - enemy.body.x) < 300;
@@ -1484,48 +1860,79 @@ export default class GameScene extends Phaser.Scene {
           enemy.gfx.setTexture(this.enemyTexture("guard", enemy.color, !awake));
         }
         if (!awake) enemy.body.setVelocityX(0);
-        enemy.gfx.y = enemy.body.y - (awake ? Math.abs(Math.sin(this.time.now / 150 + enemy.bobPhase)) * 2 : 0);   // stomps as it walks
+        enemy.gfx.y =
+          enemy.body.y -
+          (awake
+            ? Math.abs(Math.sin(this.time.now / 150 + enemy.bobPhase)) * 2
+            : 0); // stomps as it walks
         enemy.gfx.setScale(enemy.direction, 1);
       } else if (enemy.kind === "snake" || enemy.kind === "viper") {
         enemy.gfx.y = enemy.body.y;
-        enemy.gfx.setScale(enemy.direction * (1 + wave * 0.07), 1 - wave * 0.07);   // stretches and squashes as it slithers
+        enemy.gfx.setScale(
+          enemy.direction * (1 + wave * 0.07),
+          1 - wave * 0.07,
+        ); // stretches and squashes as it slithers
       } else if (enemy.kind === "demon") {
-        const flicker = Math.sin(this.time.now / 70 + enemy.bobPhase) * 0.06;     // the flames flicker
+        const flicker = Math.sin(this.time.now / 70 + enemy.bobPhase) * 0.06; // the flames flicker
         enemy.gfx.y = enemy.body.y + wave * 4;
         enemy.gfx.setScale(enemy.direction * (1 - flicker * 0.5), 1 + flicker);
       } else if (enemy.kind === "frog") {
         // hops every second or two; squats on the ground, stretches in the air
-        const grounded = enemy.body.body.blocked.down || enemy.body.body.touching.down;
+        const grounded =
+          enemy.body.body.blocked.down || enemy.body.body.touching.down;
         if (grounded && this.time.now > enemy.nextHop) {
           enemy.body.setVelocityY(-260);
           enemy.nextHop = this.time.now + 1300 + Math.random() * 1300;
         }
         enemy.gfx.y = enemy.body.y;
-        enemy.gfx.setScale(enemy.direction * (grounded ? 1.06 : 0.92), grounded ? 0.92 : 1.12);
+        enemy.gfx.setScale(
+          enemy.direction * (grounded ? 1.06 : 0.92),
+          grounded ? 0.92 : 1.12,
+        );
       } else if (enemy.kind === "scorpion") {
         enemy.gfx.y = enemy.body.y;
-        enemy.gfx.setScale(enemy.direction, 1 + Math.sin(this.time.now / 120 + enemy.bobPhase) * 0.04);   // tail twitches
+        enemy.gfx.setScale(
+          enemy.direction,
+          1 + Math.sin(this.time.now / 120 + enemy.bobPhase) * 0.04,
+        ); // tail twitches
       } else if (enemy.kind === "sand") {
         // burrows under the sand for a while (harmless, moves faster), then bursts out (dangerous)
         if (this.time.now > enemy.nextSwitch) {
           enemy.burrowed = !enemy.burrowed;
-          enemy.nextSwitch = this.time.now + (enemy.burrowed ? 1500 : 2200) + Math.random() * 600;
-          enemy.gfx.setTexture(this.enemyTexture("sand", enemy.color, enemy.burrowed));
+          enemy.nextSwitch =
+            this.time.now +
+            (enemy.burrowed ? 1500 : 2200) +
+            Math.random() * 600;
+          enemy.gfx.setTexture(
+            this.enemyTexture("sand", enemy.color, enemy.burrowed),
+          );
           this.sandBurst(enemy.body.x, enemy.body.y + 12);
         }
-        enemy.body.setVelocityX(enemy.speed * enemy.direction * (enemy.burrowed ? 1.4 : 1));
+        enemy.body.setVelocityX(
+          enemy.speed * enemy.direction * (enemy.burrowed ? 1.4 : 1),
+        );
         enemy.gfx.y = enemy.body.y;
-        enemy.gfx.setScale(enemy.direction, enemy.burrowed ? 1 : 1 + wave * 0.05);
+        enemy.gfx.setScale(
+          enemy.direction,
+          enemy.burrowed ? 1 : 1 + wave * 0.05,
+        );
       } else if (enemy.kind === "bug") {
-        const buzz = Math.sin(this.time.now / 40 + enemy.bobPhase) * 0.12;      // wings beating fast
-        enemy.gfx.y = enemy.body.y + Math.sin(this.time.now / 180 + enemy.bobPhase) * 5;
+        const buzz = Math.sin(this.time.now / 40 + enemy.bobPhase) * 0.12; // wings beating fast
+        enemy.gfx.y =
+          enemy.body.y + Math.sin(this.time.now / 180 + enemy.bobPhase) * 5;
         enemy.gfx.setScale(enemy.direction, 1 + buzz * 0.4);
       } else if (enemy.kind === "lava") {
         enemy.gfx.y = enemy.body.y;
-        enemy.gfx.setScale(enemy.direction * (1 + wave * 0.05), 1 - wave * 0.05);   // oozes as it crawls
+        enemy.gfx.setScale(
+          enemy.direction * (1 + wave * 0.05),
+          1 - wave * 0.05,
+        ); // oozes as it crawls
       } else if (enemy.kind === "mutant") {
         enemy.gfx.y = enemy.body.y + wave * 2;
-        enemy.gfx.setScale(enemy.direction * (1 + wave * 0.03), 1 - wave * 0.03);
+        enemy.gfx.setScale(
+          enemy.direction * (1 + wave * 0.03),
+          1 - wave * 0.03,
+        );
       } else if (enemy.kind === "robot") {
         enemy.gfx.y = enemy.body.y;
         enemy.gfx.setScale(enemy.direction, 1);
@@ -1536,7 +1943,7 @@ export default class GameScene extends Phaser.Scene {
     });
 
     // 🛗 Move platforms back and forth
-    this.movingPlatforms.forEach(mp => {
+    this.movingPlatforms.forEach((mp) => {
       if (mp.body.x >= mp.right) mp.direction = -1;
       else if (mp.body.x <= mp.left) mp.direction = 1;
       mp.body.setVelocityX(mp.speed * mp.direction);
@@ -1561,30 +1968,37 @@ export default class GameScene extends Phaser.Scene {
     this.player.setVelocityX(220);
     this.player.anims.play("walk", true);
     this.player.setFlipX(true);
-    body.setGravityY(body.velocity.y > 0 && !body.touching.down ? FALL_GRAVITY : RISE_GRAVITY);
+    body.setGravityY(
+      body.velocity.y > 0 && !body.touching.down ? FALL_GRAVITY : RISE_GRAVITY,
+    );
 
     const cam = this.cameras.main;
-    if (this.player.x - this.player.displayWidth / 2 > cam.scrollX + cam.width) this.finishLevel();
+    if (this.player.x - this.player.displayWidth / 2 > cam.scrollX + cam.width)
+      this.finishLevel();
   }
 
   finishLevel() {
     if (!this.finishData) return;
     const data = this.finishData;
-    this.finishData = null;                  // only ever finish once
+    this.finishData = null; // only ever finish once
     this.scene.start("GameOverScene", data);
   }
 
   hitEnemy(player, enemyBody) {
     if (this.invincible) return;
-    if (enemyBody.enemyRef && enemyBody.enemyRef.burrowed) return;   // a sand creature under the sand (or a faded ghost) can't hurt you
+    if (enemyBody.enemyRef && enemyBody.enemyRef.burrowed) return; // a sand creature under the sand (or a faded ghost) can't hurt you
     this.loseLife("enemy");
   }
 
   loseLife(cause = "enemy") {
-    if (this.gameWon) return;                // the level is already won
+    if (this.gameWon) return; // the level is already won
     // Falls and pools/quicksand always cost a life; enemies and electrical hazards respect invincibility.
-    if (this.invincible && !["fall", "lava", "toxic", "quicksand"].includes(cause)) return;
-    this.tweens.killTweensOf(this.player);   // stop the old blink, so it can't end the new one early
+    if (
+      this.invincible &&
+      !["fall", "lava", "toxic", "quicksand"].includes(cause)
+    )
+      return;
+    this.tweens.killTweensOf(this.player); // stop the old blink, so it can't end the new one early
     SoundManager.play("hit");
     Particles.deathBurst(this, this.player.x, this.player.y);
     this.lives--;
@@ -1611,7 +2025,7 @@ export default class GameScene extends Phaser.Scene {
       onComplete: () => {
         this.player.setAlpha(1);
         this.invincible = false;
-      }
+      },
     });
   }
 
@@ -1655,7 +2069,7 @@ export default class GameScene extends Phaser.Scene {
       timeLeft: this.timeLeft,
       cause,
       difficulty: this.difficultyKey,
-      progress: this.player.x / this.worldWidth   // how far along the level you got
+      progress: this.player.x / this.worldWidth, // how far along the level you got
     });
   }
 
@@ -1671,13 +2085,13 @@ export default class GameScene extends Phaser.Scene {
 
     // ⭐ Numbers for the star rating, taken at the moment the flag is reached
     const finishStats = {
-  timeLeft: this.timeLeft,
-  timeLimit: levels[this.currentLevel].timeLimit,
-  coins: this.totalCoins - this.coins.countActive(),
-  totalCoins: this.totalCoins,
-  lives: this.lives,
-  difficulty: this.difficultyKey
-};
+      timeLeft: this.timeLeft,
+      timeLimit: levels[this.currentLevel].timeLimit,
+      coins: this.totalCoins - this.coins.countActive(),
+      totalCoins: this.totalCoins,
+      lives: this.lives,
+      difficulty: this.difficultyKey,
+    };
 
     // The camera stays where it is, and walkOffScreen() (from update) takes the player out of the picture
     this.cameras.main.stopFollow();
@@ -1686,8 +2100,8 @@ export default class GameScene extends Phaser.Scene {
       score: this.score,
       currentLevel: this.currentLevel,
       timeBonus,
-      ...finishStats
+      ...finishStats,
     };
-    this.time.delayedCall(8000, () => this.finishLevel());   // just in case something ever blocks the way
+    this.time.delayedCall(8000, () => this.finishLevel()); // just in case something ever blocks the way
   }
 }

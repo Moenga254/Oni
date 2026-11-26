@@ -1,5 +1,4 @@
 export default class Particles {
-
   // 💥 Coin collect burst
   static coinBurst(scene, x, y) {
     const colors = [0xffdd00, 0xffaa00, 0xffffff, 0xffff88];
@@ -26,18 +25,20 @@ export default class Particles {
         scaleY: 0,
         duration: Phaser.Math.Between(300, 600),
         ease: "Power2",
-        onComplete: () => gfx.destroy()
+        onComplete: () => gfx.destroy(),
       });
     }
 
     // ✨ Score popup text
-    const popup = scene.add.text(x, y - 10, "+10", {
-      fontSize: "20px",
-      color: "#ffdd00",
-      stroke: "#000000",
-      strokeThickness: 3,
-      fontStyle: "bold"
-    }).setOrigin(0.5);
+    const popup = scene.add
+      .text(x, y - 10, "+10", {
+        fontSize: "20px",
+        color: "#ffdd00",
+        stroke: "#000000",
+        strokeThickness: 3,
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
 
     scene.tweens.add({
       targets: popup,
@@ -45,7 +46,7 @@ export default class Particles {
       alpha: 0,
       duration: 700,
       ease: "Power2",
-      onComplete: () => popup.destroy()
+      onComplete: () => popup.destroy(),
     });
   }
 
@@ -62,7 +63,12 @@ export default class Particles {
       if (Math.random() > 0.5) {
         gfx.fillCircle(0, 0, Phaser.Math.Between(3, 8));
       } else {
-        gfx.fillRect(-3, -3, Phaser.Math.Between(4, 10), Phaser.Math.Between(4, 10));
+        gfx.fillRect(
+          -3,
+          -3,
+          Phaser.Math.Between(4, 10),
+          Phaser.Math.Between(4, 10),
+        );
       }
 
       gfx.x = x;
@@ -83,22 +89,22 @@ export default class Particles {
         scaleY: 0,
         duration: Phaser.Math.Between(400, 900),
         ease: "Power3",
-        onComplete: () => gfx.destroy()
+        onComplete: () => gfx.destroy(),
       });
     }
   }
 
   // 🌟 Win celebration
   static winCelebration(scene) {
-    const colors = [
-      0xff0000, 0xff8800, 0xffff00,
-      0x00ff00, 0x0088ff, 0xff00ff
-    ];
+    const colors = [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x0088ff, 0xff00ff];
 
     // Burst from multiple points across screen
     const points = [
-      [200, 300], [400, 200], [600, 300],
-      [300, 400], [500, 400]
+      [200, 300],
+      [400, 200],
+      [600, 300],
+      [300, 400],
+      [500, 400],
     ];
 
     points.forEach(([px, py], idx) => {
@@ -125,7 +131,7 @@ export default class Particles {
             angle: Phaser.Math.Between(-360, 360),
             duration: Phaser.Math.Between(500, 1000),
             ease: "Power2",
-            onComplete: () => gfx.destroy()
+            onComplete: () => gfx.destroy(),
           });
         }
       });
@@ -150,7 +156,7 @@ export default class Particles {
         scaleY: 0,
         duration: Phaser.Math.Between(200, 400),
         ease: "Power1",
-        onComplete: () => gfx.destroy()
+        onComplete: () => gfx.destroy(),
       });
     }
   }
@@ -180,7 +186,7 @@ export default class Particles {
         angle: Phaser.Math.Between(-360, 360),
         duration: Phaser.Math.Between(600, 1200),
         ease: "Power2",
-        onComplete: () => gfx.destroy()
+        onComplete: () => gfx.destroy(),
       });
     }
   }

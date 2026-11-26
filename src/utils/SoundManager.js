@@ -1,5 +1,4 @@
 export default class SoundManager {
-
   static init(scene) {
     // Create all sounds procedurally using Web Audio
     const ctx = scene.sound.context;
@@ -17,7 +16,6 @@ export default class SoundManager {
     if (ctx.state === "suspended") ctx.resume();
 
     switch (type) {
-
       case "jump": {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -40,8 +38,14 @@ export default class SoundManager {
         gain.connect(ctx.destination);
         osc.type = "sine";
         osc.frequency.setValueAtTime(800, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.05);
-        osc.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.15);
+        osc.frequency.exponentialRampToValueAtTime(
+          1200,
+          ctx.currentTime + 0.05,
+        );
+        osc.frequency.exponentialRampToValueAtTime(
+          1000,
+          ctx.currentTime + 0.15,
+        );
         gain.gain.setValueAtTime(0.3, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
         osc.start(ctx.currentTime);
@@ -122,10 +126,20 @@ export default class SoundManager {
 
     // Simple repeating melody
     const melody = [
-      [392, 0.2], [440, 0.2], [494, 0.2], [523, 0.4],
-      [494, 0.2], [440, 0.2], [392, 0.4],
-      [349, 0.2], [392, 0.2], [440, 0.2], [392, 0.4],
-      [330, 0.2], [349, 0.2], [392, 0.6],
+      [392, 0.2],
+      [440, 0.2],
+      [494, 0.2],
+      [523, 0.4],
+      [494, 0.2],
+      [440, 0.2],
+      [392, 0.4],
+      [349, 0.2],
+      [392, 0.2],
+      [440, 0.2],
+      [392, 0.4],
+      [330, 0.2],
+      [349, 0.2],
+      [392, 0.6],
     ];
 
     let time = ctx.currentTime + 0.1;
