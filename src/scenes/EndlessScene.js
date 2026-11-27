@@ -1,202 +1,637 @@
 import Phaser from "phaser";
 import { EndlessMode } from "../data/EndlessMode.js";
-import { makeButton } from "../utils/Button.js";
 
 export default class EndlessScene extends Phaser.Scene {
-  constructor() {
-    super("EndlessScene");
-  }
 
-  preload() {
-    if (!this.textures.exists("player")) {
-      this.load.spritesheet("player", "/assets/dude.png", {
-        frameWidth: 32,
-        frameHeight: 48,
-      });
-    }
-  }
-
-  create(data = {}) {
-    const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
-    const floorY = height - EndlessMode.floorHeight;
-
-    if (!data.resized) this.cameras.main.fadeIn(250, 0, 0, 0);
-    this.cameras.main.setBackgroundColor(EndlessMode.backgroundColor);
-    this.physics.world.setBounds(0, 0, width, height);
-    this.physics.world.setBoundsCollision(true, true, false, true);
-
-    const floor = this.add.rectangle(
-      width / 2,
-      floorY + EndlessMode.floorHeight / 2,
-      width,
-      EndlessMode.floorHeight,
-      EndlessMode.floorColor,
-    );
-    this.physics.add.existing(floor, true);
-
-    this.player = this.physics.add.sprite(width / 2, floorY - 24, "player");
-    this.player.setCollideWorldBounds(true);
-    this.physics.add.collider(this.player, floor);
-
-    if (!this.anims.exists("walk")) {
-      this.anims.create({
-        key: "walk",
-        frames: this.anims.generateFrameNumbers("player", { start: 0, end: 3 }),
-        frameRate: 10,
-        repeat: -1,
-      });
-    }
-    if (!this.anims.exists("idle")) {
-      this.anims.create({
-        key: "idle",
-        frames: [{ key: "player", frame: 4 }],
-        frameRate: 20,
-      });
+    constructor() {
+        super("EndlessScene");
     }
 
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.movementKeys = this.input.keyboard.addKeys("A,D");
-    this.mobileLeft = false;
-    this.mobileRight = false;
-    if (this.sys.game.device.input.touch) this.createTouchControls(width, height);
-
-    let leaving = false;
-    const returnToMenu = () => {
-      if (leaving) return;
-      leaving = true;
-      this.cameras.main.fadeOut(200, 0, 0, 0);
-      this.cameras.main.once("camerafadeoutcomplete", () =>
-        this.scene.start("MenuScene"),
-      );
-    };
-
-    makeButton(this, 66, 34, 104, 34, "← MENU", 0x2a2048, returnToMenu, 14);
-    this.add
-      .text(width / 2, 28, "← →  /  A D  to move", {
-        fontSize: "16px",
-        color: "#ffffff",
-        stroke: "#000000",
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5);
-
-    this.input.keyboard.on("keydown-ESC", returnToMenu);
-    this.events.once("shutdown", () =>
-      this.input.keyboard.off("keydown-ESC", returnToMenu),
-    );
-
-    let redrawing = false;
-    const onResize = () => {
-      if (redrawing) return;
-      redrawing = true;
-      this.time.delayedCall(120, () => this.scene.restart({ resized: true }));
-    };
-    this.scale.on("resize", onResize);
-    this.events.once("shutdown", () => this.scale.off("resize", onResize));
-  }
-
-  createTouchControls(width, height) {
-    const buttonWidth = 82;
-    const buttonHeight = 58;
-    const y = height - EndlessMode.floorHeight - buttonHeight / 2 - 12;
-    const activePointers = { left: new Set(), right: new Set() };
-    const buttons = [
-      { name: "left", x: 62, label: "◀" },
-      { name: "right", x: 62 + buttonWidth + 12, label: "▶" },
-      { name: "left", x: width - 62 - buttonWidth - 12, label: "◀" },
-      { name: "right", x: width - 62, label: "▶" },
-    ];
-
-    const updateMovement = () => {
-      this.mobileLeft = activePointers.left.size > 0;
-      this.mobileRight = activePointers.right.size > 0;
-    };
-    const releasePointer = (pointer) => {
-      activePointers.left.delete(pointer.id);
-      activePointers.right.delete(pointer.id);
-      updateMovement();
-    };
-
-    buttons.forEach(({ name, x, label }) => {
-      const graphics = this.add.graphics().setScrollFactor(0).setDepth(5);
-      const draw = (pressed) => {
-        graphics.clear();
-        graphics.fillStyle(pressed ? 0x665a7a : 0x201a30, 0.75);
-        graphics.fillRoundedRect(
-          x - buttonWidth / 2,
-          y - buttonHeight / 2,
-          buttonWidth,
-          buttonHeight,
-          12,
+    preload() {
+        this.load.spritesheet(
+            "endlessHero",
+            "/assets/dude.png",
+            {
+                frameWidth: 32,
+                frameHeight: 48
+            }
         );
-        graphics.lineStyle(2, 0xffffff, 0.8);
-        graphics.strokeRoundedRect(
-          x - buttonWidth / 2,
-          y - buttonHeight / 2,
-          buttonWidth,
-          buttonHeight,
-          12,
+    }
+
+    create() {
+
+        const width = this.scale.width;
+        const height = this.scale.height;
+
+        this.groundY = height - EndlessMode.floorHeight;
+
+        // ===================================
+        // PLAYER STATS
+        // ===================================
+
+        this.playerStats = {
+            score: 0,
+
+            health: EndlessMode.startingHealth,
+            maxHealth: EndlessMode.maxHealth,
+
+            speed: EndlessMode.playerSpeed,
+
+            highScore: this.getHighScore(),
+
+            survivalTime: 0,
+
+            shieldActive: false,
+            speedBoostActive: false,
+            frozen: false
+        };
+
+        this.shieldUntil = 0;
+        this.speedBoostUntil = 0;
+        this.freezeUntil = 0;
+
+        this.startTime = this.time.now;
+        this.gameOver = false;
+
+        // ===================================
+        // BACKGROUND
+        // ===================================
+
+        this.cameras.main.setBackgroundColor(
+            EndlessMode.backgroundColor
         );
-      };
-      draw(false);
 
-      this.add
-        .text(x, y, label, { fontSize: "28px", color: "#ffffff" })
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(6);
+        // Ground
+        this.add.rectangle(
+            width / 2,
+            this.groundY + EndlessMode.floorHeight / 2,
+            width,
+            EndlessMode.floorHeight,
+            EndlessMode.floorColor
+        );
 
-      this.add
-        .zone(x, y, buttonWidth, buttonHeight)
-        .setScrollFactor(0)
-        .setInteractive()
-        .on("pointerdown", (pointer) => {
-          activePointers[name].add(pointer.id);
-          updateMovement();
-          draw(true);
-        })
-        .on("pointerup", (pointer) => {
-          activePointers[name].delete(pointer.id);
-          updateMovement();
-          draw(activePointers[name].size > 0);
-        })
-        .on("pointerout", (pointer) => {
-          activePointers[name].delete(pointer.id);
-          updateMovement();
-          draw(activePointers[name].size > 0);
+        // Set physics boundaries at the ground
+        this.physics.world.setBounds(
+            0,
+            0,
+            width,
+            this.groundY
+        );
+
+        // ===================================
+        // PLAYER
+        // ===================================
+
+        this.player = this.physics.add.sprite(
+            width / 2,
+            this.groundY - 30,
+            "endlessHero"
+        );
+
+        this.player.setDisplaySize(48, 56);
+
+        this.player.body.setSize(30, 42);
+
+        this.player.body.setAllowGravity(false);
+
+        this.player.setCollideWorldBounds(true);
+
+        if (!this.anims.exists("endlessWalk")) {
+            this.anims.create({
+                key: "endlessWalk",
+                frames: this.anims.generateFrameNumbers("endlessHero", {
+                    start: 0,
+                    end: 3
+                }),
+                frameRate: 10,
+                repeat: -1
+            });
+        }
+
+        if (!this.anims.exists("endlessIdle")) {
+            this.anims.create({
+                key: "endlessIdle",
+                frames: [{ key: "endlessHero", frame: 4 }],
+                frameRate: 20
+            });
+        }
+
+        this.player.anims.play("endlessIdle");
+
+        // ===================================
+        // KEYBOARD CONTROLS
+        // ===================================
+
+        this.cursors = this.input.keyboard.createCursorKeys();
+
+        this.aKey = this.input.keyboard.addKey(
+            Phaser.Input.Keyboard.KeyCodes.A
+        );
+
+        this.dKey = this.input.keyboard.addKey(
+            Phaser.Input.Keyboard.KeyCodes.D
+        );
+
+        // ===================================
+        // FALLING OBJECTS
+        // ===================================
+
+        this.fallingObjects = this.physics.add.group();
+
+        this.physics.add.overlap(
+            this.player,
+            this.fallingObjects,
+            this.collectObject,
+            null,
+            this
+        );
+
+        // ===================================
+        // PLAYER STATS DISPLAY
+        // ===================================
+
+        this.statsText = this.add.text(
+            15,
+            15,
+            "",
+            {
+                fontSize: "19px",
+                color: "#ffffff",
+                fontStyle: "bold",
+                stroke: "#000000",
+                strokeThickness: 4,
+                lineSpacing: 6
+            }
+        ).setScrollFactor(0).setDepth(100);
+
+        // ===================================
+        // GAME INFORMATION
+        // ===================================
+
+        this.spawnTimer = this.time.now + 500;
+
+        this.updateStatsDisplay();
+    }
+
+
+    // ===================================
+    // SPAWN FALLING OBJECTS
+    // ===================================
+
+    spawnObject() {
+
+        const width = this.scale.width;
+
+        const objectTypes = [
+            "coin",
+            "coin",
+            "coin",
+            "heart",
+            "bomb",
+            "bomb",
+            "money",
+            "lightning",
+            "shield",
+            "freeze"
+        ];
+
+        const type = Phaser.Utils.Array.GetRandom(objectTypes);
+
+        const symbols = {
+            coin: "🪙",
+            heart: "❤️",
+            bomb: "💣",
+            money: "💰",
+            lightning: "⚡",
+            shield: "🛡️",
+            freeze: "❄️"
+        };
+
+        const colors = {
+            coin: "#ffd700",
+            heart: "#ff4d6d",
+            bomb: "#333333",
+            money: "#00cc66",
+            lightning: "#ffff00",
+            shield: "#3399ff",
+            freeze: "#66ffff"
+        };
+
+        const x = Phaser.Math.Between(30, width - 30);
+
+        const item = this.add.text(
+            x,
+            -35,
+            symbols[type],
+            {
+                fontSize: "32px",
+                color: colors[type]
+            }
+        ).setOrigin(0.5);
+
+        // Give the object physics
+        this.physics.add.existing(item);
+
+        item.body.setAllowGravity(false);
+
+        item.body.setSize(32, 32);
+
+        item.type = type;
+
+        // Slight variation in individual object speed
+        item.speedMultiplier = Phaser.Math.FloatBetween(0.9, 1.1);
+
+        this.fallingObjects.add(item);
+
+        this.setObjectSpeed(item);
+    }
+
+
+    // ===================================
+    // OBJECT FALLING SPEED
+    // ===================================
+
+    setObjectSpeed(item) {
+
+        const elapsed = (this.time.now - this.startTime) / 1000;
+
+        const difficultyLevel = Math.floor(
+            elapsed / EndlessMode.speedIncreaseEvery
+        );
+
+        const fallSpeed = Math.min(
+            EndlessMode.baseFallSpeed +
+            difficultyLevel * EndlessMode.speedIncreaseAmount,
+
+            EndlessMode.maxFallSpeed
+        );
+
+        item.body.setVelocityY(
+            fallSpeed * item.speedMultiplier
+        );
+    }
+
+
+    // ===================================
+    // COLLECT OBJECTS
+    // ===================================
+
+    collectObject(player, item) {
+
+        if (this.gameOver || !item.active) return;
+
+        const type = item.type;
+
+        // Remove collected object
+        item.destroy();
+
+        switch (type) {
+
+            case "coin":
+
+                this.playerStats.score += 1;
+
+                break;
+
+
+            case "heart":
+
+                this.playerStats.health = Math.min(
+                    this.playerStats.health + 1,
+                    this.playerStats.maxHealth
+                );
+
+                break;
+
+
+            case "bomb":
+
+                // Shield protects against bombs
+                if (this.time.now < this.shieldUntil) {
+                    return;
+                }
+
+                this.playerStats.health--;
+
+                if (this.playerStats.health <= 0) {
+                    this.endGame();
+                }
+
+                break;
+
+
+            case "money":
+
+                this.playerStats.score += 5;
+
+                break;
+
+
+            case "lightning":
+
+                // Increase player movement speed
+                this.speedBoostUntil =
+                    this.time.now + EndlessMode.speedBoostDuration;
+
+                break;
+
+
+            case "shield":
+
+                // Protect player for 10 seconds
+                this.shieldUntil =
+                    this.time.now + EndlessMode.shieldDuration;
+
+                break;
+
+
+            case "freeze":
+
+                // Freeze player movement for 3 seconds
+                this.freezeUntil =
+                    this.time.now + EndlessMode.freezeDuration;
+
+                break;
+        }
+
+        this.updateStatsDisplay();
+    }
+
+
+    // ===================================
+    // UPDATE PLAYER STATS
+    // ===================================
+
+    updatePlayerStats() {
+
+        const now = this.time.now;
+
+        this.playerStats.survivalTime = Math.floor(
+            (now - this.startTime) / 1000
+        );
+
+        this.playerStats.shieldActive =
+            now < this.shieldUntil;
+
+        this.playerStats.speedBoostActive =
+            now < this.speedBoostUntil;
+
+        this.playerStats.frozen =
+            now < this.freezeUntil;
+
+        this.playerStats.speed =
+            EndlessMode.playerSpeed *
+            (
+                this.playerStats.speedBoostActive
+                    ? EndlessMode.speedBoostMultiplier
+                    : 1
+            );
+
+        this.updateStatsDisplay();
+    }
+
+
+    // ===================================
+    // PLAYER STATS DISPLAY
+    // ===================================
+
+    updateStatsDisplay() {
+
+        const minutes = Math.floor(
+            this.playerStats.survivalTime / 60
+        );
+
+        const seconds = this.playerStats.survivalTime % 60;
+
+        const shieldStatus =
+            this.time.now < this.shieldUntil
+                ? Math.ceil((this.shieldUntil - this.time.now) / 1000) + "s"
+                : "OFF";
+
+        const speedStatus =
+            this.time.now < this.speedBoostUntil
+                ? "BOOSTED"
+                : "NORMAL";
+
+        const freezeStatus =
+            this.time.now < this.freezeUntil
+                ? "FROZEN"
+                : "NORMAL";
+
+        this.statsText.setText([
+            `Score: ${this.playerStats.score}`,
+            `Health: ${"❤️".repeat(this.playerStats.health)}`,
+            `Speed: ${Math.round(this.playerStats.speed)}`,
+            `Shield: ${shieldStatus}`,
+            `Movement: ${speedStatus}`,
+            `Freeze: ${freezeStatus}`,
+            `Time: ${minutes}:${String(seconds).padStart(2, "0")}`,
+            `Best: ${this.playerStats.highScore}`
+        ]);
+    }
+
+
+    // ===================================
+    // HIGH SCORE
+    // ===================================
+
+    getHighScore() {
+
+        try {
+            return Number(
+                localStorage.getItem("oniEndlessHighScore")
+            ) || 0;
+
+        } catch (error) {
+            return 0;
+        }
+    }
+
+
+    saveHighScore() {
+
+        if (this.playerStats.score > this.playerStats.highScore) {
+
+            this.playerStats.highScore = this.playerStats.score;
+
+            try {
+                localStorage.setItem(
+                    "oniEndlessHighScore",
+                    this.playerStats.highScore
+                );
+
+            } catch (error) {
+                console.warn("Could not save high score.");
+            }
+        }
+    }
+
+
+    // ===================================
+    // GAME OVER
+    // ===================================
+
+    endGame() {
+
+        if (this.gameOver) return;
+
+        this.gameOver = true;
+
+        this.saveHighScore();
+
+        this.physics.pause();
+
+        const width = this.scale.width;
+        const height = this.scale.height;
+
+        this.add.rectangle(
+            width / 2,
+            height / 2,
+            width,
+            height,
+            0x000000,
+            0.75
+        ).setDepth(200);
+
+        this.add.text(
+            width / 2,
+            height / 2 - 60,
+            "GAME OVER",
+            {
+                fontSize: "48px",
+                color: "#ff4444",
+                fontStyle: "bold"
+            }
+        ).setOrigin(0.5).setDepth(201);
+
+        this.add.text(
+            width / 2,
+            height / 2,
+            `Score: ${this.playerStats.score}`,
+            {
+                fontSize: "28px",
+                color: "#ffffff"
+            }
+        ).setOrigin(0.5).setDepth(201);
+
+        this.add.text(
+            width / 2,
+            height / 2 + 60,
+            "Press R to restart",
+            {
+                fontSize: "20px",
+                color: "#ffffff"
+            }
+        ).setOrigin(0.5).setDepth(201);
+
+        this.input.keyboard.once("keydown-R", () => {
+            this.scene.restart();
         });
-    });
-
-    this.input.on("pointerup", releasePointer);
-    this.input.on("pointerupoutside", releasePointer);
-    this.events.once("shutdown", () => {
-      this.input.off("pointerup", releasePointer);
-      this.input.off("pointerupoutside", releasePointer);
-    });
-  }
-
-  update() {
-    const goLeft =
-      this.cursors.left.isDown ||
-      this.movementKeys.A.isDown ||
-      this.mobileLeft;
-    const goRight =
-      this.cursors.right.isDown ||
-      this.movementKeys.D.isDown ||
-      this.mobileRight;
-
-    if (goLeft && !goRight) {
-      this.player.setVelocityX(-EndlessMode.playerSpeed);
-      this.player.anims.play("walk", true);
-      this.player.setFlipX(false);
-    } else if (goRight && !goLeft) {
-      this.player.setVelocityX(EndlessMode.playerSpeed);
-      this.player.anims.play("walk", true);
-      this.player.setFlipX(true);
-    } else {
-      this.player.setVelocityX(0);
-      this.player.anims.play("idle", true);
     }
-  }
+
+
+    // ===================================
+    // MAIN UPDATE LOOP
+    // ===================================
+
+    update() {
+
+        if (this.gameOver) return;
+
+        const now = this.time.now;
+
+        // Update player stats
+        this.updatePlayerStats();
+
+        // ===================================
+        // PLAYER MOVEMENT
+        // ===================================
+
+        let velocityX = 0;
+
+        if (now >= this.freezeUntil) {
+
+            if (
+                this.cursors.left.isDown ||
+                this.aKey.isDown
+            ) {
+                velocityX = -this.playerStats.speed;
+            }
+
+            if (
+                this.cursors.right.isDown ||
+                this.dKey.isDown
+            ) {
+                velocityX = this.playerStats.speed;
+            }
+        }
+
+        this.player.setVelocityX(velocityX);
+
+        if (velocityX !== 0) {
+            this.player.setFlipX(velocityX > 0);
+            this.player.anims.play("endlessWalk", true);
+        } else {
+            this.player.anims.play("endlessIdle", true);
+        }
+
+
+        // ===================================
+        // INCREASING DIFFICULTY
+        // ===================================
+
+        const elapsed = (now - this.startTime) / 1000;
+
+        const difficultyLevel = Math.floor(
+            elapsed / EndlessMode.speedIncreaseEvery
+        );
+
+        const currentFallSpeed = Math.min(
+            EndlessMode.baseFallSpeed +
+            difficultyLevel * EndlessMode.speedIncreaseAmount,
+
+            EndlessMode.maxFallSpeed
+        );
+
+        // Make existing objects fall faster too
+        this.fallingObjects.getChildren().forEach(item => {
+
+            if (item.active && item.body) {
+
+                item.body.setVelocityY(
+                    currentFallSpeed * item.speedMultiplier
+                );
+
+                // Remove when object reaches the ground
+                if (item.y >= this.groundY - 15) {
+                    item.destroy();
+                }
+            }
+        });
+
+
+        // ===================================
+        // SPAWN OBJECTS
+        // ===================================
+
+        const currentSpawnDelay = Math.max(
+            EndlessMode.minimumSpawnDelay,
+            EndlessMode.spawnDelay - elapsed * 12
+        );
+
+        if (now >= this.spawnTimer) {
+
+            this.spawnObject();
+
+            this.spawnTimer = now + currentSpawnDelay;
+        }
+
+        // Refresh the stats display periodically
+        if (!this.nextStatsUpdate || now >= this.nextStatsUpdate) {
+
+            this.updateStatsDisplay();
+
+            this.nextStatsUpdate = now + 150;
+        }
+    }
 }
